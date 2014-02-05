@@ -14,7 +14,19 @@ The network is named Sia or Sianet, and the currency is called siacoin, which is
 How Do I Store Files On Sia?
 ============================
 
-Files are rented out.
+Files are rented to the public in exchange for scn. The price of renting storage is set by the network according to supply and demand. When there is a significant surplus of storage, price goes down. As demand depletes the surplus, the price increases.
+
+Sia uses erasure coding and is self-repairing. Additionally, Sia supports encryption and anonymity. This means that once a file is on the network, it will be well protected and should remain on the network for as long as there is money to pay the rent. Sia should also be resilient against intentional DOS attacks.
+
+Because Sia is a decentralized storage system, all files are treated as equal. There is no vehicle for censorship other than attacking the network directly.
+
+Does scn Have Value?
+====================
+
+YES! scn can always be used to rent storage on the network. As long as the storage on the network has value, the scn will also have value. This is because network storage can only be rented using scn, so demand for the storage will also create demand for the scn.
+
+Where Can I Learn More?
+=======================
 
 Whitepaper: https://docs.google.com/document/d/1X-4RfqUeKW_N0BsaPcl0E484xjC61UJfY_FwhHNar9M
 IRC Channel: Freenode, #sia-dev
