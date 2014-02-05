@@ -11,6 +11,11 @@ Finally, Sia introduces the concept of script-based wallets as opposed to public
 
 The network is named Sia or Sianet, and the currency is called siacoin, which is shortened to scn.
 
+How Do I Store Files On Sia?
+============================
+
+Files are rented out.
+
 Whitepaper: https://docs.google.com/document/d/1X-4RfqUeKW_N0BsaPcl0E484xjC61UJfY_FwhHNar9M
 IRC Channel: Freenode, #sia-dev
 Mailing List: sia-dev@googlegroups.com
