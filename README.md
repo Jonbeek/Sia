@@ -28,6 +28,7 @@ YES! scn can always be used to rent storage on the network. As long as the stora
 Where Can I Learn More?
 =======================
 
-Whitepaper: https://docs.google.com/document/d/1X-4RfqUeKW_N0BsaPcl0E484xjC61UJfY_FwhHNar9M
-IRC Channel: Freenode, #sia-dev
-Mailing List: sia-dev@googlegroups.com
+Primary Contact: David Vorick, david.vorick@gmail.com  
+Whitepaper: https://docs.google.com/document/d/1X-4RfqUeKW_N0BsaPcl0E484xjC61UJfY_FwhHNar9M  
+IRC Channel: Freenode, #sia-dev  
+Mailing List: sia-dev@googlegroups.com  
