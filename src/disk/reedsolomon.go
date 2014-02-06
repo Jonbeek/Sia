@@ -13,7 +13,7 @@
 // limitations under the License.
 
 //origin of this file is https://code.google.com/p/lvd/source/browse/encoding/rs/rs.go?repo=go
-package reedsolomon
+package disk
 
 import "fmt"
 
@@ -28,6 +28,7 @@ var (
 )
 
 func init() {
+
 	var a uint8 = 1
 	for i := range exp {
 		exp[i] = a
@@ -77,7 +78,7 @@ func mult(a, b uint8) uint8 {
 	if a == 0 || b == 0 {
 		return 0
 	}
-	var idx int = int(log[a] + int[log[b]])
+	idx := int(log[a]) + int(log[b])
 	if idx >= 255 {
 		idx -= 255
 	}
@@ -96,9 +97,10 @@ func lagrange(in_x []uint8, i int, xj uint8) (r uint8) {
 		if k == i {
 			continue
 		}
-		f := mult(xj^k, inv[in_x[i]^xk])
+		f := mult(xj^xk, inv[in_x[i]^xk])
 		r = mult(r, f)
 	}
+	return
 }
 func NewErasureCoder(in_x, out_x []uint8) (p *ErasureCoder) {
 	p = new(ErasureCoder)
@@ -127,7 +129,6 @@ func (p *ErasureCoder) Code(in [][]uint8) (out [][]uint8) {
 			panic(fmt.Errorf("Ragged input matrix: [0]%d != [%d]%d  ", len(in[0]), i, len(in[i])))
 		}
 	}
-
 	out = makeMatrix(len(p.interp[0]), len(in[0]))
 	for i := 0; i < len(in); i++ {
 		for j := 0; j < len(in[i]); j++ {
