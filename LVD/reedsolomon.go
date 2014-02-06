@@ -13,7 +13,7 @@
 // limitations under the License.
 
 //origin of this file is https://code.google.com/p/lvd/source/browse/encoding/rs/rs.go?repo=go
-package disk
+package LVD
 
 import "fmt"
 
