@@ -29,6 +29,6 @@ Where Can I Learn More?
 =======================
 
 Primary Contact: David Vorick, david.vorick@gmail.com  
-Whitepaper: https://docs.google.com/document/d/1X-4RfqUeKW_N0BsaPcl0E484xjC61UJfY_FwhHNar9M  
+High Level Overview: https://docs.google.com/document/d/1X-4RfqUeKW_N0BsaPcl0E484xjC61UJfY_FwhHNar9M  
 IRC Channel: Freenode, #sia-dev  
 Mailing List: sia-dev@googlegroups.com  
