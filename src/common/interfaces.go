@@ -19,7 +19,7 @@ type NetworkObject struct {
 	payload       string
 }
 
-type NetworkMultiPlexer interface {
+type NetworkMultiplexer interface {
 	AddListener(Swarmid string, c chan NetworkObject)
 	SendTransaction(t Transaction)
 	SendBlock(b Block)
