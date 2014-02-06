@@ -16,10 +16,10 @@ func (b *BlockChain) AddSource(plexer common.NetworkMultiplexer) {
 
 	c := make(chan common.NetworkObject)
 	// plexer.AddListener(b.Id(), c)?
-	go b.RecieveObjects(c)
+	go b.ReceiveObjects(c)
 }
 
-func (b *BlockChain) RecieveObjects(c chan common.NetworkObject) {
+func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
 	for o := range c {
 		switch {
 		case len(o.TransactionId) != 0:
