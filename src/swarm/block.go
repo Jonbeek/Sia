@@ -5,17 +5,22 @@ import (
 	"log"
 )
 
-type Block struct {
-	DRNGSeed string
-	Id       string
-	Swarm    string
+var EntropyVolume int = 32
 
-	Stage1Entropy map[string]string
-	// Note DRNGSeed = sha512(Sorted(Array(Stage2Entropy)))
-	Stage2Entropy map[string]string
+type Block struct {
+	Id    string
+	Swarm string
+
+	EntropyStage1 map[string][]byte
+	EntropyStage2 map[string][]byte
 
 	//Mapping of hosts -> what they store
 	StorageMapping map[string]interface{}
+}
+
+type State struct {
+	DRNGSeed     []byte
+	BlockHistory map[uint64]Block
 }
 
 func (b *Block) SwarmId() string {
