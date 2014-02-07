@@ -36,13 +36,13 @@ func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
 				continue
 			}
 
-			b, err := UnmarshalBlock(o.Payload)
+			block, err := UnmarshalBlock(o.Payload)
 			if err != nil {
 				continue
 			}
 
 			//Verify BLock
-			b = b
+			_ = block
 
 			//Apply Block
 			//Generate new heartbeat update
