@@ -16,7 +16,7 @@ type NetworkObject struct {
 	SwarmId       string
 	TransactionId string
 	BlockId       string
-	payload       string
+	Payload       string
 }
 
 type NetworkMultiplexer interface {

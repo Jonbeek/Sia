@@ -10,6 +10,7 @@ type BlockChain struct {
 
 	host map[string]bool
 	// transactions []common.Transaction
+	Blocks []Block
 }
 
 func (b *BlockChain) AddSource(plexer common.NetworkMultiplexer) {
@@ -30,7 +31,19 @@ func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
 			return
 
 		case len(o.BlockId) != 0:
+
+			if o.BlockId == b.Blocks[0].Id {
+				continue
+			}
+
+			b, err := UnmarshalBlock(o.Payload)
+			if err != nil {
+				continue
+			}
+
 			//Verify BLock
+			b = b
+
 			//Apply Block
 			//Generate new heartbeat update
 			// Figure out if I'm the block compiler?
