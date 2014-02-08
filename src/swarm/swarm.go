@@ -5,12 +5,18 @@ import (
 	"time"
 )
 
+const (
+	EntropyVolume = 32
+)
+
 type BlockChain struct {
 	compiletime chan<- time.Time
 
 	host map[string]bool
 	// transactions []common.Transaction
 	Blocks []Block
+
+	DRNGSeed []byte
 }
 
 func (b *BlockChain) AddSource(plexer common.NetworkMultiplexer) {
@@ -41,7 +47,7 @@ func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
 				continue
 			}
 
-			//Verify BLock
+			//Verify Block
 			b = b
 
 			//Apply Block

@@ -5,8 +5,6 @@ import (
 	"log"
 )
 
-var EntropyVolume int = 32
-
 type Block struct {
 	Id    string
 	Swarm string
@@ -16,11 +14,6 @@ type Block struct {
 
 	//Mapping of hosts -> what they store
 	StorageMapping map[string]interface{}
-}
-
-type State struct {
-	DRNGSeed     []byte
-	BlockHistory map[uint64]Block
 }
 
 func (b *Block) SwarmId() string {
