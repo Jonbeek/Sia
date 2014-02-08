@@ -3,7 +3,7 @@ all: libraries
 libraries: src/*/*.go fmt
 	GOPATH=$(CURDIR) go install network swarm disk common
 
-test: 
+test: libraries
 	GOPATH=$(CURDIR) go test network swarm disk common
 
 test-verbose:
@@ -15,4 +15,4 @@ fmt:
 	go fmt src/disk/*.go
 	go fmt src/common/*.go
 
-.PHONY: all test fmt libraries
+.PHONY: all test fmt libraries test-verbose

@@ -18,11 +18,6 @@ type Block struct {
 	StorageMapping map[string]interface{}
 }
 
-type State struct {
-	DRNGSeed     []byte
-	BlockHistory map[uint64]Block
-}
-
 func (b *Block) SwarmId() string {
 	return b.Swarm
 }
