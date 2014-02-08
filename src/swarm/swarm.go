@@ -10,13 +10,18 @@ const (
 )
 
 type BlockChain struct {
+	Id          string
+	state       uint
 	compiletime chan<- time.Time
 
-	host map[string]bool
-	// transactions []common.Transaction
-	Blocks []Block
+	outgoingTransactions chan common.NetworkObject
 
-	DRNGSeed []byte
+	// transactions []common.Transaction
+	BlockHistory []*Block
+
+	//Updated every block
+	DRNGSeed       []byte
+	StorageMapping map[string]interface{}
 }
 
 func (b *BlockChain) AddSource(plexer common.NetworkMultiplexer) {
@@ -38,7 +43,7 @@ func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
 
 		case len(o.BlockId) != 0:
 
-			if o.BlockId == b.Blocks[0].Id {
+			if o.BlockId == b.BlockHistory[0].Id {
 				continue
 			}
 
