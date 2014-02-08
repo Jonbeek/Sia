@@ -20,10 +20,17 @@ Sia uses erasure coding and is self-repairing. Additionally, Sia supports encryp
 
 Because Sia is a decentralized storage system, all files are treated as equal. There is no vehicle for censorship other than attacking the network directly.
 
-Does scn Have Value?
-====================
+Does The scn Have Value?
+========================
 
 YES! scn can always be used to rent storage on the network. As long as the storage on the network has value, the scn will also have value. This is because network storage can only be rented using scn, so demand for the storage will also create demand for the scn.
+
+What Makes Sia Cool?
+====================
+
+Because Sia operates on proof-of-storage that can then be sold over a market, Sia provides a decentralized and trust free solution for renting cloud storage. The distributed nature of the files (each file spread over hundreds of machines) means that download speeds will be extremely fast even if upload speeds are slow.
+
+Applications can be built around Sia to replace dropbox, bittorrent, and potentially Sia can be used as a distribution platform for any file.
 
 Where Can I Learn More?
 =======================
