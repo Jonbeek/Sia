@@ -6,8 +6,9 @@ import (
 )
 
 type BlockChain struct {
+	Host        string
 	Id          string
-	state       uint
+	state       State
 	compiletime chan<- time.Time
 
 	outgoingTransactions chan common.NetworkObject
@@ -18,6 +19,8 @@ type BlockChain struct {
 	//Updated every block
 	DRNGSeed       []byte
 	StorageMapping map[string]interface{}
+
+	SeenTransactions map[string]bool
 }
 
 func (b *BlockChain) AddSource(plexer common.NetworkMultiplexer) {
@@ -31,10 +34,20 @@ func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
 	for o := range c {
 		switch {
 		case len(o.TransactionId) != 0:
-			//Decode Transaction
-			//Process it if needed
-			// For now, store all transactions
-			// append(b.transactions, o)
+
+			if b.SeenTransactions[o.TransactionId] {
+				continue
+			}
+
+			b.SeenTransactions[o.TransactionId] = true
+
+			t, err := UnmarshalTransaction(o.Payload)
+			if err != nil {
+				continue
+			}
+
+			b.state.HandleTransaction(t)
+
 			return
 
 		case len(o.BlockId) != 0:
@@ -43,19 +56,21 @@ func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
 				continue
 			}
 
-			b, err := UnmarshalBlock(o.Payload)
+			block, err := UnmarshalBlock(o.Payload)
 			if err != nil {
 				continue
 			}
 
 			//Verify BLock
-			b = b
 
 			//Apply Block
 			//Generate new heartbeat update
 			// Figure out if I'm the block compiler?
 			// if so, spawn a goroutine that will wait for 50% of the estimated
 			// block time and run
+
+			b.state.HandleBlock(block)
+
 			return
 		}
 
