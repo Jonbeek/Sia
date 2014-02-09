@@ -2,11 +2,11 @@ package swarm
 
 import (
 	"encoding/json"
-}
+)
 
 type HeartbeatTransaction struct {
-	Id string
-	Swarm string
+	Id     string
+	Swarm  string
 	Stage1 string
 	Stage2 string
 }
@@ -20,7 +20,8 @@ func NewHeartbeat(Swarm, Stage1, Stage2 string) (h *HeartbeatTransaction) {
 	if err != nil {
 		panic("Failed to make new heartbeat transaction" + err.Error())
 	}
-	h.Id = Id
+	h.Id = string(Id)
+	return
 }
 
 func (h *HeartbeatTransaction) SwarmId() string {
@@ -37,6 +38,5 @@ func (h *HeartbeatTransaction) MarshalString() string {
 		panic("Unable to marshal HeartbeatTransaction, this should not happen" + err.Error())
 	}
 
-	return MarshalTransaction("Heartbeat", string(b))
+	return MarshalTransaction("Heartbeat", string(w))
 }
-
