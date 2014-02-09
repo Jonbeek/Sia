@@ -64,6 +64,13 @@ func UnmarshalTransaction(b string) (common.Transaction, error) {
 			return nil, err
 		}
 		return c, nil
+	case "Heartbeat":
+		h := new(HeartbeatTransaction)
+		err = json.Unmarshal([]byte(t.Value, c)
+		if err != nil {
+			return nil, err
+		}
+		return h, nil
 	default:
 		return nil, errors.New("Unknown transaction type")
 	}

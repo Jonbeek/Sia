@@ -36,6 +36,7 @@ func (h *HeartbeatTransaction) MarshalString() string {
 	if err != nil {
 		panic("Unable to marshal HeartbeatTransaction, this should not happen" + err.Error())
 	}
-	return string(b)
+
+	return MarshalTransaction("Heartbeat", string(b))
 }
 
