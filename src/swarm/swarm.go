@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+const (
+	EntropyVolume = 32
+)
+
 type BlockChain struct {
 	Id          string
 	state       uint
@@ -48,7 +52,7 @@ func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
 				continue
 			}
 
-			//Verify BLock
+			//Verify Block
 			b = b
 
 			//Apply Block

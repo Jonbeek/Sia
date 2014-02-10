@@ -6,7 +6,7 @@ libraries: src/*/*.go fmt
 test: libraries
 	GOPATH=$(CURDIR) go test network swarm disk common
 
-test-verbose:
+test-verbose: libraries
 	GOPATH=$(CURDIR) go test -test.v network swarm disk common
 
 fmt:

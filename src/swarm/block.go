@@ -5,8 +5,6 @@ import (
 	"log"
 )
 
-var EntropyVolume int = 32
-
 type Block struct {
 	Id    string
 	Swarm string
