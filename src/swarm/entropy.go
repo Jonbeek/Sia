@@ -35,3 +35,11 @@ func (b Block) DRNGSeed() (seed []byte, err error) {
 	seed = hash.Sum(nil)
 	return
 }
+
+func (b BlockChain) SiaRandomNumber() (randomNumber []byte, err error) {
+	hash := sha256.New()
+	hash.Write(b.DRNGSeed)
+	randomNumber = hash.Sum(nil)
+	copy(b.DRNGSeed, randomNumber) // might need error checking
+	return
+}

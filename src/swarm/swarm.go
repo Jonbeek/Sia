@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+const (
+	EntropyVolume = 32
+)
+
 type BlockChain struct {
 	Host        string
 	Id          string
@@ -61,7 +65,7 @@ func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
 				continue
 			}
 
-			//Verify BLock
+			//Verify Block
 
 			//Apply Block
 			//Generate new heartbeat update
