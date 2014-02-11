@@ -65,18 +65,9 @@ func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
 				continue
 			}
 
-			//Verify Block
-
-			//Apply Block
-			//Generate new heartbeat update
-			// Figure out if I'm the block compiler?
-			// if so, spawn a goroutine that will wait for 50% of the estimated
-			// block time and run
-
 			b.state.HandleBlock(block)
 
 			return
 		}
-
 	}
 }
