@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+const (
+	EntropyVolume = 32
+)
+
 type BlockChain struct {
 	Host        string
 	Id          string
@@ -61,17 +65,9 @@ func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
 				continue
 			}
 
-			//Verify BLock
-			//Apply Block
-			//Generate new heartbeat update
-			// Figure out if I'm the block compiler?
-			// if so, spawn a goroutine that will wait for 50% of the estimated
-			// block time and run
-
 			b.state.HandleBlock(block)
 
 			return
 		}
-
 	}
 }

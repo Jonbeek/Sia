@@ -5,11 +5,10 @@ import (
 	"log"
 )
 
-var EntropyVolume int = 32
-
 type Block struct {
-	Id    string
-	Swarm string
+	Id       string
+	Swarm    string
+	Compiler string
 
 	EntropyStage1 map[string][]byte
 	EntropyStage2 map[string][]byte
