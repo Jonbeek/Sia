@@ -1,26 +1,25 @@
 package swarm
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 )
 
 type HeartbeatTransaction struct {
-	Id     string
-	Swarm  string
-	Stage1 string
-	Stage2 string
+	Id     		string
+	Swarm  		string
+	Stage1 		string
+	Stage2 		string
+	Prevblock	*Block
 }
 
-func NewHeartbeat(Swarm, Stage1, Stage2 string) (h *HeartbeatTransaction) {
+func NewHeartbeat(prevState *Block, Swarm, Stage1, Stage2 string) (h *HeartbeatTransaction) {
 	h = new(HeartbeatTransaction)
-	h.Swarm = Swarm
+	h.Swarm = prevState.SwarmId()
 	h.Stage1 = Stage1
 	h.Stage2 = Stage2
-	Id, err := EntropyBytes()
-	if err != nil {
-		panic("Failed to make new heartbeat transaction" + err.Error())
-	}
-	h.Id = string(Id)
+	h.Id = EntropyBytes()
+	h.Prevblock = prevState
 	return
 }
 
@@ -40,3 +39,14 @@ func (h *HeartbeatTransaction) MarshalString() string {
 
 	return MarshalTransaction("Heartbeat", string(w))
 }
+
+func (h *HeartbeatTransaction) GetStage2() string {
+	return h.Stage2
+}
+
+func VerifyHeartbeat(prevBlock *Block, h *HeartbeatTransaction) {
+	// Just return true for now
+	// DANGEROUS
+	return true
+}
+
