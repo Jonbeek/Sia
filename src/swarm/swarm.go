@@ -5,12 +5,23 @@ import (
 	"time"
 )
 
+const (
+	EntropyVolume = 32
+)
+
 type BlockChain struct {
+	Id          string
+	state       uint
 	compiletime chan<- time.Time
 
-	host map[string]bool
+	outgoingTransactions chan common.NetworkObject
+
 	// transactions []common.Transaction
-	Blocks []Block
+	BlockHistory []*Block
+
+	//Updated every block
+	DRNGSeed       []byte
+	StorageMapping map[string]interface{}
 }
 
 func (b *BlockChain) AddSource(plexer common.NetworkMultiplexer) {
@@ -32,7 +43,7 @@ func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
 
 		case len(o.BlockId) != 0:
 
-			if o.BlockId == b.Blocks[0].Id {
+			if o.BlockId == b.BlockHistory[0].Id {
 				continue
 			}
 
@@ -41,7 +52,7 @@ func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
 				continue
 			}
 
-			//Verify BLock
+			//Verify Block
 			b = b
 
 			//Apply Block
