@@ -35,8 +35,14 @@ func (r SwarmStorage) CreateFile(filehash string, length uint64) error{
 }
 
 func (r SwarmStorage) WriteFile(filehash string, start uint64, data []byte) error{
-
-
+	path:=r.swarmid+os.PathSeparator+filehash
+	file,err=os.Open(path)
+	if err!=nil{
+		panic("File could not be opened")
+	}
+	file.WriteAt(byte,start)
+	file.Close()
+}
 
 
 
