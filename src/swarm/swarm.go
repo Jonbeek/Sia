@@ -71,3 +71,10 @@ func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
 		}
 	}
 }
+
+func (b *BlockChain) AddBlock(block *Block) {
+	if b.BlockHistory != nil {
+		b.BlockHistory = b.BlockHistory[:4]
+	}
+	b.BlockHistory = append(b.BlockHistory, block)
+}
