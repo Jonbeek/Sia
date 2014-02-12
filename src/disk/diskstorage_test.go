@@ -4,17 +4,25 @@ import "testing"
 import "os"
 func Test_Swarm(t *testing.T){
 	i,err:=CreateSwarmSystem("SW1")
+	defer os.Remove("SW1")
+	if err!=nil{
+		t.Error(err.Error())
+	}
 	if i==nil{
 		t.Fatal("first returned object is nil")
 	}
-	if err!=nil{
-		t.Error("Failed to create first swarm")
-	}
+
 	b,err:=CreateSwarmSystem("SW2")
+	defer os.Remove("SW2")
 	if err!=nil{
 		t.Error("Failed to create second swarm")
 	}
-	i.CreateFile("hi_there",1000)
+	err=i.CreateFile("hi_there",1000)
+	if err!=nil{
+		t.Error(err.Error())
+		t.Fatal("Failed to Create file")
+		
+	}
 	b.CreateFile("Hello",1000)
 	f1:=[]byte{12,34,51,23,51,12,51}
 	f2:=[]byte{24,34,51,25}
@@ -23,7 +31,7 @@ func Test_Swarm(t *testing.T){
 		if os.IsPermission(err){
 			t.Error("Permission bits are set so that things don't work.")
 		}else{
-			t.Error("Error. File 1 failed to write")
+			t.Error("Failed to write file 1")
 		}
 	}
 	
@@ -36,8 +44,6 @@ func Test_Swarm(t *testing.T){
 	if nil==b.DeleteFile("hello"){
 		t.Error("Swarm did not cause error when incorrect name applied.")
 	}
-	os.Remove("SW1")
-	os.Remove("SW2")
 
 	
 }
