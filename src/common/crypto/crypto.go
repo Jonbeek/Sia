@@ -1,1 +1,1 @@
-package common/crypto
+package crypto
