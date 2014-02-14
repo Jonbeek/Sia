@@ -55,30 +55,17 @@ func (r SwarmStorage) CreateFile(filehash string, length uint64) (written int64,
 		err = nil
 	}
 	defer file.Close()
-	if useTruncate {
-		err = file.Truncate(int64(length))
-	} else {
-		/*
-			Alternative method for windows computers. Not efficient, but it seems to be the best option for computers without
-			the truncate command.
-		*/
-		g := []byte{0}
-		totalsize := int64(0)
-		for i := uint64(0); i < length; i++ {
-			n, err := file.Write(g)
-			if err != nil {
-				break
-			}
-			totalsize += int64(n)
-		}
-		written=totalsize
-	}
+	err = file.Truncate(int64(length))
+	written = int64(length)
+	return
 }
 
 func (r SwarmStorage) DeleteFile(filehash string) error {
 	size, err := os.Stat(r.getFileName(filehash))
-	r.amountused -= uint64(size.Size())
-	err = os.Remove(r.SwarmId + string(os.PathSeparator) + filehash)
+	if err == nil {
+		r.amountused -= uint64(size.Size())
+		err = os.Remove(r.SwarmId + string(os.PathSeparator) + filehash)
+	}
 	return err
 }
 
@@ -95,6 +82,6 @@ func (r SwarmStorage) WriteFile(filehash string, start uint64, data []byte) erro
 }
 func (r SwarmStorage) ReadFile(filehash string, start uint64, data []byte) (err error) {
 	file, err := os.Open(r.getFileName(filehash))
-	file.ReadAt( data,int64(start))
+	file.ReadAt(data, int64(start))
 	return
 }
