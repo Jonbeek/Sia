@@ -1,45 +1,37 @@
 package swarm
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
+	"common/crypto"
+	"fmt"
 )
 
-/* The blockchain requires that hosts generate entropy for each heartbeat,
-this funciton will produce a byte slice of the correct size filled with
-psuedo-random data. Entropy() generates the entropy */
-
-func EntropyBytes() (randomBytes []byte, err error) {
-	randomBytes = make([]byte, EntropyVolume)
-	_, err = rand.Read(randomBytes)
+// special case of random; needs an explicit number of bytes
+func EntropyGeneration() (randomBytes []byte, err error) {
+	randomBytes, err = crypto.Random(EntropyVolume)
 	return
 }
 
-/* Each block, all of the entropy introduced in the heartbeats must be merged
-to produce a single seed for the random number generator. MergeEntropy fulfills
-this requirement according to the protocol specification */
-
-/* MergeEntropy assumes that the set of entropy strings in the block have
-already been sorted according to the protocol specification */
-
-func (b Block) DRNGSeed() (seed []byte, err error) {
+// Generates a DRNGSeed, accepting a presorted slice of heartbeats as input
+func DRNGSeed(blockEntropy []Heartbeat) (seed []byte, err error) {
 	var base []byte
 	base = nil
 
-	for _, value := range b.EntropyStage2 {
-		base = append(base, value...)
+	for _, value := range blockEntropy {
+		base = append(base, value.EntropyStage2...)
 	}
 
-	hash := sha256.New()
-	hash.Write(base)
-	seed = hash.Sum(nil)
+	seed = crypto.Hash(base)
 	return
 }
 
-func (b BlockChain) SiaRandomNumber() (randomNumber []byte, err error) {
-	hash := sha256.New()
-	hash.Write(b.DRNGSeed)
-	randomNumber = hash.Sum(nil)
-	copy(b.DRNGSeed, randomNumber) // might need error checking
+// Produces a random number given a State and advances the state random number
+func (s *State) SiaRandomNumber() (randomNumber []byte, err error) {
+	randomNumber = crypto.Hash(s.DRNGSeed)
+	bytesCopied := copy(s.DRNGSeed, randomNumber)
+
+	if bytesCopied != EntropyVolume {
+		err = fmt.Errorf("Expected to copy %v bytes, only copied %v bytes.", EntropyVolume, bytesCopied)
+	}
+
 	return
 }
