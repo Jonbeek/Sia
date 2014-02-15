@@ -8,7 +8,7 @@ import (
 
 func HashedRandomData(h hash.Hash, length uint64) (hash string, data string) {
 	b := make([]byte, length)
-	err, _ := rand.Read(b)
+	_, err := rand.Read(b)
 	if err != nil {
 		panic(err)
 	}
