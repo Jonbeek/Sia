@@ -1,17 +1,16 @@
 package swarm
 
-import {
+import (
 	"common"
 	"time"
-}
+)
 
 type StateSteady struct {
-	// 
-	blockgen 	<-chan time.Time
-	
-	chain		*BlockChain
-	block	*Block
-	Stage2		map[string]string
+	blockgen <-chan time.Time
+
+	chain  *BlockChain
+	block  *Block
+	Stage2 map[string]string
 }
 
 func NewStateSteady(block *Block) (s *StateSteady) {
@@ -19,6 +18,7 @@ func NewStateSteady(block *Block) (s *StateSteady) {
 	s.block = block
 	// Deal with the blockgen
 	return
+}
 
 func (s *StateSteady) HandleTransaction(t common.Transaction) {
 	switch n := t.(type) {
@@ -32,7 +32,7 @@ func (s *StateSteady) HandleTransaction(t common.Transaction) {
 }
 
 func (s *StateSteady) HandleBlock(b *Block) *Block {
-	switch n:= t.(type) {
+	switch n := t.(type) {
 	case *Block:
 		// Check consistency with received Heartbeats
 		s.block = b
@@ -42,5 +42,3 @@ func (s *StateSteady) HandleBlock(b *Block) *Block {
 		return nil
 	}
 }
-
-
