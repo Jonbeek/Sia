@@ -11,7 +11,7 @@ type HeartBeatTransaction struct {
 	Host      string
 	Stage1    string
 	Stage2    string
-	Prevblock *Block
+	Prevblock string
 }
 
 func NewHeartBeat(prevState *Block, Host, Stage1, Stage2 string) (h *HeartBeatTransaction) {
@@ -20,7 +20,7 @@ func NewHeartBeat(prevState *Block, Host, Stage1, Stage2 string) (h *HeartBeatTr
 	h.Stage1 = Stage1
 	h.Stage2 = Stage2
 	h.Id, _ = common.RandomString(8)
-	h.Prevblock = prevState
+	h.Prevblock = prevState.Id
 	return
 }
 

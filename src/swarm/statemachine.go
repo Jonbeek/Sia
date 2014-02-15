@@ -54,7 +54,7 @@ type StateSwarmInformed struct {
 	// is correct according to its knowledge and then votes for it.
 	learning bool
 
-	heartbeats []HeartBeatTransaction
+	heartbeats []*HeartBeatTransaction
 
 	chain    *BlockChain
 	blockgen <-chan time.Time
@@ -122,6 +122,8 @@ func (s *StateSwarmInformed) checkBlockGen() {
 				b.StorageMapping[host] = nil
 			}
 
+			s.heartbeats = s.heartbeats[0:0]
+
 			s.chain.outgoingTransactions <- common.BlockNetworkObject(b)
 			s.HandleBlock(b)
 		}
@@ -165,6 +167,22 @@ func (s *StateSwarmInformed) HandleTransaction(t common.Transaction) {
 		if len(s.hostsseen) > 128 && s.broadcastcount < 2 {
 			s.broadcastLife()
 		}
+	case *HeartBeatTransaction:
+
+		//If we're learning this is too early
+		if s.learning {
+			return
+		}
+
+		// If we're not trying to compile we don't care
+		if s.blockCompiler() != s.chain.Host {
+			return
+		}
+
+		if n.Prevblock == s.chain.BlockHistory[0].Id {
+			s.heartbeats = append(s.heartbeats, n)
+		}
+
 	default:
 		return
 	}
