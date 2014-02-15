@@ -2,7 +2,6 @@ package disk
 
 import (
 	"os"
-	//"bytes"
 	"encoding/json"
 )
 
@@ -39,7 +38,6 @@ func CreateSwarmSystem(swarmid string) (r *SwarmStorage, err error) {
 		}
 	}
 	r = &i
-	err = err
 	return
 }
 

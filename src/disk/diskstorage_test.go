@@ -1,7 +1,9 @@
 package disk
 
-import "testing"
-import "os"
+import (
+	"os"
+	"testing"
+)
 
 func Test_Swarm(t *testing.T) {
 	i, err := CreateSwarmSystem("SW1")
