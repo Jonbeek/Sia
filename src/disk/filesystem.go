@@ -3,18 +3,14 @@ package disk
 import (
 	"os"
 	//"bytes"
-	"runtime"
+	"encoding/json"
 )
 
 type SwarmStorage struct {
 	SwarmId    string
 	amountused uint64
+	files map[string]uint64
 }
-
-//This is assuming that if the computer isn't running windows,
-//then it is running linux. A terrible assumption, but it should work in anything
-//either Unix or windows based.
-var useTruncate = runtime.GOOS != "windows"
 
 //helper function to produce the correct filename
 func (r SwarmStorage) getFileName(filehash string) string {
@@ -56,6 +52,7 @@ func (r SwarmStorage) CreateFile(filehash string, length uint64) (written int64,
 	}
 	defer file.Close()
 	err = file.Truncate(int64(length))
+	r.files[filehash]=uint64(length)
 	written = int64(length)
 	return
 }
@@ -66,6 +63,7 @@ func (r SwarmStorage) DeleteFile(filehash string) error {
 		r.amountused -= uint64(size.Size())
 		err = os.Remove(r.SwarmId + string(os.PathSeparator) + filehash)
 	}
+	r.files[filehash]=uint64(0)
 	return err
 }
 
@@ -74,6 +72,11 @@ func (r SwarmStorage) WriteFile(filehash string, start uint64, data []byte) erro
 	file, err := os.Open(path)
 	if err != nil {
 		return err
+	}
+	size,ok:=r.files[filehash]
+	if uint64(start)+uint64(len(data))>=size&&ok{
+		r.amountused+=uint64(start)+uint64(uint64(len(data))-size)
+		r.files[filehash]=uint64(start)+uint64(len(data))
 	}
 	file.WriteAt(data, int64(start))
 	file.Close()
@@ -85,3 +88,25 @@ func (r SwarmStorage) ReadFile(filehash string, start uint64, data []byte) (err 
 	file.ReadAt(data, int64(start))
 	return
 }
+func (r SwarmStorage) SaveSwarm(){
+	s,err:=os.Open(r.SwarmId+".conf")
+	if err!=nil{
+		//do something in the future.
+	}
+	defer s.Close()
+	js:=json.NewEncoder(s)
+	if err=js.Encode(&s);err!=nil{
+		print(err.Error())
+	}
+
+}
+
+
+
+
+
+
+
+
+
+
