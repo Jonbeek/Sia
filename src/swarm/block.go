@@ -6,14 +6,9 @@ import (
 )
 
 type Block struct {
-	Id    string
-	Swarm string
-
-	EntropyStage1 map[string][]byte
-	EntropyStage2 map[string][]byte
-
-	//Mapping of hosts -> what they store
-	StorageMapping map[string]interface{}
+	Id         string
+	Swarm      string
+	Heartbeats map[string]Heartbeat
 }
 
 func (b *Block) SwarmId() string {
@@ -22,6 +17,20 @@ func (b *Block) SwarmId() string {
 
 func (b *Block) BlockId() string {
 	return b.Id
+}
+
+func (s *State) IntegrateBlock(b Block) {
+	// verify proof-of-storage
+	// determine ordering, sort heartbeats by ordering (producing a slice of heartbeats)
+	// generate entropy
+
+	// pull transactions out of heartbeats in order
+	// process each individually, checking to see if it's valid or not
+}
+
+func (s *State) verify(b Block) {
+	// verifies that a block is valid
+	// checks timestamps, checks the sender, etc.
 }
 
 func (b *Block) MarshalString() string {
