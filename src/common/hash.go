@@ -1,9 +1,26 @@
 package common
 
 import (
+	"crypto/rand"
 	"hash"
 	"math/big"
 )
+
+func HashedRandomData(h hash.Hash, length uint64) (hash string, data string) {
+	b := make([]byte, length)
+	err, _ := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+
+	h.Reset()
+	h.Write(b)
+
+	hash = string(h.Sum(nil))
+	data = string(b)
+
+	return
+}
 
 func RendezvousHash(h hash.Hash, items []string, key string) (r string) {
 	r = items[0]

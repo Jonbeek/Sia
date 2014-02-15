@@ -38,7 +38,6 @@ func JoinBlockChain(Host string, Id string) (b *BlockChain) {
 //             alive and is in the steady state
 // SwarmJoin - We are joining an already alive swarm
 // SwarmDied - The swarm has died, terminate
-
 type StateSwarmInformed struct {
 	//Map of hosts seen to number of times they have failed to generate a block
 	//Used for both host alive tracking & host block generation tracking
@@ -48,6 +47,7 @@ type StateSwarmInformed struct {
 	// process where we broadcast, and then broadcast again when we have seen
 	// enough nodes up to form a majority
 	broadcastcount uint
+	stage2         string
 
 	// This state has two phases, the learning phase where it listens for new
 	// hosts and then the commit stage where it listens for a block that
@@ -96,17 +96,16 @@ func (s *StateSwarmInformed) checkBlockGen() {
 
 		if s.learning {
 			s.learning = false
-			continue
-		}
-
-		if len(s.chain.BlockHistory) == 0 {
-			s.hostsseen[compiler] += 1
+		} else {
+			if len(s.chain.BlockHistory) == 0 {
+				s.hostsseen[compiler] += 1
+			}
 		}
 
 		//Dont't try to generate a block if we don't have a majority of hosts
 		if len(s.hostsseen) < 128 {
 			continue
-			//Should actually switch to state swarmdied / join
+			//Should actually switch to state swarmdied after a while
 		}
 
 		compiler = s.blockCompiler()
@@ -167,8 +166,12 @@ func (s *StateSwarmInformed) HandleBlock(b *Block) State {
 	if len(s.chain.BlockHistory) == 0 {
 		s.chain.AddBlock(b)
 
+		stage1, stage2 := common.HashedRandomData(8)
+		s.stage2 = stage2
+
 		if _, ok := b.StorageMapping[s.chain.Host]; ok {
-			//Generate heartbeat for block
+			h := NewHeartbeat(s.chain[0], stage1, "")
+			s.chain.outgoingTransaction <- common.TransactionNetworkObject(h)
 		}
 	}
 
