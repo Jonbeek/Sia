@@ -15,7 +15,7 @@ func TestEntropyGeneration(t *testing.T) {
 		t.Fatal("EntropyGeneration generated an incorrect volume of entropy volume. Expected %v, got %v", EntropyVolume, len(entropy))
 	}
 
-	t.Log("EntropyGeneration: %x", entropy)
+	t.Log("EntropyGeneration:", entropy)
 
 	// Future: test multiple generations and run entropy scans on them
 }
@@ -55,7 +55,7 @@ func TestDRNGSeed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log("DRNGSeed: %x", seed)
+	t.Log("DRNGSeed:", seed)
 
 	// Future: do this a bunch of times and run entropy tests on the seeds
 }
