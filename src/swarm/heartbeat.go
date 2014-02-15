@@ -6,14 +6,14 @@ import (
 )
 
 type HeartbeatTransaction struct {
-	Id     		string
-	Swarm  		string
-	Stage1 		string
-	Stage2 		string
-	Prevblock	*Block
+	Id        string
+	Swarm     string
+	Stage1    string
+	Stage2    string
+	Prevblock *Block
 }
 
-func NewHeartbeat(prevState *Block, Swarm, Stage1, Stage2 string) (h *HeartbeatTransaction) {
+func NewHeartbeat(prevState *Block, Stage1, Stage2 string) (h *HeartbeatTransaction) {
 	h = new(HeartbeatTransaction)
 	h.Swarm = prevState.SwarmId()
 	h.Stage1 = Stage1
@@ -49,4 +49,3 @@ func VerifyHeartbeat(prevBlock *Block, h *HeartbeatTransaction) {
 	// DANGEROUS
 	return true
 }
-
