@@ -54,6 +54,8 @@ type StateSwarmInformed struct {
 	// is correct according to its knowledge and then votes for it.
 	learning bool
 
+	heartbeats []HeartBeatTransaction
+
 	chain    *BlockChain
 	blockgen <-chan time.Time
 	block    *Block
@@ -96,10 +98,8 @@ func (s *StateSwarmInformed) checkBlockGen() {
 
 		if s.learning {
 			s.learning = false
-		} else {
-			if len(s.chain.BlockHistory) == 0 {
-				s.hostsseen[compiler] += 1
-			}
+		} else if len(s.chain.BlockHistory) == 0 {
+			s.hostsseen[compiler] += 1
 		}
 
 		//Dont't try to generate a block if we don't have a majority of hosts
@@ -110,7 +110,7 @@ func (s *StateSwarmInformed) checkBlockGen() {
 
 		compiler = s.blockCompiler()
 
-		if compiler == s.chain.Host {
+		if len(s.chain.BlockHistory) == 0 && compiler == s.chain.Host {
 
 			id, err := common.RandomString(8)
 			if err != nil {
@@ -123,6 +123,26 @@ func (s *StateSwarmInformed) checkBlockGen() {
 			}
 
 			s.chain.outgoingTransactions <- common.BlockNetworkObject(b)
+			s.HandleBlock(b)
+		}
+
+		if len(s.chain.BlockHistory) == 1 && len(s.heartbeats) > 128 {
+
+			id, err := common.RandomString(8)
+			if err != nil {
+				panic(err)
+			}
+
+			b := &Block{id, s.chain.Id, s.chain.Host, nil, nil, nil}
+			b.StorageMapping = s.chain.BlockHistory[0].StorageMapping
+			b.EntropyStage1 = make(map[string]string)
+			for _, h := range s.heartbeats {
+				b.EntropyStage1[h.Host] = h.Stage1
+			}
+
+			s.chain.outgoingTransactions <- common.BlockNetworkObject(b)
+			s.HandleBlock(b)
+
 		}
 	}
 }
@@ -166,12 +186,12 @@ func (s *StateSwarmInformed) HandleBlock(b *Block) State {
 	if len(s.chain.BlockHistory) == 0 {
 		s.chain.AddBlock(b)
 
-		stage1, stage2 := common.HashedRandomData(8)
+		stage1, stage2 := common.HashedRandomData(sha256.New(), 8)
 		s.stage2 = stage2
 
 		if _, ok := b.StorageMapping[s.chain.Host]; ok {
-			h := NewHeartbeat(s.chain[0], stage1, "")
-			s.chain.outgoingTransaction <- common.TransactionNetworkObject(h)
+			h := NewHeartBeat(s.chain.BlockHistory[0], s.chain.Host, stage1, "")
+			s.chain.outgoingTransactions <- common.TransactionNetworkObject(h)
 		}
 	}
 

@@ -8,12 +8,13 @@ import (
 type HeartBeatTransaction struct {
 	Id        string
 	Swarm     string
+	Host      string
 	Stage1    string
 	Stage2    string
 	Prevblock *Block
 }
 
-func NewHeartBeat(prevState *Block, Stage1, Stage2 string) (h *HeartBeatTransaction) {
+func NewHeartBeat(prevState *Block, Host, Stage1, Stage2 string) (h *HeartBeatTransaction) {
 	h = new(HeartBeatTransaction)
 	h.Swarm = prevState.SwarmId()
 	h.Stage1 = Stage1

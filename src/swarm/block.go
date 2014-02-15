@@ -10,8 +10,8 @@ type Block struct {
 	Swarm    string
 	Compiler string
 
-	EntropyStage1 map[string][]byte
-	EntropyStage2 map[string][]byte
+	EntropyStage1 map[string]string
+	EntropyStage2 map[string]string
 
 	//Mapping of hosts -> what they store
 	StorageMapping map[string]interface{}

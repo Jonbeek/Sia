@@ -64,8 +64,8 @@ func UnmarshalTransaction(b string) (common.Transaction, error) {
 			return nil, err
 		}
 		return c, nil
-	case "Heartbeat":
-		h := new(HeartbeatTransaction)
+	case "HeartBeat":
+		h := new(HeartBeatTransaction)
 		err = json.Unmarshal([]byte(t.Value), h)
 		if err != nil {
 			return nil, err
