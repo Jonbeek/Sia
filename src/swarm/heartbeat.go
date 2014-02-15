@@ -1,11 +1,11 @@
 package swarm
 
 import (
-	"crypto/sha256"
+	"common"
 	"encoding/json"
 )
 
-type HeartbeatTransaction struct {
+type HeartBeatTransaction struct {
 	Id        string
 	Swarm     string
 	Stage1    string
@@ -13,39 +13,39 @@ type HeartbeatTransaction struct {
 	Prevblock *Block
 }
 
-func NewHeartbeat(prevState *Block, Stage1, Stage2 string) (h *HeartbeatTransaction) {
-	h = new(HeartbeatTransaction)
+func NewHeartBeat(prevState *Block, Stage1, Stage2 string) (h *HeartBeatTransaction) {
+	h = new(HeartBeatTransaction)
 	h.Swarm = prevState.SwarmId()
 	h.Stage1 = Stage1
 	h.Stage2 = Stage2
-	h.Id = EntropyBytes()
+	h.Id, _ = common.RandomString(8)
 	h.Prevblock = prevState
 	return
 }
 
-func (h *HeartbeatTransaction) SwarmId() string {
+func (h *HeartBeatTransaction) SwarmId() string {
 	return h.Swarm
 }
 
-func (h *HeartbeatTransaction) TransactionId() string {
+func (h *HeartBeatTransaction) TransactionId() string {
 	return h.Id
 }
 
-func (h *HeartbeatTransaction) MarshalString() string {
+func (h *HeartBeatTransaction) MarshalString() string {
 	w, err := json.Marshal(h)
 	if err != nil {
-		panic("Unable to marshal HeartbeatTransaction, this should not happen" + err.Error())
+		panic("Unable to marshal HeartBeatTransaction, this should not happen" + err.Error())
 	}
 
-	return MarshalTransaction("Heartbeat", string(w))
+	return MarshalTransaction("HeartBeat", string(w))
 }
 
-func (h *HeartbeatTransaction) GetStage2() string {
+func (h *HeartBeatTransaction) GetStage2() string {
 	return h.Stage2
 }
 
-func VerifyHeartbeat(prevBlock *Block, h *HeartbeatTransaction) {
+func VerifyHeartBeat(prevBlock *Block, h *HeartBeatTransaction) {
 	// Just return true for now
 	// DANGEROUS
-	return true
+	return
 }
