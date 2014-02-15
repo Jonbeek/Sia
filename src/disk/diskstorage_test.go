@@ -1,7 +1,9 @@
 package disk
 
-import "testing"
-import "os"
+import (
+	"os"
+	"testing"
+)
 
 func Test_Swarm(t *testing.T) {
 	i, err := CreateSwarmSystem("SW1")
@@ -16,11 +18,11 @@ func Test_Swarm(t *testing.T) {
 	b, err := CreateSwarmSystem("SW2")
 	defer os.Remove("SW2")
 	if err != nil {
-		if b==nil{
+		if b == nil {
 			t.Error("Failed to create second swarm")
 		}
 	}
-	_,err = i.CreateFile("hi_there", 1000)
+	_, err = i.CreateFile("hi_there", 1000)
 	if err != nil {
 		t.Error(err.Error())
 		t.Fatal("Failed to Create file")
@@ -44,7 +46,7 @@ func Test_Swarm(t *testing.T) {
 	if nil != i.DeleteFile("hi_there") {
 		t.Error("Failed to destroy file")
 	}
-	if nil!=b.DeleteFile("Hello"){
+	if nil != b.DeleteFile("Hello") {
 		t.Error("Failed to destroy second file")
 	}
 	if nil == b.DeleteFile("hello") {

@@ -2,7 +2,6 @@ package disk
 
 import (
 	"os"
-	//"bytes"
 	"runtime"
 )
 
@@ -43,7 +42,6 @@ func CreateSwarmSystem(swarmid string) (r *SwarmStorage, err error) {
 		}
 	}
 	r = &i
-	err = err
 	return
 }
 
