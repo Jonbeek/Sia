@@ -4,21 +4,16 @@ import (
 	"encoding/json"
 )
 
+type Update struct {
+	// null struct defining an update
+	// quite potentially a
+}
+
 type NodeAlive struct {
 	Node      string
 	Signature string
 	Swarm     string
 	Id        string
-}
-
-func NewNodeAlive(Node string, Swarm string) (n *NodeAlive) {
-	n = new(NodeAlive)
-	n.Node = Node
-	n.Swarm = Swarm
-	b, _ := EntropyBytes() //Should be the hash of the message, but eh
-	n.Id = string(b)
-	n.Signature = "TODO"
-	return
 }
 
 func (n *NodeAlive) SwarmId() string {
@@ -27,6 +22,16 @@ func (n *NodeAlive) SwarmId() string {
 
 func (n *NodeAlive) TransactionId() string {
 	return n.Id
+}
+
+func NewNodeAlive(Node string, Swarm string) (n *NodeAlive) {
+	n = new(NodeAlive)
+	n.Node = Node
+	n.Swarm = Swarm
+	b, _ := EntropyGeneration() //Should be the hash of the message, but eh
+	n.Id = string(b)
+	n.Signature = "TODO"
+	return
 }
 
 func (n *NodeAlive) MarshalString() string {
