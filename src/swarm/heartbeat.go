@@ -44,7 +44,7 @@ func (h *Heartbeat) Type() string {
 func (h *Heartbeat) MarshalString() string {
 	w, err := json.Marshal(h)
 	if err != nil {
-		panic("Unable to marshal HeartBeatTransaction, this should not happen" + err.Error())
+		panic("Unable to marshal HeartbeatTransaction, this should not happen" + err.Error())
 	}
 
 	return string(w)
