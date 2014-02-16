@@ -4,7 +4,18 @@ import (
 	"os"
 	"testing"
 )
-
+func Test_SwarmStoring(t *testing.T){
+	i,_:=CreateSwarmSystem("f")
+	i.CreateFile("0",1000)
+	i.CreateFile("1",10)
+	i.SaveSwarm()
+	i=nil
+	i,err:=CreateSwarmSystem("f")
+	if err!=nil{
+		t.Error(err.Error())
+	}
+	
+}
 func Test_Swarm(t *testing.T) {
 	i, err := CreateSwarmSystem("SW1")
 	defer os.Remove("SW1")
