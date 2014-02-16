@@ -99,9 +99,11 @@ func (s *StateSwarmInformed) mainloop() {
 		case _ = <-s.sendBroadcast:
 			log.Print("STATE: NodeAlive Transaction to be Queed")
 			s.broadcastcount += 1
-			s.chain.outgoingTransactions <- common.TransactionNetworkObject(
-				NewNodeAlive(s.chain.Host, s.chain.Id))
-			log.Print("STATE: NodeAlive Transaction Queed")
+			go func() {
+				s.chain.outgoingTransactions <- common.TransactionNetworkObject(
+					NewNodeAlive(s.chain.Host, s.chain.Id))
+				log.Print("STATE: NodeAlive Transaction Queed")
+			}()
 
 		case s.sync <- struct{}{}:
 
@@ -126,7 +128,7 @@ func (s *StateSwarmInformed) mainloop() {
 			}
 
 			//Dont't try to generate a block if we don't have a majority of hosts
-			if len(s.hostsseen) < 8 {
+			if len(s.hostsseen) < 3 {
 				continue
 				//Should actually switch to state swarmdied after a while
 			}
@@ -188,7 +190,7 @@ func (s *StateSwarmInformed) handleTransaction(t common.Transaction) {
 		s.hostsseen[n.Node] = 0
 		// Resend hostsseen count once you have seen a majority of hosts
 		if len(s.hostsseen) > 2 && s.broadcastcount < 2 {
-			s.broadcastLife()
+			go s.broadcastLife()
 		}
 
 		log.Print("STATE: Node added")
