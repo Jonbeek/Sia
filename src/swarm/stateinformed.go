@@ -33,9 +33,10 @@ type StateSwarmInformed struct {
 func NewStateSwarmInformed(chain *BlockChain) (s *StateSwarmInformed) {
 	s = new(StateSwarmInformed)
 	s.chain = chain
-	s.blockgen = time.Tick(5 * time.Second)
+	s.blockgen = time.Tick(1 * time.Second)
 
 	s.learning = true
+	s.hostsseen = make(map[string]int)
 
 	go s.broadcastLife()
 	go s.checkBlockGen()

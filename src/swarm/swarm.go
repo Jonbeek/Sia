@@ -23,27 +23,33 @@ type BlockChain struct {
 	//Updated every block
 	DRNGSeed       []byte
 	StorageMapping map[string]interface{}
-
-	SeenTransactions map[string]bool
 }
 
 func (b *BlockChain) AddSource(plexer common.NetworkMultiplexer) {
 
 	c := make(chan common.NetworkObject)
-	// plexer.AddListener(b.Id(), c)?
+	go plexer.AddListener(b.Id, c)
 	go b.ReceiveObjects(c)
+	go b.SendObjects(plexer)
+}
+
+func (b *BlockChain) SendObjects(plexer common.NetworkMultiplexer) {
+	for i := range b.outgoingTransactions {
+		plexer.SendNetworkObject(i)
+	}
 }
 
 func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
+	SeenTransactions := make(map[string]bool)
 	for o := range c {
 		switch {
 		case len(o.TransactionId) != 0:
 
-			if b.SeenTransactions[o.TransactionId] {
+			if SeenTransactions[o.TransactionId] {
 				continue
 			}
 
-			b.SeenTransactions[o.TransactionId] = true
+			SeenTransactions[o.TransactionId] = true
 
 			t, err := UnmarshalTransaction(o.Payload)
 			if err != nil {
@@ -65,7 +71,7 @@ func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
 				continue
 			}
 
-			b.state.HandleBlock(block)
+			b.state = b.state.HandleBlock(block)
 
 			return
 		}
