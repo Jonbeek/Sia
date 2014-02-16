@@ -20,9 +20,10 @@ type NetworkObject struct {
 }
 
 type NetworkMultiplexer interface {
-	AddListener(Swarmid string, c chan NetworkObject)
+	AddListener(SwarmId string, c chan NetworkObject)
 	SendTransaction(t Transaction)
 	SendBlock(b Block)
+	SendNetworkObject(o NetworkObject)
 	Listen(addr string)
 	Connect(addr string)
 }
