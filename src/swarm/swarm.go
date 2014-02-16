@@ -2,6 +2,7 @@ package swarm
 
 import (
 	"common"
+	"log"
 	"time"
 )
 
@@ -21,59 +22,63 @@ type BlockChain struct {
 	BlockHistory []*Block
 
 	//Updated every block
-	DRNGSeed       []byte
-	StorageMapping map[string]interface{}
+	DRNGSeed         []byte
+	StorageMapping   map[string]interface{}
+	SeenTransactions map[string]bool
 }
 
 func (b *BlockChain) AddSource(plexer common.NetworkMultiplexer) {
 
 	c := make(chan common.NetworkObject)
-	go plexer.AddListener(b.Id, c)
-	go b.ReceiveObjects(c)
-	go b.SendObjects(plexer)
+	plexer.AddListener(b.Id, c)
+	go b.mainloop(plexer, c)
 }
 
-func (b *BlockChain) SendObjects(plexer common.NetworkMultiplexer) {
-	for i := range b.outgoingTransactions {
-		plexer.SendNetworkObject(i)
-	}
-}
+func (b *BlockChain) mainloop(plexer common.NetworkMultiplexer, c chan common.NetworkObject) {
+	log.Print("SWARM: mainloop started")
+	for {
+		log.Print("SWARM: Mainloop waiting for event", b.Host)
+		select {
+		case i := <-b.outgoingTransactions:
+			log.Print("SWARM: sending outgoing transaction")
+			plexer.SendNetworkObject(i)
+			log.Print("SWARM: Object sent")
+		case o := <-c:
+			log.Print("SWARM: network object recieved")
+			switch {
+			case len(o.TransactionId) != 0:
 
-func (b *BlockChain) ReceiveObjects(c chan common.NetworkObject) {
-	SeenTransactions := make(map[string]bool)
-	for o := range c {
-		switch {
-		case len(o.TransactionId) != 0:
+				log.Print("SWARM: Tis Transaction")
+				if b.SeenTransactions[o.TransactionId] {
+					log.Print("Swarm: Transaction Already Seen")
+					continue
+				}
 
-			if SeenTransactions[o.TransactionId] {
-				continue
+				b.SeenTransactions[o.TransactionId] = true
+
+				t, err := UnmarshalTransaction(o.Payload)
+				if err != nil {
+					panic(err)
+				}
+
+				b.state.HandleTransaction(t)
+				log.Print("SWARM: Transaction handling finished")
+
+			case len(o.BlockId) != 0:
+				log.Print("SWARM: Block Recieved")
+
+				if o.BlockId == b.BlockHistory[0].Id {
+					continue
+				}
+
+				block, err := UnmarshalBlock(o.Payload)
+				if err != nil {
+					continue
+				}
+
+				b.state = b.state.HandleBlock(block)
+
 			}
-
-			SeenTransactions[o.TransactionId] = true
-
-			t, err := UnmarshalTransaction(o.Payload)
-			if err != nil {
-				continue
-			}
-
-			b.state.HandleTransaction(t)
-
-			return
-
-		case len(o.BlockId) != 0:
-
-			if o.BlockId == b.BlockHistory[0].Id {
-				continue
-			}
-
-			block, err := UnmarshalBlock(o.Payload)
-			if err != nil {
-				continue
-			}
-
-			b.state = b.state.HandleBlock(block)
-
-			return
 		}
 	}
 }

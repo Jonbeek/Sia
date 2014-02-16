@@ -18,9 +18,11 @@ type State interface {
 
 func newBlockChain(Host string, Id string, StorageMapping map[string]interface{}) (b *BlockChain) {
 	b = new(BlockChain)
+	b.Host = Host
 	b.Id = Id
 	b.StorageMapping = StorageMapping
 	b.outgoingTransactions = make(chan common.NetworkObject)
+	b.SeenTransactions = make(map[string]bool)
 	return
 }
 

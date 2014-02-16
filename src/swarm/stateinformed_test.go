@@ -2,15 +2,19 @@ package swarm
 
 import (
 	"common"
+	"log"
 	"network"
 	"testing"
 	"time"
 )
 
 func TestStateJoin(t *testing.T) {
+
+	log.SetFlags(log.Lmicroseconds)
+
 	mult := network.NewSimpleMultiplexer()
 
-	hosts := make([]string, 256)
+	hosts := make([]string, 4)
 
 	storage := make(map[string]interface{})
 
@@ -18,13 +22,19 @@ func TestStateJoin(t *testing.T) {
 
 	for i, _ := range hosts {
 		hosts[i], _ = common.RandomString(8)
+		if len(hosts[i]) == 0 {
+			t.Fatal(hosts)
+		}
 		storage[hosts[i]] = nil
 	}
 
-	swarms := make([]*BlockChain, 256)
+	swarms := make([]*BlockChain, 4)
 
 	for i, _ := range swarms {
 		swarms[i] = NewBlockChain(hosts[i], swarm, storage)
+		if len(swarms[i].Host) == 0 {
+			t.Fatal(swarms[i])
+		}
 	}
 
 	for _, s := range swarms {
@@ -32,6 +42,7 @@ func TestStateJoin(t *testing.T) {
 	}
 
 	time.Sleep(4 * time.Second)
+	log.Print("TEST: stopped sleeping")
 
 	informed := 0
 	broadcast := uint(0)
@@ -42,6 +53,7 @@ func TestStateJoin(t *testing.T) {
 	for _, s := range swarms {
 		switch t := s.state.(type) {
 		case *StateSwarmInformed:
+			t.Sync()
 			informed += 1
 			broadcast += t.broadcastcount
 			seen += len(t.hostsseen)
@@ -56,10 +68,13 @@ func TestStateJoin(t *testing.T) {
 	t.Log("PeersSeen", seen)
 	t.Log("Blocks", blocks)
 	t.Log("StateConnected", connected)
+	t.Log("HostsSent", len(mult.(*network.SimpleMultiplexer).Hosts))
 
 	t.Log(swarms[0].state)
+	t.Log(swarms[0].state.(*StateSwarmInformed).hostsseen)
+	t.Log(len(swarms[0].state.(*StateSwarmInformed).hostsseen))
 
-	if connected <= 128 {
+	if connected <= 2 {
 		t.Fatal("Failed to establish swarm")
 	}
 }

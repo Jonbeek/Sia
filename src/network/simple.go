@@ -2,35 +2,41 @@ package network
 
 import (
 	"common"
+	"log"
 )
 
 func NewSimpleMultiplexer() common.NetworkMultiplexer {
 	in := make(chan common.NetworkObject)
 	out := make(chan chan common.NetworkObject)
-	s := &SimpleMultiplexer{in, out}
-	go s.listen(in, out)
+	s := &SimpleMultiplexer{in, out, nil}
+	go s.listen()
 	return s
 }
 
 type SimpleMultiplexer struct {
-	in  chan common.NetworkObject
-	out chan chan common.NetworkObject
+	in    chan common.NetworkObject
+	out   chan chan common.NetworkObject
+	Hosts []chan common.NetworkObject
 }
 
-func (s *SimpleMultiplexer) listen(in chan common.NetworkObject,
-	out chan chan common.NetworkObject) {
-
-	hosts := make([]chan common.NetworkObject, 0)
+func (s *SimpleMultiplexer) listen() {
 
 	for {
 		select {
-		case c := <-out:
-			hosts = append(hosts, c)
-		case o := <-in:
-			for _, s := range hosts {
-				s <- o
+		case c := <-s.out:
+			log.Println("MULTI: Host added")
+			s.Hosts = append(s.Hosts, c)
+		case o := <-s.in:
+			log.Println("MULTI: Transaction ", o, " to be sent to ", len(s.Hosts))
+			for _, s := range s.Hosts {
+				go func(s chan common.NetworkObject) {
+					s <- o
+					log.Println("MULTI: Transaction sent to host")
+				}(s)
 			}
+			log.Println("MULTI: Finished Processing")
 		}
+		log.Println("MULTI: CYCLING")
 	}
 }
 

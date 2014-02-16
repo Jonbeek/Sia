@@ -3,6 +3,7 @@ package swarm
 import (
 	"common"
 	"crypto/sha256"
+	"log"
 	"time"
 )
 
@@ -31,6 +32,7 @@ type StateSwarmInformed struct {
 	sendBroadcast chan struct{}
 	transaction   chan common.Transaction
 	block         chan bwrap
+	sync          chan struct{}
 }
 
 type bwrap struct {
@@ -48,6 +50,7 @@ func NewStateSwarmInformed(chain *BlockChain) (s *StateSwarmInformed) {
 	s.sendBroadcast = make(chan struct{})
 	s.transaction = make(chan common.Transaction)
 	s.block = make(chan bwrap)
+	s.sync = make(chan struct{})
 
 	go s.broadcastLife()
 	go s.mainloop()
@@ -55,7 +58,12 @@ func NewStateSwarmInformed(chain *BlockChain) (s *StateSwarmInformed) {
 }
 
 func (s *StateSwarmInformed) HandleTransaction(t common.Transaction) {
+	log.Print("STATE: Transaction queed to be handled")
 	s.transaction <- t
+}
+
+func (s *StateSwarmInformed) Sync() {
+	<-s.sync
 }
 
 func (s *StateSwarmInformed) HandleBlock(b *Block) State {
@@ -89,11 +97,16 @@ func (s *StateSwarmInformed) mainloop() {
 	for {
 		select {
 		case _ = <-s.sendBroadcast:
+			log.Print("STATE: NodeAlive Transaction to be Queed")
 			s.broadcastcount += 1
 			s.chain.outgoingTransactions <- common.TransactionNetworkObject(
 				NewNodeAlive(s.chain.Host, s.chain.Id))
+			log.Print("STATE: NodeAlive Transaction Queed")
+
+		case s.sync <- struct{}{}:
 
 		case t := <-s.transaction:
+			log.Print("STATE: Transaction Recieved")
 			s.handleTransaction(t)
 
 		case o := <-s.block:
@@ -101,15 +114,19 @@ func (s *StateSwarmInformed) mainloop() {
 			o.ret <- n
 
 		case _ = <-s.blockgen:
+			log.Print("STATE: Blockgen Recieved")
 
 			if s.learning {
 				s.learning = false
+				log.Print("STATE: Disable Learning")
 			} else if len(s.chain.BlockHistory) == 0 {
-				s.hostsseen[compiler] += 1
+				if compiler != "" {
+					s.hostsseen[compiler] += 1
+				}
 			}
 
 			//Dont't try to generate a block if we don't have a majority of hosts
-			if len(s.hostsseen) < 128 {
+			if len(s.hostsseen) < 8 {
 				continue
 				//Should actually switch to state swarmdied after a while
 			}
@@ -134,7 +151,7 @@ func (s *StateSwarmInformed) mainloop() {
 				s.HandleBlock(b)
 			}
 
-			if len(s.chain.BlockHistory) == 1 && len(s.heartbeats) > 128 {
+			if len(s.chain.BlockHistory) == 1 && len(s.heartbeats) > 2 {
 
 				id, err := common.RandomString(8)
 				if err != nil {
@@ -153,6 +170,7 @@ func (s *StateSwarmInformed) mainloop() {
 
 			}
 		}
+		log.Print("STATE: Signal Handling Finished")
 	}
 }
 
@@ -169,9 +187,12 @@ func (s *StateSwarmInformed) handleTransaction(t common.Transaction) {
 
 		s.hostsseen[n.Node] = 0
 		// Resend hostsseen count once you have seen a majority of hosts
-		if len(s.hostsseen) > 128 && s.broadcastcount < 2 {
+		if len(s.hostsseen) > 2 && s.broadcastcount < 2 {
 			s.broadcastLife()
 		}
+
+		log.Print("STATE: Node added")
+
 	case *HeartBeatTransaction:
 
 		//If we're learning this is too early
