@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"sort"
+	"sync"
 )
 
 /*
@@ -15,6 +16,7 @@ type SwarmStorage struct {
 	amountused uint64            "amtused"
 	files      map[string]uint64 "files"
 	fileordering []string "fileorder"
+	Lock *sync.Mutex 
 }
 
 //helper function to produce the correct filename
@@ -25,10 +27,11 @@ func (r SwarmStorage) getFileName(filehash string) string {
 //Opens or creates directory for swarm info, and if it exists, obtains the correct amount of space used by its
 //files
 func CreateSwarmSystem(swarmid string) (r *SwarmStorage, err error) {
-	var i SwarmStorage
-	i.SwarmId = swarmid
-	i.amountused = 0
-	i.files=make(map[string]uint64)
+	r = new (SwarmStorage)
+	r.SwarmId = swarmid
+	r.amountused = 0
+	r.Lock=new(sync.Mutex)
+	r.files=make(map[string]uint64)
 	err = os.Mkdir(swarmid, os.ModeDir|os.ModePerm)
 	if err != nil {
 		if os.IsExist(err) {
@@ -40,12 +43,13 @@ func CreateSwarmSystem(swarmid string) (r *SwarmStorage, err error) {
 			if e != nil {
 				print(e.Error())
 			}
-			if err = c.Decode(&i); e != nil {
+			r.Lock.Lock()
+			if err = c.Decode(r); e != nil {
 
 			}
+			r.Lock.Unlock()
 		}
 	}
-	r = &i
 	return
 }
 
@@ -61,11 +65,13 @@ func (r SwarmStorage) CreateFile(filehash string, length uint64) (written int64,
 	}
 	defer file.Close()
 	err = file.Truncate(int64(length))
+	r.Lock.Lock()
 	if _,ok:=r.files[filehash];!ok{
 		r.fileordering=append(r.fileordering,filehash)
 		sort.Strings(r.fileordering)
 	}
 	r.files[filehash] = uint64(length)
+	r.Lock.Unlock()
 	written = int64(length)
 	return
 }
@@ -90,7 +96,9 @@ func (r SwarmStorage) WriteFile(filehash string, start uint64, data []byte) erro
 	if err != nil {
 		return err
 	}
+	r.Lock.Lock()
 	size, ok := r.files[filehash]
+	r.Lock.Unlock()
 	if uint64(start)+uint64(len(data)) >= size && ok {
 		r.amountused += uint64(start) + uint64(uint64(len(data))-size)
 		r.files[filehash] = uint64(start) + uint64(len(data))
