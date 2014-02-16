@@ -3,7 +3,6 @@ package disk
 import (
 	"encoding/json"
 	"os"
-	"crypto/rand"
 	"sort"
 )
 
@@ -63,8 +62,8 @@ func (r SwarmStorage) CreateFile(filehash string, length uint64) (written int64,
 	defer file.Close()
 	err = file.Truncate(int64(length))
 	if _,ok:=r.files[filehash];!ok{
-		r.fileordering=append(r.fileorder,filehash)
-		sort.Sort(&r.fileordering)
+		r.fileordering=append(r.fileordering,filehash)
+		sort.Strings(r.fileordering)
 	}
 	r.files[filehash] = uint64(length)
 	written = int64(length)
@@ -113,7 +112,7 @@ func (r SwarmStorage) SaveSwarm() {
 	}
 	defer s.Close()
 	js := json.NewEncoder(s)
-	if err = js.Encode(&s); err != nil {
+	if err = js.Encode(&r); err != nil {
 		print("From SaveSwarm")
 		print(err.Error())
 	}
@@ -124,12 +123,16 @@ func (r SwarmStorage) GetRandomByte(index uint64) byte{
 	c:=uint64(0)
 	v:=""
 	for i :=range r.fileordering{
-		if u+r.files[i]>=index{
+		var d=r.fileordering[i]
+		if u+r.files[d]>=index{
 			c=index-u+index
-			v=i
+			v=d
 			break
 		}
-		u+=r.files[i]
+		u+=r.files[d]
+	}
+	if v==""{
+		return 0
 	}
 	b:=[]byte{0}
 	r.ReadFile(v,c,b)
