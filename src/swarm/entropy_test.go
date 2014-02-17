@@ -10,26 +10,26 @@ import (
 // to test SiaRandomNumber, you have to run all the other stuff too.
 func Test_EntropyFuncs(t *testing.T) {
 	block := new(Block)
-	block.EntropyStage2 = make(map[string][]byte)
+	block.EntropyStage2 = make(map[string]string)
 
 	// Test EntropyBytes()
 	first, err := EntropyBytes()
 	if err != nil {
 		t.Fatal(err)
 	}
-	block.EntropyStage2["1"] = first
+	block.EntropyStage2["1"] = string(first)
 
 	second, err := EntropyBytes()
 	if err != nil {
 		t.Fatal(err)
 	}
-	block.EntropyStage2["2"] = second
+	block.EntropyStage2["2"] = string(second)
 
 	third, err := EntropyBytes()
 	if err != nil {
 		t.Fatal(err)
 	}
-	block.EntropyStage2["3"] = third
+	block.EntropyStage2["3"] = string(third)
 
 	// Test DRNGSeed()
 	seed, err := block.DRNGSeed()

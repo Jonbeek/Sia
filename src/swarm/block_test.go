@@ -7,8 +7,8 @@ import (
 func TestBlockMarshaling(t *testing.T) {
 	b := new(Block)
 	b.Id = "2"
-	b.EntropyStage1 = make(map[string][]byte)
-	b.EntropyStage2 = make(map[string][]byte)
+	b.EntropyStage1 = make(map[string]string)
+	b.EntropyStage2 = make(map[string]string)
 	b.StorageMapping = make(map[string]interface{})
 
 	s := b.MarshalString()
