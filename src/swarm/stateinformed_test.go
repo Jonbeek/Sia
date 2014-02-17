@@ -12,9 +12,15 @@ func TestStateJoin(t *testing.T) {
 
 	log.SetFlags(log.Lmicroseconds)
 
+	old := common.SWARMSIZE
+	common.SWARMSIZE = 4
+	defer func(old int) {
+		common.SWARMSIZE = old
+	}(old)
+
 	mult := network.NewSimpleMultiplexer()
 
-	hosts := make([]string, 4)
+	hosts := make([]string, common.SWARMSIZE)
 
 	storage := make(map[string]interface{})
 
@@ -28,7 +34,7 @@ func TestStateJoin(t *testing.T) {
 		storage[hosts[i]] = nil
 	}
 
-	swarms := make([]*BlockChain, 4)
+	swarms := make([]*BlockChain, common.SWARMSIZE)
 
 	for i, _ := range swarms {
 		swarms[i] = NewBlockChain(hosts[i], swarm, storage)
@@ -72,7 +78,7 @@ func TestStateJoin(t *testing.T) {
 
 	t.Log(swarms[0].state)
 
-	if connected <= 3 {
+	if connected <= common.SWARMSIZE/2 {
 		t.Fatal("Failed to establish swarm")
 	}
 }

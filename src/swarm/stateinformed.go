@@ -131,7 +131,7 @@ func (s *StateSwarmInformed) mainloop() {
 			}
 
 			//Dont't try to generate a block if we don't have a majority of hosts
-			if len(s.hostsseen) < 3 {
+			if len(s.hostsseen) <= common.SWARMSIZE/2 {
 				continue
 				//Should actually switch to state swarmdied after a while
 			}
@@ -157,7 +157,7 @@ func (s *StateSwarmInformed) mainloop() {
 				}
 
 				s.heartbeats = s.heartbeats[0:0]
-				time.Sleep(10 * time.Millisecond)
+				time.Sleep(100 * time.Millisecond)
 				s.chain.outgoingTransactions <- common.BlockNetworkObject(b)
 			}
 
