@@ -6,9 +6,9 @@ import (
 )
 
 type Block struct {
-	Id       string
-	Swarm    string
-	Compiler string
+	Id         string
+	BlockChain string
+	Compiler   string
 
 	EntropyStage1 map[string]string
 	EntropyStage2 map[string]string
@@ -18,7 +18,7 @@ type Block struct {
 }
 
 func (b *Block) SwarmId() string {
-	return b.Swarm
+	return b.BlockChain
 }
 
 func (b *Block) BlockId() string {
