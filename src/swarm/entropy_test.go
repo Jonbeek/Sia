@@ -76,7 +76,7 @@ func TestSiaRandomNumber(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var s State
+	var s StateSteady
 	s.DRNGSeed = make([]byte, EntropyVolume)
 	copy(s.DRNGSeed, seed)
 	rand, err := s.SiaRandomNumber() // SiaRandomNumber() currently will never produce an error that is not nil

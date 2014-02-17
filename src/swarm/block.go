@@ -7,19 +7,24 @@ import (
 
 type Block struct {
 	Id         string
-	Swarm      string
+	Blockchain string
+	Compiler   string
+
 	Heartbeats map[string]Heartbeat
+
+	//Mapping of hosts -> what they store
+	StorageMapping map[string]interface{}
 }
 
 func (b *Block) SwarmId() string {
-	return b.Swarm
+	return b.Blockchain
 }
 
 func (b *Block) BlockId() string {
 	return b.Id
 }
 
-func (s *State) IntegrateBlock(b Block) {
+func (s *StateSteady) IntegrateBlock(b Block) {
 	// verify proof-of-storage
 	// determine ordering, sort heartbeats by ordering (producing a slice of heartbeats)
 	// generate entropy
@@ -28,7 +33,7 @@ func (s *State) IntegrateBlock(b Block) {
 	// process each individually, checking to see if it's valid or not
 }
 
-func (s *State) verify(b Block) {
+func (s *StateSteady) verify(b Block) {
 	// verifies that a block is valid
 	// checks timestamps, checks the sender, etc.
 }

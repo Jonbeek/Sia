@@ -25,7 +25,7 @@ func DRNGSeed(blockEntropy []Heartbeat) (seed []byte, err error) {
 }
 
 // Produces a random number given a State and advances the state random number
-func (s *State) SiaRandomNumber() (randomNumber []byte, err error) {
+func (s *StateSteady) SiaRandomNumber() (randomNumber []byte, err error) {
 	randomNumber = crypto.Hash(s.DRNGSeed)
 	bytesCopied := copy(s.DRNGSeed, randomNumber)
 

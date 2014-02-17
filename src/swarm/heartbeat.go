@@ -1,13 +1,17 @@
 package swarm
 
 import (
+	"common"
 	"common/crypto"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
 
 type Heartbeat struct {
-	Id string
+	Id          string
+	Blockchain  string
+	ParentBlock string
 
 	EntropyStage1   []byte
 	EntropyStage2   []byte
@@ -17,7 +21,11 @@ type Heartbeat struct {
 	Transactions map[string]Update
 }
 
-func (s *State) NewHeartbeat() (hb Heartbeat, err error) {
+func (s *StateSteady) NewHeartbeat() (hb Heartbeat, err error) {
+	// temporary, eventually heartbeats will not have an id
+	// instead they will be id'd by their hash
+	hb.Id, _ = common.RandomString(8)
+
 	// create entropy for the block
 	newEntropy, err := EntropyGeneration()
 	if err != nil {
@@ -59,7 +67,7 @@ func (s *State) NewHeartbeat() (hb Heartbeat, err error) {
 }
 
 // this is the type of error that should probably be logged
-func (s *State) AddHeartbeat(hb Heartbeat) (err error) {
+func (s *StateSteady) AddHeartbeat(hb Heartbeat) (err error) {
 	err = hb.verify()
 	if err == nil {
 		s.ActiveBlock.Heartbeats[hb.Id] = hb
@@ -70,13 +78,35 @@ func (s *State) AddHeartbeat(hb Heartbeat) (err error) {
 	return
 }
 
-// might change to RH(hb Heartbeat)
-func (s *State) RemoveHeartbeat(id string) {
+func (s *StateSteady) RemoveHeartbeat(id string) {
 	delete(s.ActiveBlock.Heartbeats, id)
 }
 
 func (hb *Heartbeat) verify() (err error) {
 	// check signature, make sure all objects seem reasonable
 	err = errors.New("Verification not implemented")
+	return
+}
+
+func (hb *Heartbeat) SwarmId() string {
+	return hb.Blockchain
+}
+
+func (hb *Heartbeat) TransactionId() string {
+	return hb.Id
+}
+
+func (h *Heartbeat) MarshalString() string {
+	w, err := json.Marshal(h)
+	if err != nil {
+		panic("Unable to marshal Heartbeat, this should not happen" + err.Error())
+	}
+
+	return MarshalTransaction("HeartBeat", string(w))
+}
+
+func VerifyHeartbeat(prevBlock *Block, h *Heartbeat) {
+	// Just return true for now
+	// DANGEROUS
 	return
 }

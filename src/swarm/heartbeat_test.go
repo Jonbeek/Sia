@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewHeartbeat(t *testing.T) {
-	var s State
+	var s StateSteady
 	entropy, err := EntropyGeneration()
 	if err != nil {
 		t.Fatal(err)
