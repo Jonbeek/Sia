@@ -14,7 +14,15 @@ func Test_SwarmStoring(t *testing.T){
 	if err!=nil{
 		t.Error(err.Error())
 	}
+	os.Remove("f")
+	os.Remove("f.conf")
 	
+}
+func Test_Parallel(t *testing.T){
+	i,_:=CreateSwarmSystem("files")
+	for c:=0;c<100;c++{
+		go i.CreateFile(string(c),uint64(c))
+	}
 }
 func Test_Swarm(t *testing.T) {
 	i, err := CreateSwarmSystem("SW1")
