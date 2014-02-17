@@ -67,10 +67,6 @@ func (b *BlockChain) mainloop(plexer common.NetworkMultiplexer, c chan common.Ne
 			case len(o.BlockId) != 0:
 				log.Print("SWARM: Block Recieved")
 
-				if o.BlockId == b.BlockHistory[0].Id {
-					continue
-				}
-
 				block, err := UnmarshalBlock(o.Payload)
 				if err != nil {
 					continue
@@ -84,7 +80,7 @@ func (b *BlockChain) mainloop(plexer common.NetworkMultiplexer, c chan common.Ne
 }
 
 func (b *BlockChain) AddBlock(block *Block) {
-	if b.BlockHistory != nil {
+	if b.BlockHistory != nil && len(b.BlockHistory) == 5 {
 		b.BlockHistory = b.BlockHistory[:4]
 	}
 	b.BlockHistory = append(b.BlockHistory, block)

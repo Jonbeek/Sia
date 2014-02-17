@@ -71,10 +71,8 @@ func TestStateJoin(t *testing.T) {
 	t.Log("HostsSent", len(mult.(*network.SimpleMultiplexer).Hosts))
 
 	t.Log(swarms[0].state)
-	t.Log(swarms[0].state.(*StateSwarmInformed).hostsseen)
-	t.Log(len(swarms[0].state.(*StateSwarmInformed).hostsseen))
 
-	if connected <= 2 {
+	if connected <= 3 {
 		t.Fatal("Failed to establish swarm")
 	}
 }
