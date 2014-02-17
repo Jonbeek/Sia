@@ -4,24 +4,25 @@ import (
 	"os"
 	"testing"
 )
-func Test_SwarmStoring(t *testing.T){
-	i,_:=CreateSwarmSystem("f")
-	i.CreateFile("0",1000)
-	i.CreateFile("1",10)
+
+func Test_SwarmStoring(t *testing.T) {
+	i, _ := CreateSwarmSystem("f")
+	i.CreateFile("0", 1000)
+	i.CreateFile("1", 10)
 	i.SaveSwarm()
-	i=nil
-	i,err:=CreateSwarmSystem("f")
-	if err!=nil{
+	i = nil
+	i, err := CreateSwarmSystem("f")
+	if err != nil {
 		t.Error(err.Error())
 	}
 	os.Remove("f")
 	os.Remove("f.conf")
-	
+
 }
-func Test_Parallel(t *testing.T){
-	i,_:=CreateSwarmSystem("files")
-	for c:=0;c<100;c++{
-		go i.CreateFile(string(c),uint64(c))
+func Test_Parallel(t *testing.T) {
+	i, _ := CreateSwarmSystem("files")
+	for c := 0; c < 100; c++ {
+		go i.CreateFile(string(c), uint64(c))
 	}
 }
 func Test_Swarm(t *testing.T) {
