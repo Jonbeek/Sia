@@ -12,11 +12,11 @@ A type returned by the create swarm option.
 Contains information related to metadata such as filehash associated with filesize and other such things.
 */
 type SwarmStorage struct {
-	SwarmId      string            "swid"
-	amountused   uint64            "amtused"
-	files        map[string]uint64 "files"
-	fileordering []string          "fileorder"
-	Lock         *sync.Mutex
+	SwarmId    string            "swid"
+	amountused uint64            "amtused"
+	files      map[string]uint64 "files"
+	fileordering []string "fileorder"
+	Lock *sync.Mutex 
 }
 
 //helper function to produce the correct filename
@@ -27,11 +27,11 @@ func (r SwarmStorage) getFileName(filehash string) string {
 //Opens or creates directory for swarm info, and if it exists, obtains the correct amount of space used by its
 //files
 func CreateSwarmSystem(swarmid string) (r *SwarmStorage, err error) {
-	r = new(SwarmStorage)
+	r = new (SwarmStorage)
 	r.SwarmId = swarmid
 	r.amountused = 0
-	r.Lock = new(sync.Mutex)
-	r.files = make(map[string]uint64)
+	r.Lock=new(sync.Mutex)
+	r.files=make(map[string]uint64)
 	err = os.Mkdir(swarmid, os.ModeDir|os.ModePerm)
 	if err != nil {
 		if os.IsExist(err) {
@@ -56,18 +56,18 @@ func CreateSwarmSystem(swarmid string) (r *SwarmStorage, err error) {
 func (r SwarmStorage) CreateFile(filehash string, length uint64) (written int64, err error) {
 	file, err := os.Create(r.SwarmId + string(os.PathSeparator) + filehash)
 
-	if err != nil && os.IsExist(err) {
+	if err != nil&&os.IsExist(err) {
 		//in which case, it should be safe to ignore the error
 		err = nil
-		if r.files[filehash] == length {
+		if r.files[filehash]==length{
 			return
 		}
 	}
 	defer file.Close()
 	err = file.Truncate(int64(length))
 	r.Lock.Lock()
-	if _, ok := r.files[filehash]; !ok {
-		r.fileordering = append(r.fileordering, filehash)
+	if _,ok:=r.files[filehash];!ok{
+		r.fileordering=append(r.fileordering,filehash)
 		sort.Strings(r.fileordering)
 	}
 	r.files[filehash] = uint64(length)
@@ -75,8 +75,8 @@ func (r SwarmStorage) CreateFile(filehash string, length uint64) (written int64,
 	written = int64(length)
 	return
 }
-func (r SwarmStorage) FileExists(filehash string) bool {
-	_, ok := r.files[filehash]
+func (r SwarmStorage) FileExists(filehash string) bool{
+	_,ok:=r.files[filehash]
 	return ok
 }
 
@@ -114,8 +114,8 @@ func (r SwarmStorage) ReadFile(filehash string, start uint64, data []byte) (err 
 	return
 }
 func (r SwarmStorage) SaveSwarm() {
-	s, err := os.Create(r.SwarmId + ".conf")
-	if err != nil && os.IsExist(err) {
+	s,err:=os.Create(r.SwarmId+".conf")
+	if err!=nil&&os.IsExist(err){
 		s, err = os.Open(r.SwarmId + ".conf")
 	}
 	defer s.Close()
@@ -126,23 +126,23 @@ func (r SwarmStorage) SaveSwarm() {
 	}
 
 }
-func (r SwarmStorage) GetRandomByte(index uint64) byte {
+func (r SwarmStorage) GetRandomByte(index uint64) byte{
 	var u uint64
-	c := uint64(0)
-	v := ""
-	for i := range r.fileordering {
-		var d = r.fileordering[i]
-		if u+r.files[d] >= index {
-			c = index - u + index
-			v = d
+	c:=uint64(0)
+	v:=""
+	for i :=range r.fileordering{
+		var d=r.fileordering[i]
+		if u+r.files[d]>=index{
+			c=index-u+index
+			v=d
 			break
 		}
-		u += r.files[d]
+		u+=r.files[d]
 	}
-	if v == "" {
+	if v==""{
 		return 0
 	}
-	b := []byte{0}
-	r.ReadFile(v, c, b)
+	b:=[]byte{0}
+	r.ReadFile(v,c,b)
 	return b[0]
 }
