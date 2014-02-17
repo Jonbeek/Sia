@@ -7,7 +7,37 @@ import (
 	"time"
 )
 
-// SwarmInformed - Swarm member shave been told to join swarm
+/* SwarmInformed
+
+    This State initializes the arbitrary swarm. It uses a simple consensus
+    algorithm.
+
+    The first stage is the learning phase. Each node sends a NodeAlive message.
+    They then wait to see at least a majority of the swarms NodeAlive messages
+    then they resend their NodeAlive message, to make sure that the majority of
+    the swarm knows they are alive.
+
+    Once the learning period has expired, rendezvous hashing is used to select
+    the host which should compile the block. The selected host creates a block
+    and announces it. The hosts who agree that the selected host is the block
+    compiler release a heartbeat transaction.
+
+    Once the selected host has compiled heartbeats from the majority of swarms,
+    the block compiler makes another block which indicates that the swarm is
+    transitioning out of this state.
+
+    If this process fails, then the host should be marked as an invalid compiler
+    and the next block compiler attempted, until this process fails or some other
+    timeout expires.
+
+    TODO: This implementation handles failure after the first block has appeared
+    badly. Also the learning phase -> block compiler transition should probably
+    have a pause in it and we should have a constant start time, not just 1 second
+    after we started a given structure.
+
+    TODO: We can actually do stage1 hashes in the nodealive message and stage1
+    and 2 in the heartbeat message. This would initialize us faster
+*/
 type StateSwarmInformed struct {
 	//Map of hosts seen to number of times they have failed to generate a block
 	//Used for both host alive tracking & host block generation tracking
@@ -27,8 +57,9 @@ type StateSwarmInformed struct {
 	heartbeats []*HeartBeatTransaction
 
 	chain    *BlockChain
-	blockgen <-chan time.Time
 
+    // Internal channels
+	blockgen <-chan time.Time
 	sendBroadcast chan struct{}
 	transaction   chan common.Transaction
 	block         chan bwrap
@@ -43,6 +74,9 @@ type bwrap struct {
 func NewStateSwarmInformed(chain *BlockChain) (s *StateSwarmInformed) {
 	s = new(StateSwarmInformed)
 	s.chain = chain
+
+    // When transitions / timeouts happen
+    // Should be dynamically set
 	s.blockgen = time.Tick(1 * time.Second)
 
 	s.learning = true
