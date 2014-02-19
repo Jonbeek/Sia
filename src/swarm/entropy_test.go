@@ -41,9 +41,9 @@ func TestDRNGSeed(t *testing.T) {
 		t.Fatal(err3)
 	}
 
-	hb1.EntropyStage2 = entropy1
-	hb2.EntropyStage2 = entropy2
-	hb3.EntropyStage2 = entropy3
+	hb1.EntropyStage2 = string(entropy1)
+	hb2.EntropyStage2 = string(entropy2)
+	hb3.EntropyStage2 = string(entropy3)
 
 	hbSlice := make([]Heartbeat, 3)
 	hbSlice[0] = hb1
@@ -67,7 +67,7 @@ func TestSiaRandomNumber(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	hb.EntropyStage2 = entropy
+	hb.EntropyStage2 = string(entropy)
 	hbSlice := make([]Heartbeat, 1)
 	hbSlice[0] = hb
 
@@ -77,8 +77,7 @@ func TestSiaRandomNumber(t *testing.T) {
 	}
 
 	var s StateSteady
-	s.DRNGSeed = make([]byte, EntropyVolume)
-	copy(s.DRNGSeed, seed)
+	s.DRNGSeed = string(seed)
 	rand, err := s.SiaRandomNumber() // SiaRandomNumber() currently will never produce an error that is not nil
 	if err != nil {
 		t.Fatal(err)
@@ -88,7 +87,7 @@ func TestSiaRandomNumber(t *testing.T) {
 		t.Fatal("SiaRandomNumber did not hash the random seed")
 	}
 
-	if bytes.Compare(rand, s.DRNGSeed) != 0 {
+	if string(rand) != s.DRNGSeed {
 		t.Fatal("SiaRandomNumber did not update DRNGSeed")
 	}
 

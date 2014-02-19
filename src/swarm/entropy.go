@@ -2,7 +2,6 @@ package swarm
 
 import (
 	"common/crypto"
-	"fmt"
 )
 
 // special case of random; needs an explicit number of bytes
@@ -26,12 +25,8 @@ func DRNGSeed(blockEntropy []Heartbeat) (seed []byte, err error) {
 
 // Produces a random number given a State and advances the state random number
 func (s *StateSteady) SiaRandomNumber() (randomNumber []byte, err error) {
-	randomNumber = crypto.Hash(s.DRNGSeed)
-	bytesCopied := copy(s.DRNGSeed, randomNumber)
-
-	if bytesCopied != EntropyVolume {
-		err = fmt.Errorf("Expected to copy %v bytes, only copied %v bytes.", EntropyVolume, bytesCopied)
-	}
+	randomNumber = crypto.Hash([]byte(s.DRNGSeed))
+	s.DRNGSeed = string(randomNumber)
 
 	return
 }

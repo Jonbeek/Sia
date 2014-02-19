@@ -1,7 +1,6 @@
 package swarm
 
 import (
-	"bytes"
 	"common/crypto"
 	"testing"
 )
@@ -22,22 +21,22 @@ func TestNewHeartbeat(t *testing.T) {
 		t.Fatal("Did not copy the correct number of bytes during entropy verification")
 	}
 
-	s.SecretEntropy = entropy
+	s.SecretEntropy = string(entropy)
 	hb, err := s.NewHeartbeat()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(s.SecretEntropy, verificationEntropy) == 0 {
+	if string(verificationEntropy) == s.SecretEntropy {
 		t.Fatal("SecretEntropy was not altered during heartbeat creation!")
 	}
 
-	if bytes.Compare(hb.EntropyStage2, verificationEntropy) != 0 {
+	if hb.EntropyStage2 != string(verificationEntropy) {
 		t.Fatal("hb.EntropyStage2 contains the wrong value!")
 	}
 
-	entropyStage1 := crypto.Hash(s.SecretEntropy)
-	if bytes.Compare(entropyStage1, hb.EntropyStage1) != 0 {
+	entropyStage1 := crypto.Hash([]byte(s.SecretEntropy))
+	if string(entropyStage1) != hb.EntropyStage1 {
 		t.Fatal("hb.EntropyStage1 does not match the hash of s.SecretEntropy")
 	}
 

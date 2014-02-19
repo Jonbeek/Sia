@@ -30,11 +30,11 @@ type StateSteady struct {
 
 	// active heartbeat - being updated by transactions and such
 
-	DRNGSeed []byte
+	DRNGSeed string
 
 	// The data used to produce Stage1 hashes in the recent heartbeat
-	SecretEntropy   []byte
-	SecretFileProof []byte
+	SecretEntropy   string
+	SecretFileProof string
 
 	ActiveBlock Block
 }

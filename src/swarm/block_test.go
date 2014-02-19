@@ -12,12 +12,10 @@ func Testverify(t *testing.T) {
 
 }
 
-/* As block marshaling got nuked, this shouldn't be needed
+// Incomplete
 func TestMarshaling(t *testing.T) {
 	b := new(Block)
 	b.Id = "2"
-	b.EntropyStage1 = make(map[string]string)
-	b.EntropyStage2 = make(map[string]string)
 	b.StorageMapping = make(map[string]interface{})
 
 	s := b.MarshalString()
@@ -30,4 +28,4 @@ func TestMarshaling(t *testing.T) {
 	if b.Id != b2.Id {
 		t.Fatal("Id not equal")
 	}
-}*/
+}

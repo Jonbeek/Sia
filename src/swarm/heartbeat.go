@@ -5,7 +5,6 @@ import (
 	"common/crypto"
 	"encoding/json"
 	"errors"
-	"fmt"
 )
 
 type Heartbeat struct {
@@ -13,10 +12,10 @@ type Heartbeat struct {
 	Blockchain  string
 	ParentBlock string
 
-	EntropyStage1   []byte
-	EntropyStage2   []byte
-	FileProofStage1 []byte
-	FileProofStage2 []byte
+	EntropyStage1   string
+	EntropyStage2   string
+	FileProofStage1 string
+	FileProofStage2 string
 
 	Transactions map[string]Update
 }
@@ -33,22 +32,13 @@ func (s *StateSteady) NewHeartbeat() (hb Heartbeat, err error) {
 	}
 
 	// put the hash of the new entropy as EntropyStage1
-	hb.EntropyStage1 = crypto.Hash(newEntropy)
+	hb.EntropyStage1 = string(crypto.Hash(newEntropy))
 
 	// put stored entropy string from previous heartbeat as hb.EntropyStage2
-	hb.EntropyStage2 = make([]byte, EntropyVolume)
-	bytesCopied := copy(hb.EntropyStage2, s.SecretEntropy)
-	if bytesCopied != EntropyVolume {
-		err = fmt.Errorf("Expected to copy %v bytes, copied %v bytes", EntropyVolume, bytesCopied)
-		return
-	}
+	hb.EntropyStage2 = s.SecretEntropy
 
 	// save entropy string for hb.EntropyStage2 of next heartbeat
-	bytesCopied = copy(s.SecretEntropy, newEntropy)
-	if bytesCopied != EntropyVolume {
-		err = fmt.Errorf("Expected to copy %v bytes, copied %v bytes", EntropyVolume, bytesCopied)
-		return
-	}
+	s.SecretEntropy = string(newEntropy)
 
 	// figure out which section of the data stack is being selected for storage proof
 	// hash that section of data stack, include as FileProofStage1
