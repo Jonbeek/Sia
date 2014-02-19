@@ -7,7 +7,7 @@ import (
 
 func NewNetworkMultiplexer() *NetworkMultiplexer {
 	in := make(map[string][]chan common.NetworkObject)
-	out := make(map[string][]chan chan common.NetworkObject)
+	out := make(chan chan common.NetworkObject)
 	m := &NetworkMultiplexer{in, out, nil}
 	go m.listen()
 	return m
@@ -16,7 +16,7 @@ func NewNetworkMultiplexer() *NetworkMultiplexer {
 //Implementation of the NetworkMultiplexer struct
 type NetworkMultiplexer struct {
 	in    map[string][]chan common.NetworkObject
-	out   map[string][]chan chan common.NetworkObject
+	out   chan chan common.NetworkObject
 	Hosts []chan common.NetworkObject
 }
 
@@ -25,13 +25,9 @@ func (m *NetworkMultiplexer) listen() {
 	/*
 		for {
 			select {
-			case c := m.out:
-				for _, j := range m.out {
-					for _, k := range j {
-						log.Println("MULTI: Host added")
-						m.Hosts = append(m.Hosts, <-k)
-					}
-				}
+			case c := <- m.out:
+				log.Println("MULTI: Host added")
+				m.Hosts = append(m.Hosts, c)
 			case o := m.in:
 				for _, j := range m.in {
 					for _, k := range j {
@@ -52,9 +48,7 @@ func (m *NetworkMultiplexer) listen() {
 }
 
 func (m *NetworkMultiplexer) AddListener(SwarmId string, c chan common.NetworkObject) {
-	var new_out chan chan common.NetworkObject
-	new_out <- c
-	m.out[SwarmId] = append(m.out[SwarmId], new_out)
+	m.out <- c
 }
 
 func (m *NetworkMultiplexer) SendNetworkObject(o common.NetworkObject) {
