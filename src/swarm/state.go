@@ -11,32 +11,9 @@ import (
 //             alive and is in the steady state
 // SwarmJoin - We are joining an already alive swarm
 // SwarmDied - The swarm has died, terminate
-
 type State interface {
 	HandleTransaction(t common.Transaction)
 	HandleBlock(b *Block) State
-}
-
-type StateSteady struct {
-	// swarm information - id, network location, etc.
-	// connection information to all hosts in swarm
-	// connection information to all hosts in parent swarm
-
-	// wallet database
-
-	// block history, snapshot history (if there is a snapshot history)
-
-	// scheduled scripts (once we write those in)
-
-	// active heartbeat - being updated by transactions and such
-
-	DRNGSeed string
-
-	// The data used to produce Stage1 hashes in the recent heartbeat
-	SecretEntropy   string
-	SecretFileProof string
-
-	ActiveBlock Block
 }
 
 func newBlockChain(Host string, Id string, StorageMapping map[string]interface{}) (b *BlockChain) {

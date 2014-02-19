@@ -1,3 +1,6 @@
 package common
 
-var SWARMSIZE int = 256
+const (
+	SWARMSIZE     int = 4
+	ENTROPYVOLUME int = 32
+)

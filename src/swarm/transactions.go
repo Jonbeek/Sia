@@ -6,24 +6,11 @@ import (
 	"errors"
 )
 
-type Update struct {
-	// null struct defining an update
-	// quite potentially a
-}
-
 type NodeAlive struct {
 	Node      string
 	Signature string
 	Swarm     string
 	Id        string
-}
-
-func (n *NodeAlive) SwarmId() string {
-	return n.Swarm
-}
-
-func (n *NodeAlive) TransactionId() string {
-	return n.Id
 }
 
 func NewNodeAlive(Node string, Swarm string) (n *NodeAlive) {
@@ -34,6 +21,14 @@ func NewNodeAlive(Node string, Swarm string) (n *NodeAlive) {
 	n.Id = string(b)
 	n.Signature = "TODO"
 	return
+}
+
+func (n *NodeAlive) SwarmId() string {
+	return n.Swarm
+}
+
+func (n *NodeAlive) TransactionId() string {
+	return n.Id
 }
 
 func (n *NodeAlive) MarshalString() string {
@@ -69,7 +64,7 @@ func UnmarshalTransaction(b string) (common.Transaction, error) {
 			return nil, err
 		}
 		return c, nil
-	case "Heartbeat":
+	case "HeartBeat":
 		h := new(Heartbeat)
 		err = json.Unmarshal([]byte(t.Value), h)
 		if err != nil {

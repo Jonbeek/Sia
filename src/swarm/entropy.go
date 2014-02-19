@@ -1,32 +1,38 @@
 package swarm
 
 import (
-	"common/crypto"
+	"common"
+	"crypto/rand"
+	"crypto/sha256"
 )
 
 // special case of random; needs an explicit number of bytes
-func EntropyGeneration() (randomBytes []byte, err error) {
-	randomBytes, err = crypto.Random(EntropyVolume)
+func EntropyGeneration() (entropy string, err error) {
+	randomBytes := make([]byte, common.ENTROPYVOLUME)
+	_, err = rand.Read(randomBytes)
+	entropy = string(randomBytes)
 	return
 }
 
-// Generates a DRNGSeed, accepting a presorted slice of heartbeats as input
-func DRNGSeed(blockEntropy []Heartbeat) (seed []byte, err error) {
+// Generates a DRNGSeed, given a presorted slice of heartbeats
+func DRNGSeed(heartbeats []Heartbeat) (seed string, err error) {
 	var base []byte
 	base = nil
 
-	for _, value := range blockEntropy {
+	for _, value := range heartbeats {
 		base = append(base, value.EntropyStage2...)
 	}
 
-	seed = crypto.Hash(base)
+	hash := sha256.New()
+	hash.Write(base)
+	seed = string(hash.Sum(nil))
 	return
 }
 
-// Produces a random number given a State and advances the state random number
-func (s *StateSteady) SiaRandomNumber() (randomNumber []byte, err error) {
-	randomNumber = crypto.Hash([]byte(s.DRNGSeed))
-	s.DRNGSeed = string(randomNumber)
-
+func (b BlockChain) SiaRandomNumber() (randomNumber []byte, err error) {
+	hash := sha256.New()
+	hash.Write(b.DRNGSeed)
+	randomNumber = hash.Sum(nil)
+	copy(b.DRNGSeed, randomNumber) // might need error checking
 	return
 }

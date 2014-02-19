@@ -4,18 +4,10 @@ import (
 	"testing"
 )
 
-func TestIntegrate(t *testing.T) {
-
-}
-
-func Testverify(t *testing.T) {
-
-}
-
-// Incomplete
-func TestMarshaling(t *testing.T) {
+func TestBlockMarshaling(t *testing.T) {
 	b := new(Block)
 	b.Id = "2"
+	b.Heartbeats = make(map[string]Heartbeat)
 	b.StorageMapping = make(map[string]interface{})
 
 	s := b.MarshalString()

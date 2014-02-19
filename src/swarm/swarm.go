@@ -6,10 +6,6 @@ import (
 	"time"
 )
 
-const (
-	EntropyVolume = 32
-)
-
 type BlockChain struct {
 	Host        string
 	Id          string

@@ -24,20 +24,6 @@ func (b *Block) BlockId() string {
 	return b.Id
 }
 
-func (s *StateSteady) IntegrateBlock(b Block) {
-	// verify proof-of-storage
-	// determine ordering, sort heartbeats by ordering (producing a slice of heartbeats)
-	// generate entropy
-
-	// pull transactions out of heartbeats in order
-	// process each individually, checking to see if it's valid or not
-}
-
-func (s *StateSteady) verify(b Block) {
-	// verifies that a block is valid
-	// checks timestamps, checks the sender, etc.
-}
-
 func (b *Block) MarshalString() string {
 	o, err := json.Marshal(b)
 	if err != nil {

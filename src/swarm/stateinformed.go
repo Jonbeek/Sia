@@ -213,6 +213,10 @@ func (s *StateSwarmInformed) mainloop() {
 
 				b := &Block{id, s.chain.Id, s.chain.Host, nil, nil}
 				b.StorageMapping = s.chain.BlockHistory[0].StorageMapping
+				b.Heartbeats = make(map[string]Heartbeat)
+				for _, h := range s.heartbeats {
+					b.Heartbeats[h.Host] = *h
+				}
 
 				// Arbitrary hard coded constant to make the testcases pass
 				time.Sleep(500 * time.Millisecond)
@@ -282,16 +286,15 @@ func (s *StateSwarmInformed) handleBlock(b *Block) State {
 		log.Print("STATE: Block accepted type 1")
 		s.chain.AddBlock(b)
 
-		_, stage2 := common.HashedRandomData(sha256.New(), 8)
+		stage1, stage2 := common.HashedRandomData(sha256.New(), 8)
 		s.stage2 = stage2
 
-		//if _, ok := b.StorageMapping[s.chain.Host]; ok {
-		// needs a fix
-		//h := s.NewHeartbeat()
-		//go func() {
-		//	s.chain.outgoingTransactions <- common.TransactionNetworkObject(h)
-		//	}()
-		//}
+		if _, ok := b.StorageMapping[s.chain.Host]; ok {
+			h := NewHeartbeat(s.chain.BlockHistory[0], s.chain.Host, stage1, "")
+			go func() {
+				s.chain.outgoingTransactions <- common.TransactionNetworkObject(h)
+			}()
+		}
 		return s
 	}
 
