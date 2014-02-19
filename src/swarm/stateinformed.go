@@ -64,6 +64,7 @@ type StateSwarmInformed struct {
 	transaction   chan common.Transaction
 	block         chan bwrap
 	sync          chan struct{}
+	die           chan struct{}
 }
 
 type bwrap struct {
@@ -100,6 +101,10 @@ func (s *StateSwarmInformed) Sync() {
 	<-s.sync
 }
 
+func (s *StateSwarmInformed) Die() {
+	s.die <- struct{}{}
+}
+
 func (s *StateSwarmInformed) HandleBlock(b *Block) State {
 	log.Print("STATE: Block queed to be handled")
 	c := make(chan State)
@@ -131,6 +136,8 @@ func (s *StateSwarmInformed) mainloop() {
 
 	for {
 		select {
+		case _ = <-s.die:
+			return
 		case _ = <-s.sendBroadcast:
 			log.Print("STATE: NodeAlive Transaction to be Queed")
 			s.broadcastcount += 1
@@ -301,10 +308,12 @@ func (s *StateSwarmInformed) handleBlock(b *Block) State {
 		if _, ok := b.StorageMapping[s.chain.Host]; ok {
 			//If we're in the block switch to signal mode
 			log.Print("STATE: Switching to connected")
+			go s.Die()
 			return NewStateSwarmConnected()
 		} else {
 			//Join the swarm
 			log.Print("STATE: Switching to Join")
+			go s.Die()
 			return NewStateSwarmJoin(s.chain)
 
 		}
