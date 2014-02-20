@@ -31,9 +31,3 @@ func NewBlockChain(Host string, Id string, StorageMapping map[string]interface{}
 	b.state = NewStateSwarmInformed(b)
 	return
 }
-
-func JoinBlockChain(Host string, Id string) (b *BlockChain) {
-	b = newBlockChain(Host, Id, make(map[string]interface{}))
-	b.state = NewStateSwarmJoin(b)
-	return
-}

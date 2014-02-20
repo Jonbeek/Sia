@@ -12,6 +12,12 @@ func TestStateJoin(t *testing.T) {
 
 	log.SetFlags(log.Lmicroseconds)
 
+	old := common.SWARMSIZE
+	common.SWARMSIZE = 4
+	defer func(old int) {
+		common.SWARMSIZE = old
+	}(old)
+
 	mult := network.NewSimpleMultiplexer()
 
 	hosts := make([]string, common.SWARMSIZE)
@@ -58,7 +64,7 @@ func TestStateJoin(t *testing.T) {
 			broadcast += t.broadcastcount
 			seen += len(t.hostsseen)
 			blocks += len(t.chain.BlockHistory)
-		case *StateSwarmConnected:
+		case *StateSteady:
 			connected += 1
 		}
 	}

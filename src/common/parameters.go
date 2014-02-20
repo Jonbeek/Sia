@@ -1,6 +1,7 @@
 package common
 
+var SWARMSIZE int = 128
+
 const (
-	SWARMSIZE     int = 4
 	ENTROPYVOLUME int = 32
 )
