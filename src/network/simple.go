@@ -31,12 +31,9 @@ func (s *SimpleMultiplexer) listen() {
 			for _, s := range s.Hosts {
 				go func(s chan common.NetworkMessage) {
 					s <- o
-					log.Println("MULTI: Transaction sent to host")
 				}(s)
 			}
-			log.Println("MULTI: Finished Processing")
 		}
-		log.Println("MULTI: CYCLING")
 	}
 }
 
