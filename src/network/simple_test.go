@@ -7,21 +7,21 @@ import (
 
 func TestSimpleMultiplexer(t *testing.T) {
 
-	c := make(chan common.NetworkObject)
+	c := make(chan common.NetworkMessage)
 
 	m := NewSimpleMultiplexer()
 	m.AddListener("", c)
 
-	go m.SendNetworkObject(common.NetworkObject{"", "", "", ""})
+	go m.SendNetworkMessage(common.NetworkMessage{"", "", "", ""})
 	_ = <-c
 
-	c2 := make(chan common.NetworkObject)
-	c3 := make(chan common.NetworkObject)
+	c2 := make(chan common.NetworkMessage)
+	c3 := make(chan common.NetworkMessage)
 
 	m.AddListener("", c2)
 	m.AddListener("", c3)
 
-	go m.SendNetworkObject(common.NetworkObject{"", "", "", ""})
+	go m.SendNetworkMessage(common.NetworkMessage{"", "", "", ""})
 
 	_ = <-c
 	_ = <-c2

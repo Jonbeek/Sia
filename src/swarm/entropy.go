@@ -29,7 +29,7 @@ func DRNGSeed(heartbeats []Heartbeat) (seed string, err error) {
 	return
 }
 
-func (b BlockChain) SiaRandomNumber() (randomNumber []byte, err error) {
+func (b Blockchain) SiaRandomNumber() (randomNumber []byte, err error) {
 	hash := sha256.New()
 	hash.Write(b.DRNGSeed)
 	randomNumber = hash.Sum(nil)

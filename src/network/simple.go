@@ -6,17 +6,17 @@ import (
 )
 
 func NewSimpleMultiplexer() common.NetworkMultiplexer {
-	in := make(chan common.NetworkObject)
-	out := make(chan chan common.NetworkObject)
+	in := make(chan common.NetworkMessage)
+	out := make(chan chan common.NetworkMessage)
 	s := &SimpleMultiplexer{in, out, nil}
 	go s.listen()
 	return s
 }
 
 type SimpleMultiplexer struct {
-	in    chan common.NetworkObject
-	out   chan chan common.NetworkObject
-	Hosts []chan common.NetworkObject
+	in    chan common.NetworkMessage
+	out   chan chan common.NetworkMessage
+	Hosts []chan common.NetworkMessage
 }
 
 func (s *SimpleMultiplexer) listen() {
@@ -29,7 +29,7 @@ func (s *SimpleMultiplexer) listen() {
 		case o := <-s.in:
 			log.Println("MULTI: Transaction ", o, " to be sent to ", len(s.Hosts))
 			for _, s := range s.Hosts {
-				go func(s chan common.NetworkObject) {
+				go func(s chan common.NetworkMessage) {
 					s <- o
 					log.Println("MULTI: Transaction sent to host")
 				}(s)
@@ -40,11 +40,11 @@ func (s *SimpleMultiplexer) listen() {
 	}
 }
 
-func (s *SimpleMultiplexer) AddListener(SwarmId string, c chan common.NetworkObject) {
+func (s *SimpleMultiplexer) AddListener(SwarmId string, c chan common.NetworkMessage) {
 	s.out <- c
 }
 
-func (s *SimpleMultiplexer) SendNetworkObject(o common.NetworkObject) {
+func (s *SimpleMultiplexer) SendNetworkMessage(o common.NetworkMessage) {
 	s.in <- o
 }
 

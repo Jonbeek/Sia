@@ -34,10 +34,10 @@ func TestStateJoin(t *testing.T) {
 		storage[hosts[i]] = nil
 	}
 
-	swarms := make([]*BlockChain, common.SWARMSIZE)
+	swarms := make([]*Blockchain, common.SWARMSIZE)
 
 	for i, _ := range swarms {
-		swarms[i] = NewBlockChain(hosts[i], swarm, storage)
+		swarms[i] = NewBlockchain(hosts[i], swarm, storage)
 		if len(swarms[i].Host) == 0 {
 			t.Fatal(swarms[i])
 		}

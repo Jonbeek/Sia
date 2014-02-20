@@ -6,13 +6,13 @@ import (
 	"time"
 )
 
-type BlockChain struct {
+type Blockchain struct {
 	Host        string
 	Id          string
 	state       State
 	compiletime chan<- time.Time
 
-	outgoingTransactions chan common.NetworkObject
+	outgoingTransactions chan common.NetworkMessage
 
 	// transactions []common.Transaction
 	BlockHistory []*Block
@@ -23,21 +23,21 @@ type BlockChain struct {
 	SeenTransactions map[string]bool
 }
 
-func (b *BlockChain) AddSource(plexer common.NetworkMultiplexer) {
+func (b *Blockchain) AddSource(plexer common.NetworkMultiplexer) {
 
-	c := make(chan common.NetworkObject)
+	c := make(chan common.NetworkMessage)
 	plexer.AddListener(b.Id, c)
 	go b.mainloop(plexer, c)
 }
 
-func (b *BlockChain) mainloop(plexer common.NetworkMultiplexer, c chan common.NetworkObject) {
+func (b *Blockchain) mainloop(plexer common.NetworkMultiplexer, c chan common.NetworkMessage) {
 	log.Print("SWARM: mainloop started")
 	for {
 		log.Print("SWARM: Mainloop waiting for event", b.Host)
 		select {
 		case i := <-b.outgoingTransactions:
 			log.Print("SWARM: sending outgoing transaction")
-			plexer.SendNetworkObject(i)
+			plexer.SendNetworkMessage(i)
 			log.Print("SWARM: Object sent")
 		case o := <-c:
 			log.Print("SWARM: network object recieved")
@@ -75,7 +75,7 @@ func (b *BlockChain) mainloop(plexer common.NetworkMultiplexer, c chan common.Ne
 	}
 }
 
-func (b *BlockChain) AddBlock(block *Block) {
+func (b *Blockchain) AddBlock(block *Block) {
 	if b.BlockHistory != nil && len(b.BlockHistory) == 5 {
 		b.BlockHistory = b.BlockHistory[:4]
 	}

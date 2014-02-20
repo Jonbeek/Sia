@@ -12,7 +12,7 @@ type Block interface {
 	MarshalString() string
 }
 
-type NetworkObject struct {
+type NetworkMessage struct {
 	SwarmId       string
 	TransactionId string
 	BlockId       string
@@ -20,8 +20,8 @@ type NetworkObject struct {
 }
 
 type NetworkMultiplexer interface {
-	AddListener(Swarmid string, c chan NetworkObject)
-	SendNetworkObject(o NetworkObject)
+	AddListener(Swarmid string, c chan NetworkMessage)
+	SendNetworkMessage(o NetworkMessage)
 	Listen(addr string)
 	Connect(addr string)
 }
