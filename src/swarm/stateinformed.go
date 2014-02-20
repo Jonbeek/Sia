@@ -213,9 +213,9 @@ func (s *StateSwarmInformed) mainloop() {
 
 				b := &Block{id, s.chain.Id, s.chain.Host, nil, nil}
 				b.StorageMapping = s.chain.BlockHistory[0].StorageMapping
-				b.Heartbeats = make(map[string]Heartbeat)
+				b.Heartbeats = make(map[string]*Heartbeat)
 				for _, h := range s.heartbeats {
-					b.Heartbeats[h.Host] = *h
+					b.Heartbeats[h.Host] = h
 				}
 
 				// Arbitrary hard coded constant to make the testcases pass

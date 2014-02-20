@@ -10,7 +10,7 @@ type Block struct {
 	Blockchain string
 	Compiler   string
 
-	Heartbeats map[string]Heartbeat
+	Heartbeats map[string]*Heartbeat
 
 	//Mapping of hosts -> what they store
 	StorageMapping map[string]interface{}
