@@ -86,6 +86,7 @@ func NewStateSwarmInformed(chain *Blockchain) (s *StateSwarmInformed) {
 	s.transaction = make(chan common.Transaction)
 	s.block = make(chan bwrap)
 	s.sync = make(chan struct{})
+	s.die = make(chan struct{})
 
 	go s.broadcastLife()
 	go s.mainloop()
@@ -103,6 +104,10 @@ func (s *StateSwarmInformed) Sync() {
 
 func (s *StateSwarmInformed) Die() {
 	s.die <- struct{}{}
+}
+
+func (s *StateSwarmInformed) sendNetworkMessage(m common.NetworkMessage) {
+	s.chain.outgoingTransactions <- m
 }
 
 func (s *StateSwarmInformed) HandleBlock(b *Block) State {
@@ -141,11 +146,8 @@ func (s *StateSwarmInformed) mainloop() {
 		case _ = <-s.sendBroadcast:
 			log.Print("STATE: NodeAlive Transaction to be Queed")
 			s.broadcastcount += 1
-			go func() {
-				s.chain.outgoingTransactions <- common.TransactionNetworkMessage(
-					NewNodeAlive(s.chain.Host, s.chain.Id))
-				log.Print("STATE: NodeAlive Transaction Queed")
-			}()
+			go s.sendNetworkMessage(common.TransactionNetworkMessage(
+				NewNodeAlive(s.chain.Host, s.chain.Id)))
 
 		case s.sync <- struct{}{}:
 
@@ -199,7 +201,7 @@ func (s *StateSwarmInformed) mainloop() {
 
 				s.heartbeats = s.heartbeats[0:0]
 				time.Sleep(100 * time.Millisecond)
-				s.chain.outgoingTransactions <- common.BlockNetworkMessage(b)
+				go s.sendNetworkMessage(common.BlockNetworkMessage(b))
 			}
 
 			if len(s.chain.BlockHistory) == 1 && len(s.heartbeats) > 2 {
@@ -220,7 +222,7 @@ func (s *StateSwarmInformed) mainloop() {
 
 				// Arbitrary hard coded constant to make the testcases pass
 				time.Sleep(500 * time.Millisecond)
-				s.chain.outgoingTransactions <- common.BlockNetworkMessage(b)
+				go s.sendNetworkMessage(common.BlockNetworkMessage(b))
 			}
 		}
 		log.Print("STATE: Signal Handling Finished")
@@ -291,9 +293,7 @@ func (s *StateSwarmInformed) handleBlock(b *Block) State {
 
 		if _, ok := b.StorageMapping[s.chain.Host]; ok {
 			h := NewHeartbeat(s.chain.BlockHistory[0], s.chain.Host, stage1, "")
-			go func() {
-				s.chain.outgoingTransactions <- common.TransactionNetworkMessage(h)
-			}()
+			go s.sendNetworkMessage(common.TransactionNetworkMessage(h))
 		}
 		return s
 	}
