@@ -60,6 +60,7 @@ func TestStateJoin(t *testing.T) {
 		switch t := s.state.(type) {
 		case *StateSwarmInformed:
 			t.Sync()
+			t.Die()
 			informed += 1
 			broadcast += t.broadcastcount
 			seen += len(t.hostsseen)

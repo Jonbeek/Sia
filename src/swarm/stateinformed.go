@@ -86,6 +86,7 @@ func NewStateSwarmInformed(chain *Blockchain) (s *StateSwarmInformed) {
 	s.transaction = make(chan common.Transaction)
 	s.block = make(chan bwrap)
 	s.sync = make(chan struct{})
+	s.die = make(chan struct{})
 
 	go s.broadcastLife()
 	go s.mainloop()
