@@ -107,7 +107,7 @@ func (s *StateSwarmInformed) Die() {
 }
 
 func (s *StateSwarmInformed) sendNetworkMessage(m common.NetworkMessage) {
-	s.chain.outgoingTransactions <- m
+	s.chain.outgoingMessages <- m
 }
 
 func (s *StateSwarmInformed) HandleBlock(b *Block) State {

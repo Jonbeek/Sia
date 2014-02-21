@@ -5,26 +5,41 @@ import (
 	"testing"
 )
 
+type testListener chan common.NetworkMessage
+
+func newTestListener() (l testListener) {
+	l = make(chan common.NetworkMessage)
+	return
+}
+
+func (l testListener) HandleNetworkMessage(m common.NetworkMessage) {
+	l <- m
+}
+
+func (l testListener) Recieve() {
+	_ = <-l
+}
+
 func TestSimpleMultiplexer(t *testing.T) {
 
-	c := make(chan common.NetworkMessage)
+	c := newTestListener()
 
 	m := NewSimpleMultiplexer()
 	m.AddListener("", c)
 
 	go m.SendNetworkMessage(common.NetworkMessage{"", "", "", ""})
-	_ = <-c
+	c.Recieve()
 
-	c2 := make(chan common.NetworkMessage)
-	c3 := make(chan common.NetworkMessage)
+	c2 := newTestListener()
+	c3 := newTestListener()
 
 	m.AddListener("", c2)
 	m.AddListener("", c3)
 
 	go m.SendNetworkMessage(common.NetworkMessage{"", "", "", ""})
 
-	_ = <-c
-	_ = <-c2
-	_ = <-c3
+	c.Recieve()
+	c2.Recieve()
+	c3.Recieve()
 
 }
