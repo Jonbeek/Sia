@@ -5,21 +5,19 @@ import (
 	"log"
 )
 
-var EntropyVolume int = 32
-
 type Block struct {
-	Id    string
-	Swarm string
+	Id         string
+	Blockchain string
+	Compiler   string
 
-	EntropyStage1 map[string][]byte
-	EntropyStage2 map[string][]byte
+	Heartbeats map[string]*Heartbeat
 
 	//Mapping of hosts -> what they store
 	StorageMapping map[string]interface{}
 }
 
 func (b *Block) SwarmId() string {
-	return b.Swarm
+	return b.Blockchain
 }
 
 func (b *Block) BlockId() string {

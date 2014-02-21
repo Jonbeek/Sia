@@ -2,7 +2,7 @@ package network
 
 import (
 	"common"
-	//	"log"
+	"log"
 )
 
 func NewNetworkMultiplexer() *NetworkMultiplexer {
@@ -22,29 +22,27 @@ type NetworkMultiplexer struct {
 
 func (m *NetworkMultiplexer) listen() {
 
-	/*
-		for {
-			select {
-			case c := <- m.out:
-				log.Println("MULTI: Host added")
-				m.Hosts = append(m.Hosts, c)
-			case o := m.in:
-				for _, j := range m.in {
-					for _, k := range j {
-						log.Println("MULTI: Transaction ", k, "to be sent to", len(m.Hosts))
-						for _, l := range m.Hosts {
-							go func(l chan common.NetworkObject) {
-								l <- (k)
-								log.Println("MULTI: Transaction sent to host")
-							}(l)
-						}
-						log.Println("MULTI: Finished Processing")
+	for {
+		select {
+		case c := <-m.out:
+			log.Println("MULTI: Host added")
+			m.Hosts = append(m.Hosts, c)
+		case o := m.in:
+			for _, j := range m.in {
+				for _, k := range j {
+					log.Println("MULTI: Transaction ", k, "to be sent to", len(m.Hosts))
+					for _, l := range m.Hosts {
+						go func(l chan common.NetworkObject) {
+							l <- (k)
+							log.Println("MULTI: Transaction sent to host")
+						}(l)
 					}
+					log.Println("MULTI: Finished Processing")
 				}
 			}
-			log.Println("MULTI: Cycling")
 		}
-	*/
+		log.Println("MULTI: Cycling")
+	}
 }
 
 func (m *NetworkMultiplexer) AddListener(SwarmId string, c chan common.NetworkObject) {
