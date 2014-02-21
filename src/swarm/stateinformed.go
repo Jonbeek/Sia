@@ -142,6 +142,11 @@ func (s *StateSwarmInformed) mainloop() {
 	for {
 		select {
 		case _ = <-s.die:
+			close(s.sendBroadcast)
+			close(s.transaction)
+			close(s.block)
+			close(s.sync)
+			close(s.die)
 			return
 		case _ = <-s.sendBroadcast:
 			log.Print("STATE: NodeAlive Transaction to be Queed")
