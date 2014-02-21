@@ -32,13 +32,11 @@ func (b *Blockchain) AddSource(plexer common.NetworkMultiplexer) {
 
 func (b *Blockchain) mainloop(plexer common.NetworkMultiplexer) {
 	for {
-		log.Print("SWARM: Mainloop waiting for event", b.Host)
 		select {
 		case i := <-b.outgoingMessages:
 			log.Print("SWARM: sending outgoing networkmessage")
 			plexer.SendNetworkMessage(i)
 		case m := <-b.incomingMessages:
-			log.Print("SWARM: network message recieved")
 			switch {
 			case len(m.TransactionId) != 0:
 
@@ -67,6 +65,8 @@ func (b *Blockchain) mainloop(plexer common.NetworkMultiplexer) {
 
 				b.state = b.state.HandleBlock(block)
 
+			default:
+				panic("Empty network message??")
 			}
 		}
 	}

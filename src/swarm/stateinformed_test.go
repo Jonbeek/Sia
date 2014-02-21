@@ -47,7 +47,7 @@ func TestStateJoin(t *testing.T) {
 		s.AddSource(mult)
 	}
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(3 * time.Second)
 	log.Print("TEST: stopped sleeping")
 
 	informed := 0

@@ -6,9 +6,9 @@ import (
 )
 
 func NewSimpleMultiplexer() common.NetworkMultiplexer {
-	in := make(chan common.NetworkMessage)
-	out := make(chan common.NetworkMessageHandler)
-	s := &SimpleMultiplexer{in, out, nil}
+	s := new(SimpleMultiplexer)
+	s.in = make(chan common.NetworkMessage)
+	s.out = make(chan common.NetworkMessageHandler)
 	go s.listen()
 	return s
 }
