@@ -12,7 +12,8 @@ type Blockchain struct {
 	state       State
 	compiletime chan<- time.Time
 
-	outgoingTransactions chan common.NetworkMessage
+	outgoingMessages chan common.NetworkMessage
+	incomingMessages chan common.NetworkMessage
 
 	// transactions []common.Transaction
 	BlockHistory []*Block
@@ -25,51 +26,47 @@ type Blockchain struct {
 
 func (b *Blockchain) AddSource(plexer common.NetworkMultiplexer) {
 
-	c := make(chan common.NetworkMessage)
-	plexer.AddListener(b.Id, c)
-	go b.mainloop(plexer, c)
+	plexer.AddListener(b.Id, b)
+	go b.mainloop(plexer)
 }
 
-func (b *Blockchain) mainloop(plexer common.NetworkMultiplexer, c chan common.NetworkMessage) {
-	log.Print("SWARM: mainloop started")
+func (b *Blockchain) mainloop(plexer common.NetworkMultiplexer) {
 	for {
-		log.Print("SWARM: Mainloop waiting for event", b.Host)
 		select {
-		case i := <-b.outgoingTransactions:
-			log.Print("SWARM: sending outgoing transaction")
+		case i := <-b.outgoingMessages:
+			log.Print("SWARM: sending outgoing networkmessage")
 			plexer.SendNetworkMessage(i)
-			log.Print("SWARM: Object sent")
-		case o := <-c:
-			log.Print("SWARM: network object recieved")
+		case m := <-b.incomingMessages:
 			switch {
-			case len(o.TransactionId) != 0:
+			case len(m.TransactionId) != 0:
 
-				log.Print("SWARM: Tis Transaction")
-				if b.SeenTransactions[o.TransactionId] {
+				log.Print("SWARM: Transaction Recieved")
+				if b.SeenTransactions[m.TransactionId] {
 					log.Print("Swarm: Transaction Already Seen")
 					continue
 				}
 
-				b.SeenTransactions[o.TransactionId] = true
+				b.SeenTransactions[m.TransactionId] = true
 
-				t, err := UnmarshalTransaction(o.Payload)
+				t, err := UnmarshalTransaction(m.Payload)
 				if err != nil {
 					panic(err)
 				}
 
 				b.state.HandleTransaction(t)
-				log.Print("SWARM: Transaction handling finished")
 
-			case len(o.BlockId) != 0:
+			case len(m.BlockId) != 0:
 				log.Print("SWARM: Block Recieved")
 
-				block, err := UnmarshalBlock(o.Payload)
+				block, err := UnmarshalBlock(m.Payload)
 				if err != nil {
 					continue
 				}
 
 				b.state = b.state.HandleBlock(block)
 
+			default:
+				panic("Empty network message??")
 			}
 		}
 	}
@@ -80,4 +77,8 @@ func (b *Blockchain) AddBlock(block *Block) {
 		b.BlockHistory = b.BlockHistory[:4]
 	}
 	b.BlockHistory = append(b.BlockHistory, block)
+}
+
+func (b *Blockchain) HandleNetworkMessage(m common.NetworkMessage) {
+	b.incomingMessages <- m
 }

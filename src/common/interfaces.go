@@ -19,8 +19,12 @@ type NetworkMessage struct {
 	Payload       string
 }
 
+type NetworkMessageHandler interface {
+	HandleNetworkMessage(m NetworkMessage)
+}
+
 type NetworkMultiplexer interface {
-	AddListener(Swarmid string, c chan NetworkMessage)
+	AddListener(Swarmid string, c NetworkMessageHandler)
 	SendNetworkMessage(o NetworkMessage)
 	Listen(addr string)
 	Connect(addr string)

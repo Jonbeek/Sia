@@ -21,7 +21,8 @@ func newBlockchain(Host string, Id string, StorageMapping map[string]interface{}
 	b.Host = Host
 	b.Id = Id
 	b.StorageMapping = StorageMapping
-	b.outgoingTransactions = make(chan common.NetworkMessage)
+	b.outgoingMessages = make(chan common.NetworkMessage)
+	b.incomingMessages = make(chan common.NetworkMessage)
 	b.SeenTransactions = make(map[string]bool)
 	return
 }

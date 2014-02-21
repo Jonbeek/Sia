@@ -53,6 +53,7 @@ type StateSwarmInformed struct {
 	// hosts and then the commit stage where it listens for a block that
 	// is correct according to its knowledge and then votes for it.
 	learning bool
+	alive    bool
 
 	heartbeats []*Heartbeat
 
@@ -80,6 +81,8 @@ func NewStateSwarmInformed(chain *Blockchain) (s *StateSwarmInformed) {
 	// Should be dynamically set
 	s.blockgen = time.Tick(1 * time.Second)
 
+	s.alive = true
+
 	s.learning = true
 	s.hostsseen = make(map[string]int)
 	s.sendBroadcast = make(chan struct{})
@@ -95,7 +98,9 @@ func NewStateSwarmInformed(chain *Blockchain) (s *StateSwarmInformed) {
 
 func (s *StateSwarmInformed) HandleTransaction(t common.Transaction) {
 	log.Print("STATE: Transaction queed to be handled")
-	s.transaction <- t
+	if s.alive {
+		s.transaction <- t
+	}
 }
 
 func (s *StateSwarmInformed) Sync() {
@@ -104,18 +109,24 @@ func (s *StateSwarmInformed) Sync() {
 
 func (s *StateSwarmInformed) Die() {
 	s.die <- struct{}{}
+	<-s.die
+	close(s.die)
 }
 
 func (s *StateSwarmInformed) sendNetworkMessage(m common.NetworkMessage) {
-	s.chain.outgoingTransactions <- m
+	s.chain.outgoingMessages <- m
 }
 
 func (s *StateSwarmInformed) HandleBlock(b *Block) State {
 	log.Print("STATE: Block queed to be handled")
-	c := make(chan State)
-	s.block <- bwrap{b, c}
-	r := <-c
-	return r
+	if s.alive {
+		c := make(chan State)
+		s.block <- bwrap{b, c}
+		r := <-c
+		return r
+	} else {
+		panic("Block handled incorrectly...")
+	}
 }
 
 func (s *StateSwarmInformed) blockCompiler() (compiler string) {
@@ -142,6 +153,12 @@ func (s *StateSwarmInformed) mainloop() {
 	for {
 		select {
 		case _ = <-s.die:
+			s.alive = false
+			close(s.sendBroadcast)
+			close(s.transaction)
+			close(s.block)
+			close(s.sync)
+			s.die <- struct{}{}
 			return
 		case _ = <-s.sendBroadcast:
 			log.Print("STATE: NodeAlive Transaction to be Queed")
@@ -313,7 +330,6 @@ func (s *StateSwarmInformed) handleBlock(b *Block) State {
 		} else {
 			//Join the swarm
 			log.Print("STATE: Switching to Join")
-			go s.Die()
 		}
 	}
 
