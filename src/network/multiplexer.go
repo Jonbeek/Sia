@@ -5,63 +5,52 @@ import (
 	"log"
 )
 
+type NetworkMultiplexer struct {
+	in    chan common.NetworkMessage
+	out   chan Network_Message
+	Hosts map[string][]common.NetworkMessageHandler
+}
+
+type Network_Message struct {
+	handler common.NetworkMessageHandler
+	SwarmId string
+}
+
 func NewNetworkMultiplexer() *NetworkMultiplexer {
-	in := make(map[string][]chan common.NetworkObject)
-	out := make(chan chan common.NetworkObject)
-	m := &NetworkMultiplexer{in, out, nil}
+	m := new(NetworkMultiplexer)
+	m.in = make(chan common.NetworkMessage)
+	m.out = make(chan Network_Message)
+	m.Hosts = make(map[string][]common.NetworkMessageHandler)
 	go m.listen()
 	return m
 }
 
-//Implementation of the NetworkMultiplexer struct
-type NetworkMultiplexer struct {
-	in    map[string][]chan common.NetworkObject
-	out   chan chan common.NetworkObject
-	Hosts []chan common.NetworkObject
-}
-
 func (m *NetworkMultiplexer) listen() {
-
 	for {
 		select {
 		case c := <-m.out:
-			log.Println("MULTI: Host added")
-			m.Hosts = append(m.Hosts, c)
-		case o := m.in:
-			for _, j := range m.in {
-				for _, k := range j {
-					log.Println("MULTI: Transaction ", k, "to be sent to", len(m.Hosts))
-					for _, l := range m.Hosts {
-						go func(l chan common.NetworkObject) {
-							l <- (k)
-							log.Println("MULTI: Transaction sent to host")
-						}(l)
-					}
-					log.Println("MULTI: Finished Processing")
-				}
+			m.Hosts[c.SwarmId] = append(m.Hosts[c.SwarmId], c.handler)
+		case o := <-m.in:
+			log.Println("MULTI: Transaction ", o, "to be sent to", len(m.Hosts[o.SwarmId]))
+			for _, s := range m.Hosts[o.SwarmId] {
+				go s.HandleNetworkMessage(o)
 			}
 		}
-		log.Println("MULTI: Cycling")
 	}
 }
 
-func (m *NetworkMultiplexer) AddListener(SwarmId string, c chan common.NetworkObject) {
-	m.out <- c
+func (m *NetworkMultiplexer) AddListener(SwarmId string, c common.NetworkMessageHandler) {
+	m.out <- Network_Message{c, SwarmId}
 }
 
-func (m *NetworkMultiplexer) SendNetworkObject(o common.NetworkObject) {
-	var new_in chan common.NetworkObject
-	new_in <- o
-	m.in[o.SwarmId] = append(m.in[o.SwarmId], new_in)
+func (m *NetworkMultiplexer) SendNetworkMessage(o common.NetworkMessage) {
+	m.in <- o
 }
 
-//Listens to a stored chan NetworkObject (TCP)
 func (m *NetworkMultiplexer) Listen(addr string) {
-	panic("Not Implemented")
+
 }
 
-//Connects a to chan NetworkObject
 func (m *NetworkMultiplexer) Connect(addr string) {
-	//Possibly use the go.dial() method that is available
-	panic("Not Implements")
+
 }
