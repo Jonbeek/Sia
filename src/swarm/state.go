@@ -16,24 +16,19 @@ type State interface {
 	HandleBlock(b *Block) State
 }
 
-func newBlockChain(Host string, Id string, StorageMapping map[string]interface{}) (b *BlockChain) {
-	b = new(BlockChain)
+func newBlockchain(Host string, Id string, StorageMapping map[string]interface{}) (b *Blockchain) {
+	b = new(Blockchain)
 	b.Host = Host
 	b.Id = Id
 	b.StorageMapping = StorageMapping
-	b.outgoingTransactions = make(chan common.NetworkObject)
+	b.outgoingMessages = make(chan common.NetworkMessage)
+	b.incomingMessages = make(chan common.NetworkMessage)
 	b.SeenTransactions = make(map[string]bool)
 	return
 }
 
-func NewBlockChain(Host string, Id string, StorageMapping map[string]interface{}) (b *BlockChain) {
-	b = newBlockChain(Host, Id, StorageMapping)
+func NewBlockchain(Host string, Id string, StorageMapping map[string]interface{}) (b *Blockchain) {
+	b = newBlockchain(Host, Id, StorageMapping)
 	b.state = NewStateSwarmInformed(b)
-	return
-}
-
-func JoinBlockChain(Host string, Id string) (b *BlockChain) {
-	b = newBlockChain(Host, Id, make(map[string]interface{}))
-	b.state = NewStateSwarmJoin(b)
 	return
 }

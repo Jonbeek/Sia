@@ -1,42 +1,35 @@
 package swarm
 
 import (
+	"common"
 	"crypto/rand"
 	"crypto/sha256"
 )
 
-/* The blockchain requires that hosts generate entropy for each heartbeat,
-this funciton will produce a byte slice of the correct size filled with
-psuedo-random data. Entropy() generates the entropy */
-
-func EntropyBytes() (randomBytes []byte, err error) {
-	randomBytes = make([]byte, EntropyVolume)
+// special case of random; needs an explicit number of bytes
+func EntropyGeneration() (entropy string, err error) {
+	randomBytes := make([]byte, common.ENTROPYVOLUME)
 	_, err = rand.Read(randomBytes)
+	entropy = string(randomBytes)
 	return
 }
 
-/* Each block, all of the entropy introduced in the heartbeats must be merged
-to produce a single seed for the random number generator. MergeEntropy fulfills
-this requirement according to the protocol specification */
-
-/* MergeEntropy assumes that the set of entropy strings in the block have
-already been sorted according to the protocol specification */
-
-func (b Block) DRNGSeed() (seed []byte, err error) {
+// Generates a DRNGSeed, given a presorted slice of heartbeats
+func DRNGSeed(heartbeats []Heartbeat) (seed string, err error) {
 	var base []byte
 	base = nil
 
-	for _, value := range b.EntropyStage2 {
-		base = append(base, value...)
+	for _, value := range heartbeats {
+		base = append(base, value.EntropyStage2...)
 	}
 
 	hash := sha256.New()
 	hash.Write(base)
-	seed = hash.Sum(nil)
+	seed = string(hash.Sum(nil))
 	return
 }
 
-func (b BlockChain) SiaRandomNumber() (randomNumber []byte, err error) {
+func (b Blockchain) SiaRandomNumber() (randomNumber []byte, err error) {
 	hash := sha256.New()
 	hash.Write(b.DRNGSeed)
 	randomNumber = hash.Sum(nil)

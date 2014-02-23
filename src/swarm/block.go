@@ -7,18 +7,17 @@ import (
 
 type Block struct {
 	Id         string
-	BlockChain string
+	Blockchain string
 	Compiler   string
 
-	EntropyStage1 map[string]string
-	EntropyStage2 map[string]string
+	Heartbeats map[string]*Heartbeat
 
 	//Mapping of hosts -> what they store
 	StorageMapping map[string]interface{}
 }
 
 func (b *Block) SwarmId() string {
-	return b.BlockChain
+	return b.Blockchain
 }
 
 func (b *Block) BlockId() string {

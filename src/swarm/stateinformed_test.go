@@ -34,10 +34,10 @@ func TestStateJoin(t *testing.T) {
 		storage[hosts[i]] = nil
 	}
 
-	swarms := make([]*BlockChain, common.SWARMSIZE)
+	swarms := make([]*Blockchain, common.SWARMSIZE)
 
 	for i, _ := range swarms {
-		swarms[i] = NewBlockChain(hosts[i], swarm, storage)
+		swarms[i] = NewBlockchain(hosts[i], swarm, storage)
 		if len(swarms[i].Host) == 0 {
 			t.Fatal(swarms[i])
 		}
@@ -47,7 +47,7 @@ func TestStateJoin(t *testing.T) {
 		s.AddSource(mult)
 	}
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(3 * time.Second)
 	log.Print("TEST: stopped sleeping")
 
 	informed := 0
@@ -60,11 +60,12 @@ func TestStateJoin(t *testing.T) {
 		switch t := s.state.(type) {
 		case *StateSwarmInformed:
 			t.Sync()
+			t.Die()
 			informed += 1
 			broadcast += t.broadcastcount
 			seen += len(t.hostsseen)
 			blocks += len(t.chain.BlockHistory)
-		case *StateSwarmConnected:
+		case *StateSteady:
 			connected += 1
 		}
 	}
