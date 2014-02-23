@@ -17,6 +17,7 @@ type SwarmStorage struct {
 	files        map[string]uint64 "files"
 	fileordering []string          "fileorder"
 	Lock         *sync.Mutex
+	Filelocks    map[string]*sync.Mutex
 }
 
 //helper function to produce the correct filename
@@ -30,8 +31,9 @@ func CreateSwarmSystem(swarmid string) (r *SwarmStorage, err error) {
 	r = new(SwarmStorage)
 	r.SwarmId = swarmid
 	r.amountused = 0
-	r.Lock = new(sync.Mutex)
+	r.MapLock = new(sync.Mutex)
 	r.files = make(map[string]uint64)
+	r.FileLocks=map[string]*sync.Mutex
 	err = os.Mkdir(swarmid, os.ModeDir|os.ModePerm)
 	if err != nil {
 		if os.IsExist(err) {
@@ -43,11 +45,11 @@ func CreateSwarmSystem(swarmid string) (r *SwarmStorage, err error) {
 			if e != nil {
 				print(e.Error())
 			}
-			r.Lock.Lock()
+			r.MapLock.Lock()
 			if err = c.Decode(r); e != nil {
 
 			}
-			r.Lock.Unlock()
+			r.MapLock.Unlock()
 		}
 	}
 	return
@@ -55,7 +57,7 @@ func CreateSwarmSystem(swarmid string) (r *SwarmStorage, err error) {
 
 func (r SwarmStorage) CreateFile(filehash string, length uint64) (written int64, err error) {
 	file, err := os.Create(r.SwarmId + string(os.PathSeparator) + filehash)
-
+	
 	if err != nil && os.IsExist(err) {
 		//in which case, it should be safe to ignore the error
 		err = nil
@@ -64,14 +66,17 @@ func (r SwarmStorage) CreateFile(filehash string, length uint64) (written int64,
 		}
 	}
 	defer file.Close()
+	r.FileLocks[filehash]=new sync.Mutex
+	r.FileLocks[filehash].Lock()
+	defer r.FileLocks[filehash].Unlock()
 	err = file.Truncate(int64(length))
-	r.Lock.Lock()
+	r.MapLock.Lock()
 	if _, ok := r.files[filehash]; !ok {
 		r.fileordering = append(r.fileordering, filehash)
 		sort.Strings(r.fileordering)
 	}
 	r.files[filehash] = uint64(length)
-	r.Lock.Unlock()
+	r.MapLock.Unlock()
 	written = int64(length)
 	return
 }
@@ -81,6 +86,8 @@ func (r SwarmStorage) FileExists(filehash string) bool {
 }
 
 func (r SwarmStorage) DeleteFile(filehash string) error {
+	r.FileLocks[filehash].Lock()
+	defer r.FileLocks[filehash].Unlock()
 	size, err := os.Stat(r.getFileName(filehash))
 	if err == nil {
 		r.amountused -= uint64(size.Size())
@@ -91,14 +98,16 @@ func (r SwarmStorage) DeleteFile(filehash string) error {
 }
 
 func (r SwarmStorage) WriteFile(filehash string, start uint64, data []byte) error {
+	r.FileLocks[filehash].Lock()
+	defer r.FileLocks[filehash].Unlock()
 	path := r.SwarmId + string(os.PathSeparator) + filehash
 	file, err := os.Open(path)
 	if err != nil {
 		return err
 	}
-	r.Lock.Lock()
+	r.MapLock.Lock()
 	size, ok := r.files[filehash]
-	r.Lock.Unlock()
+	r.MapLock.Unlock()
 	if uint64(start)+uint64(len(data)) >= size && ok {
 		r.amountused += uint64(start) + uint64(uint64(len(data))-size)
 		r.files[filehash] = uint64(start) + uint64(len(data))
@@ -109,6 +118,8 @@ func (r SwarmStorage) WriteFile(filehash string, start uint64, data []byte) erro
 
 }
 func (r SwarmStorage) ReadFile(filehash string, start uint64, data []byte) (err error) {
+	r.FileLocks[filehash].Lock()
+	defer r.FileLocks[filehash].Unlock()
 	file, err := os.Open(r.getFileName(filehash))
 	file.ReadAt(data, int64(start))
 	return
@@ -127,6 +138,7 @@ func (r SwarmStorage) SaveSwarm() {
 
 }
 func (r SwarmStorage) GetRandomByte(index uint64) byte {
+	
 	var u uint64
 	c := uint64(0)
 	v := ""
