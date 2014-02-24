@@ -31,7 +31,7 @@ func CreateSwarmSystem(swarmid string) (r *SwarmStorage, err error) {
 	r = new(SwarmStorage)
 	r.SwarmId = swarmid
 	r.amountused = 0
-	r.MapLock = new(sync.Mutex)
+	r.MapLock = new(sync.RWMutex)
 	r.files = make(map[string]uint64)
 	r.FileLocks = make(map[string]*sync.Mutex)
 	err = os.Mkdir(swarmid, os.ModeDir|os.ModePerm)
@@ -91,8 +91,8 @@ func (r SwarmStorage) DeleteFile(filehash string) error {
 		r.FileLocks[filehash] = new(sync.Mutex)
 		l = r.FileLocks[filehash]
 	}
-	l.RLock()
-	defer l.RUnlock()
+	l.Lock()
+	defer l.Unlock()
 	size, err := os.Stat(r.getFileName(filehash))
 	if err == nil {
 		r.amountused -= uint64(size.Size())
@@ -123,8 +123,8 @@ func (r SwarmStorage) WriteFile(filehash string, start uint64, data []byte) erro
 
 }
 func (r SwarmStorage) ReadFile(filehash string, start uint64, data []byte) (err error) {
-	r.FileLocks[filehash].RLock()
-	defer r.FileLocks[filehash].RUnlock()
+	r.FileLocks[filehash].Lock()
+	defer r.FileLocks[filehash].Unlock()
 	file, err := os.Open(r.getFileName(filehash))
 	file.ReadAt(data, int64(start))
 	return
