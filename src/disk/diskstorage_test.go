@@ -6,12 +6,14 @@ import (
 )
 
 func Test_SwarmStoring(t *testing.T) {
-	i, _ := CreateSwarmSystem("f")
+	i, err := CreateSwarmSystem("f")
+    if err!=nil{
+        t.Error(err.Error())
+    }
 	i.CreateFile("0", 1000)
 	i.CreateFile("1", 10)
 	i.SaveSwarm()
-	i = nil
-	i, err := CreateSwarmSystem("f")
+	i, err = CreateSwarmSystem("f")
 	if err != nil {
 		t.Error(err.Error())
 	}
