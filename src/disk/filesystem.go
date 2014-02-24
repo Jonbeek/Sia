@@ -57,7 +57,7 @@ func CreateSwarmSystem(swarmid string) (r *SwarmStorage, err error) {
 
 func (r SwarmStorage) CreateFile(filehash string, length uint64) (written int64, err error) {
 	file, err := os.Create(r.SwarmId + string(os.PathSeparator) + filehash)
-
+	r.MapLock.Lock()
 	if err != nil && os.IsExist(err) {
 		//in which case, it should be safe to ignore the error
 		err = nil
@@ -70,7 +70,7 @@ func (r SwarmStorage) CreateFile(filehash string, length uint64) (written int64,
 	r.FileLocks[filehash].Lock()
 	defer r.FileLocks[filehash].Unlock()
 	err = file.Truncate(int64(length))
-	r.MapLock.Lock()
+
 	if _, ok := r.files[filehash]; !ok {
 		r.fileordering = append(r.fileordering, filehash)
 		sort.Strings(r.fileordering)
@@ -150,7 +150,7 @@ func (r SwarmStorage) GetRandomByte(index uint64) byte {
 	c := uint64(0)
 	v := ""
 	for i := range r.fileordering {
-        d:= r.fileordering[i]
+		d := r.fileordering[i]
 		if u+r.files[d] >= index {
 			c = index - u + index
 			v = d
