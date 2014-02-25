@@ -12,8 +12,8 @@ type Blockchain struct {
 	state       State
 	compiletime chan<- time.Time
 
-	outgoingMessages chan common.NetworkMessage
 	incomingMessages chan common.NetworkMessage
+	outgoingUpdates  chan common.Update
 
 	// transactions []common.Transaction
 	BlockHistory []*Block
@@ -33,41 +33,24 @@ func (b *Blockchain) AddSource(plexer common.NetworkMultiplexer) {
 func (b *Blockchain) mainloop(plexer common.NetworkMultiplexer) {
 	for {
 		select {
-		case i := <-b.outgoingMessages:
-			log.Print("SWARM: sending outgoing networkmessage")
-			plexer.SendNetworkMessage(i)
+		case i := <-b.outgoingUpdates:
+			log.Print("SWARM: sending outgoing transaction")
+			plexer.SendNetworkMessage(common.MarshalUpdate(i))
 		case m := <-b.incomingMessages:
-			switch {
-			case len(m.TransactionId) != 0:
+			log.Print("SWARM: network message recieved")
 
-				log.Print("SWARM: Transaction Recieved")
-				if b.SeenTransactions[m.TransactionId] {
-					log.Print("Swarm: Transaction Already Seen")
-					continue
-				}
-
-				b.SeenTransactions[m.TransactionId] = true
-
-				t, err := UnmarshalTransaction(m.Payload)
-				if err != nil {
-					panic(err)
-				}
-
-				b.state.HandleTransaction(t)
-
-			case len(m.BlockId) != 0:
-				log.Print("SWARM: Block Recieved")
-
-				block, err := UnmarshalBlock(m.Payload)
-				if err != nil {
-					continue
-				}
-
-				b.state = b.state.HandleBlock(block)
-
-			default:
-				panic("Empty network message??")
+			if b.SeenTransactions[m.UpdateId] {
+				log.Print("Swarm: Update Already Seen")
+				continue
 			}
+
+			u, err := UnmarshalUpdate(m)
+			if err != nil {
+				panic(err)
+			}
+
+			b.state = b.state.HandleUpdate(u)
+			log.Print("SWARM: Update handling finished")
 		}
 	}
 }

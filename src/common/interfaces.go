@@ -1,22 +1,17 @@
 package common
 
-type Transaction interface {
+type Update interface {
 	SwarmId() string
-	TransactionId() string
+	UpdateId() string
 	MarshalString() string
-}
-
-type Block interface {
-	SwarmId() string
-	BlockId() string
-	MarshalString() string
+	Type() string
 }
 
 type NetworkMessage struct {
-	SwarmId       string
-	TransactionId string
-	BlockId       string
-	Payload       string
+	SwarmId  string
+	UpdateId string
+	Payload  string
+	Type     string
 }
 
 type NetworkMessageHandler interface {
