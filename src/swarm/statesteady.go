@@ -7,11 +7,7 @@ import (
 type StateSteady struct {
 }
 
-func (s *StateSteady) HandleTransaction(t common.Transaction) {
-	return
-}
-
-func (s *StateSteady) HandleBlock(b *Block) State {
+func (s *StateSteady) HandleUpdate(u common.Update) State {
 	return s
 }
 

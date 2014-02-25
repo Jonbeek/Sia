@@ -20,8 +20,12 @@ func (b *Block) SwarmId() string {
 	return b.Blockchain
 }
 
-func (b *Block) BlockId() string {
+func (b *Block) UpdateId() string {
 	return b.Id
+}
+
+func (b *Block) Type() string {
+	return "Block"
 }
 
 func (b *Block) MarshalString() string {
@@ -30,10 +34,4 @@ func (b *Block) MarshalString() string {
 		log.Fatal("Unable to marshal Block:", err)
 	}
 	return string(o)
-}
-
-func UnmarshalBlock(encoded string) (b *Block, err error) {
-	b = new(Block)
-	err = json.Unmarshal([]byte(encoded), b)
-	return b, err
 }

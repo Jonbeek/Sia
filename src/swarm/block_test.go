@@ -1,6 +1,7 @@
 package swarm
 
 import (
+	"common"
 	"testing"
 )
 
@@ -10,14 +11,14 @@ func TestBlockMarshaling(t *testing.T) {
 	b.Heartbeats = make(map[string]*Heartbeat)
 	b.StorageMapping = make(map[string]interface{})
 
-	s := b.MarshalString()
+	s := common.MarshalUpdate(b)
 
-	b2, err := UnmarshalBlock(s)
+	b2, err := UnmarshalUpdate(s)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if b.Id != b2.Id {
+	if b.Id != b2.(*Block).Id {
 		t.Fatal("Id not equal")
 	}
 }

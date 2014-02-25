@@ -27,8 +27,12 @@ func (n *NodeAlive) SwarmId() string {
 	return n.Swarm
 }
 
-func (n *NodeAlive) TransactionId() string {
+func (n *NodeAlive) UpdateId() string {
 	return n.Id
+}
+
+func (n *NodeAlive) Type() string {
+	return "NodeAlive"
 }
 
 func (n *NodeAlive) MarshalString() string {
@@ -37,7 +41,7 @@ func (n *NodeAlive) MarshalString() string {
 		panic("Unable to marshal NodeAlive, should be impossible " + err.Error())
 	}
 
-	return MarshalTransaction("NodeAlive", string(b))
+	return string(b)
 }
 
 type transactionwrap struct {
@@ -45,33 +49,21 @@ type transactionwrap struct {
 	Value string
 }
 
-func MarshalTransaction(Type string, Value string) string {
-	b, err := json.Marshal(transactionwrap{Type, Value})
-	if err != nil {
-		panic("Unable to marshal transactionwrap, should be impossible " + err.Error())
-	}
-	return string(b)
-}
+func UnmarshalUpdate(m common.NetworkMessage) (common.Update, error) {
+	var u common.Update
 
-func UnmarshalTransaction(b string) (common.Transaction, error) {
-	t := new(transactionwrap)
-	err := json.Unmarshal([]byte(b), t)
-	switch t.Type {
+	switch m.Type {
 	case "NodeAlive":
-		c := new(NodeAlive)
-		err = json.Unmarshal([]byte(t.Value), c)
-		if err != nil {
-			return nil, err
-		}
-		return c, nil
-	case "HeartBeat":
-		h := new(Heartbeat)
-		err = json.Unmarshal([]byte(t.Value), h)
-		if err != nil {
-			return nil, err
-		}
-		return h, nil
+		u = new(NodeAlive)
+	case "Heartbeat":
+		u = new(Heartbeat)
+	case "Block":
+		u = new(Block)
 	default:
 		return nil, errors.New("Unknown transaction type")
 	}
+
+	err := json.Unmarshal([]byte(m.Payload), u)
+	return u, err
+
 }
