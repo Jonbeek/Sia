@@ -1,5 +1,8 @@
 all: libraries
 
+race-libs:
+	GOPATH=$(CURDIR) go install -race std
+
 libraries: src/*/*.go fmt
 	GOPATH=$(CURDIR) go install network swarm disk common main
 
