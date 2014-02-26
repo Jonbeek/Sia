@@ -18,7 +18,7 @@ func TestStateJoin(t *testing.T) {
 		common.SWARMSIZE = old
 	}(old)
 
-	mult := network.NewSimpleMultiplexer()
+	mult := network.NewNetworkMultiplexer()
 
 	hosts := make([]string, common.SWARMSIZE)
 
@@ -75,7 +75,6 @@ func TestStateJoin(t *testing.T) {
 	t.Log("PeersSeen", seen)
 	t.Log("Blocks", blocks)
 	t.Log("StateConnected", connected)
-	t.Log("HostsSent", len(mult.(*network.SimpleMultiplexer).Hosts))
 
 	t.Log(swarms[0].state)
 

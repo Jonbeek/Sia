@@ -20,7 +20,7 @@ import (
    Once the learning period has expired, rendezvous hashing is used to select
    the host which should compile the block. The selected host creates a block
    and announces it. The hosts who agree that the selected host is the block
-   compiler release a heartbeat transaction.
+   compiler release a heartbeat update.
 
    Once the selected host has compiled heartbeats from the majority of swarms,
    the block compiler makes another block which indicates that the swarm is
@@ -62,15 +62,14 @@ type StateSwarmInformed struct {
 	// Internal channels
 	blockgen      <-chan time.Time
 	sendBroadcast chan struct{}
-	transaction   chan common.Transaction
-	block         chan bwrap
+	update        chan uwrap
 	sync          chan struct{}
 	die           chan struct{}
 }
 
-type bwrap struct {
-	block *Block
-	ret   chan State
+type uwrap struct {
+	update common.Update
+	ret    chan State
 }
 
 func NewStateSwarmInformed(chain *Blockchain) (s *StateSwarmInformed) {
@@ -86,21 +85,13 @@ func NewStateSwarmInformed(chain *Blockchain) (s *StateSwarmInformed) {
 	s.learning = true
 	s.hostsseen = make(map[string]int)
 	s.sendBroadcast = make(chan struct{})
-	s.transaction = make(chan common.Transaction)
-	s.block = make(chan bwrap)
+	s.update = make(chan uwrap)
 	s.sync = make(chan struct{})
 	s.die = make(chan struct{})
 
 	go s.broadcastLife()
 	go s.mainloop()
 	return
-}
-
-func (s *StateSwarmInformed) HandleTransaction(t common.Transaction) {
-	log.Print("STATE: Transaction queed to be handled")
-	if s.alive {
-		s.transaction <- t
-	}
 }
 
 func (s *StateSwarmInformed) Sync() {
@@ -113,20 +104,19 @@ func (s *StateSwarmInformed) Die() {
 	close(s.die)
 }
 
-func (s *StateSwarmInformed) sendNetworkMessage(m common.NetworkMessage) {
-	s.chain.outgoingMessages <- m
+func (s *StateSwarmInformed) sendUpdate(u common.Update) {
+	s.chain.outgoingUpdates <- u
 }
 
-func (s *StateSwarmInformed) HandleBlock(b *Block) State {
+func (s *StateSwarmInformed) HandleUpdate(u common.Update) State {
 	log.Print("STATE: Block queed to be handled")
-	if s.alive {
-		c := make(chan State)
-		s.block <- bwrap{b, c}
-		r := <-c
-		return r
-	} else {
-		panic("Block handled incorrectly...")
+	if !s.alive {
+		return s
 	}
+	c := make(chan State)
+	s.update <- uwrap{u, c}
+	r := <-c
+	return r
 }
 
 func (s *StateSwarmInformed) blockCompiler() (compiler string) {
@@ -155,27 +145,21 @@ func (s *StateSwarmInformed) mainloop() {
 		case _ = <-s.die:
 			s.alive = false
 			close(s.sendBroadcast)
-			close(s.transaction)
-			close(s.block)
+			close(s.update)
 			close(s.sync)
 			s.die <- struct{}{}
 			return
 		case _ = <-s.sendBroadcast:
-			log.Print("STATE: NodeAlive Transaction to be Queed")
+			log.Print("STATE: NodeAlive Update to be Queed")
 			s.broadcastcount += 1
-			go s.sendNetworkMessage(common.TransactionNetworkMessage(
-				NewNodeAlive(s.chain.Host, s.chain.Id)))
+			go s.sendUpdate(NewNodeAlive(s.chain.Host, s.chain.Id))
 
 		case s.sync <- struct{}{}:
 
-		case t := <-s.transaction:
-			log.Print("STATE: Transaction Recieved")
-			s.handleTransaction(t)
-
-		case o := <-s.block:
-			log.Print("STATE: Block Recieved")
-			n := s.handleBlock(o.block)
-			o.ret <- n
+		case t := <-s.update:
+			log.Print("STATE: Update Recieved")
+			b := s.handleUpdate(t.update)
+			t.ret <- b
 
 		case _ = <-s.blockgen:
 			log.Print("STATE: Blockgen Recieved")
@@ -218,7 +202,7 @@ func (s *StateSwarmInformed) mainloop() {
 
 				s.heartbeats = s.heartbeats[0:0]
 				time.Sleep(100 * time.Millisecond)
-				go s.sendNetworkMessage(common.BlockNetworkMessage(b))
+				go s.sendUpdate(b)
 			}
 
 			if len(s.chain.BlockHistory) == 1 && len(s.heartbeats) > 2 {
@@ -239,7 +223,7 @@ func (s *StateSwarmInformed) mainloop() {
 
 				// Arbitrary hard coded constant to make the testcases pass
 				time.Sleep(500 * time.Millisecond)
-				go s.sendNetworkMessage(common.BlockNetworkMessage(b))
+				go s.sendUpdate(b)
 			}
 		}
 		log.Print("STATE: Signal Handling Finished")
@@ -250,11 +234,11 @@ func (s *StateSwarmInformed) broadcastLife() {
 	s.sendBroadcast <- struct{}{}
 }
 
-func (s *StateSwarmInformed) handleTransaction(t common.Transaction) {
+func (s *StateSwarmInformed) handleUpdate(t common.Update) State {
 	switch n := t.(type) {
 	case *NodeAlive:
 		if !s.learning {
-			return
+			return s
 		}
 
 		s.hostsseen[n.Node] = 0
@@ -269,21 +253,24 @@ func (s *StateSwarmInformed) handleTransaction(t common.Transaction) {
 
 		//If we're learning this is too early
 		if s.learning {
-			return
+			return s
 		}
 
 		// If we're not trying to compile we don't care
 		if s.blockCompiler() != s.chain.Host {
-			return
+			return s
 		}
 
 		if len(s.chain.BlockHistory) != 0 && n.ParentBlock == s.chain.BlockHistory[0].Id {
 			s.heartbeats = append(s.heartbeats, n)
 		}
 
+	case *Block:
+		return s.handleBlock(n)
+
 	default:
-		return
 	}
+	return s
 }
 
 func (s *StateSwarmInformed) handleBlock(b *Block) State {
@@ -310,7 +297,7 @@ func (s *StateSwarmInformed) handleBlock(b *Block) State {
 
 		if _, ok := b.StorageMapping[s.chain.Host]; ok {
 			h := NewHeartbeat(s.chain.BlockHistory[0], s.chain.Host, stage1, "")
-			go s.sendNetworkMessage(common.TransactionNetworkMessage(h))
+			go s.sendUpdate(h)
 		}
 		return s
 	}

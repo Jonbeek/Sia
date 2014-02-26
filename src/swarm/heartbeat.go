@@ -32,8 +32,12 @@ func (h *Heartbeat) SwarmId() string {
 	return h.Blockchain
 }
 
-func (h *Heartbeat) TransactionId() string {
+func (h *Heartbeat) UpdateId() string {
 	return h.Id
+}
+
+func (h *Heartbeat) Type() string {
+	return "Heartbeat"
 }
 
 func (h *Heartbeat) MarshalString() string {
@@ -42,7 +46,7 @@ func (h *Heartbeat) MarshalString() string {
 		panic("Unable to marshal HeartBeatTransaction, this should not happen" + err.Error())
 	}
 
-	return MarshalTransaction("HeartBeat", string(w))
+	return string(w)
 }
 
 func (h *Heartbeat) GetStage2() string {
