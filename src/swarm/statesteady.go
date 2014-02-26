@@ -23,7 +23,7 @@ type StateSteady struct {
 	block        *Block
 	secretstring string
 	// Heartbeats is all received heartbeats from other hosts.
-	Heartbeats   [256]*Heartbeat
+	Heartbeats   []*Heartbeat
 	curHeartbeat *Heartbeat
 
 	blocklock sync.Mutex
@@ -111,7 +111,7 @@ func (s *StateSteady) compileBlock() {
 	for host, _ := range s.Hosts {
 		hosts = append(hosts, host)
 	}
-	compiler := common.RendezvousHash(sha256.New(), hosts, s.chain.Host)
+	compiler := common.RendezvousHash(sha256.New(), hosts, s.block.UpdateId())
 	// If we are the block compiler, make a block and send and handle it
 	// Otherwise, do nothing and wait for the block compiler to send a block
 	if compiler == s.chain.Host {
@@ -123,18 +123,14 @@ func (s *StateSteady) compileBlock() {
 			b.Heartbeats[h.Host] = h
 		}
 		go s.sendUpdate(b)
-		go s.handleBlock(b)
 	}
 }
 
 func (s *StateSteady) makeHeartbeat(prevState *Block) {
-	Stage2 := s.secretstring
-	s.secretstring, _ = common.RandomString(8)
-	// Should be hash of new secretstring
-	Stage1 := s.secretstring
-
+	var Stage1, Stage2 string
+	Stage2 = s.secretstring
+	Stage1, s.secretstring = common.HashedRandomData(sha256.New(), 8)
 	s.curHeartbeat = NewHeartbeat(prevState, Stage1, Stage2)
-	s.Heartbeats = append(s.Heartbeats, s.curHeartbeat)
 	s.sendUpdate(s.curHeartbeat)
 }
 
