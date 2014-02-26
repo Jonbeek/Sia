@@ -14,6 +14,7 @@ type StateSteady struct {
 	// previous heartbeat timeout doesn't affect current heartbeat
 	blocksend chan string
 	update    chan common.Update
+	die       chan struct{}
 
 	// Hosts is a record of all hosts in the swarm
 	Hosts map[string]bool
@@ -58,6 +59,8 @@ func (s *StateSteady) mainloop() {
 				s.compileBlock()
 			}
 			s.blocklock.Unlock()
+		case <-s.die:
+			return
 		}
 	}
 }
