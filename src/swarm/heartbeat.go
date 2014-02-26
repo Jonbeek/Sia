@@ -18,7 +18,7 @@ type Heartbeat struct {
 	FileProofStage2 string
 }
 
-func NewHeartbeat(prevState *Block, Host, Stage1, Stage2 string) (h *Heartbeat) {
+func NewHeartbeat(prevState *Block, Stage1, Stage2 string) (h *Heartbeat) {
 	h = new(Heartbeat)
 	h.Blockchain = prevState.SwarmId()
 	h.Host = Host
@@ -50,7 +50,7 @@ func (h *Heartbeat) MarshalString() string {
 	return string(w)
 }
 
-func (h *Heartbeat) GetStage2() string {
+func (h *Heartbeat) Stage2() string {
 	return h.EntropyStage2
 }
 

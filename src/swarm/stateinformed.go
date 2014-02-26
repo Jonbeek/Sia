@@ -284,7 +284,7 @@ func (s *StateSwarmInformed) handleBlock(b *Block) State {
 		s.stage2 = stage2
 
 		if _, ok := b.StorageMapping[s.chain.Host]; ok {
-			h := NewHeartbeat(s.chain.BlockHistory[0], s.chain.Host, stage1, "")
+			h := NewHeartbeat(s.chain.BlockHistory[0], stage1, "")
 			go s.sendUpdate(h)
 		}
 		return s
