@@ -4,6 +4,7 @@ import (
 	"common"
 	"crypto/sha256"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -53,18 +54,15 @@ type StateSwarmInformed struct {
 	// hosts and then the commit stage where it listens for a block that
 	// is correct according to its knowledge and then votes for it.
 	learning bool
-	alive    bool
 
 	heartbeats []*Heartbeat
 
 	chain *Blockchain
 
-	// Internal channels
-	blockgen      <-chan time.Time
-	sendBroadcast chan struct{}
-	update        chan uwrap
-	sync          chan struct{}
-	die           chan struct{}
+	lock *sync.Mutex
+
+	blockgen <-chan time.Time
+	die      chan struct{}
 }
 
 type uwrap struct {
@@ -80,13 +78,10 @@ func NewStateSwarmInformed(chain *Blockchain) (s *StateSwarmInformed) {
 	// Should be dynamically set
 	s.blockgen = time.Tick(1 * time.Second)
 
-	s.alive = true
+	s.lock = &sync.Mutex{}
 
 	s.learning = true
 	s.hostsseen = make(map[string]int)
-	s.sendBroadcast = make(chan struct{})
-	s.update = make(chan uwrap)
-	s.sync = make(chan struct{})
 	s.die = make(chan struct{})
 
 	go s.broadcastLife()
@@ -95,7 +90,8 @@ func NewStateSwarmInformed(chain *Blockchain) (s *StateSwarmInformed) {
 }
 
 func (s *StateSwarmInformed) Sync() {
-	<-s.sync
+	s.lock.Lock()
+	defer s.lock.Unlock()
 }
 
 func (s *StateSwarmInformed) Die() {
@@ -106,17 +102,6 @@ func (s *StateSwarmInformed) Die() {
 
 func (s *StateSwarmInformed) sendUpdate(u common.Update) {
 	s.chain.outgoingUpdates <- u
-}
-
-func (s *StateSwarmInformed) HandleUpdate(u common.Update) State {
-	log.Print("STATE: Block queed to be handled")
-	if !s.alive {
-		return s
-	}
-	c := make(chan State)
-	s.update <- uwrap{u, c}
-	r := <-c
-	return r
 }
 
 func (s *StateSwarmInformed) blockCompiler() (compiler string) {
@@ -143,25 +128,10 @@ func (s *StateSwarmInformed) mainloop() {
 	for {
 		select {
 		case _ = <-s.die:
-			s.alive = false
-			close(s.sendBroadcast)
-			close(s.update)
-			close(s.sync)
-			s.die <- struct{}{}
 			return
-		case _ = <-s.sendBroadcast:
-			log.Print("STATE: NodeAlive Update to be Queed")
-			s.broadcastcount += 1
-			go s.sendUpdate(NewNodeAlive(s.chain.Host, s.chain.Id))
-
-		case s.sync <- struct{}{}:
-
-		case t := <-s.update:
-			log.Print("STATE: Update Recieved")
-			b := s.handleUpdate(t.update)
-			t.ret <- b
 
 		case _ = <-s.blockgen:
+			s.lock.Lock()
 			log.Print("STATE: Blockgen Recieved")
 
 			if s.learning {
@@ -225,16 +195,24 @@ func (s *StateSwarmInformed) mainloop() {
 				time.Sleep(500 * time.Millisecond)
 				go s.sendUpdate(b)
 			}
+			s.lock.Unlock()
 		}
 		log.Print("STATE: Signal Handling Finished")
 	}
 }
 
 func (s *StateSwarmInformed) broadcastLife() {
-	s.sendBroadcast <- struct{}{}
+	log.Print("STATE: NodeAlive Update to be Queed")
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.broadcastcount += 1
+	go s.sendUpdate(NewNodeAlive(s.chain.Host, s.chain.Id))
+
 }
 
-func (s *StateSwarmInformed) handleUpdate(t common.Update) State {
+func (s *StateSwarmInformed) HandleUpdate(t common.Update) State {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	switch n := t.(type) {
 	case *NodeAlive:
 		if !s.learning {
