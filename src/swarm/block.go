@@ -14,6 +14,9 @@ type Block struct {
 
 	//Mapping of hosts -> what they store
 	StorageMapping map[string]interface{}
+
+	//mapping of the wallets
+	WalletMapping map[string]uint64
 }
 
 func (b *Block) SwarmId() string {
