@@ -7,7 +7,7 @@ import (
 
 func TestAddingWallets(t *testing.T) {
 
-	b := new(Block)
+	b := new(Blockchain)
 	b.WalletMapping = make(map[string]uint64)
 
 	//testing adding wallets to the wallet mapping
@@ -56,7 +56,7 @@ func TestAddingWallets(t *testing.T) {
 
 	b.MoveBal("5", "1", 10)
 	err = b.AddWallet("5", 10)
-	if err != nil {
+	if err == nil {
 		t.Fatal("Removing 0 balance - Failed")
 	}
 }

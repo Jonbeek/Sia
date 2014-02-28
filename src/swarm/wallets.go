@@ -4,7 +4,7 @@ import (
 	"errors"
 )
 
-func (b Block) AddWallet(id string, bal uint64) (err error) {
+func (b *Blockchain) AddWallet(id string, bal uint64) (err error) {
 
 	if bal == 0 {
 		return errors.New("Cannot add balance of 0!")
@@ -19,14 +19,14 @@ func (b Block) AddWallet(id string, bal uint64) (err error) {
 	return nil
 }
 
-func (b Block) MoveBal(src string, des string, amt uint64) (err error) {
+func (b *Blockchain) MoveBal(src string, dest string, amt uint64) (err error) {
 
 	//check to make sure the wallets exist
-	elem, ok := WalletMapping[dest]
+	elem, ok := b.WalletMapping[dest]
 	if ok {
 		return errors.New("Destination wallet does not exist!")
 	}
-	elem, ok = WalletMapping[src]
+	elem, ok = b.WalletMapping[src]
 	if ok {
 		return errors.New("Source wallet does not exist!")
 	}
