@@ -3,6 +3,7 @@ package swarm
 import (
 	"common"
 	"crypto/sha256"
+	"log"
 	"sync"
 	"time"
 )
@@ -27,10 +28,11 @@ type StateSteady struct {
 	Heartbeats   []*Heartbeat
 	curHeartbeat *Heartbeat
 
-	blocklock sync.Mutex
+	lock sync.Mutex
 }
 
 func NewStateSteady(chain *Blockchain, block *Block, hostsseen map[string]int) (s *StateSteady) {
+	log.Println("STATE: Creating new StateSteady")
 	s = new(StateSteady)
 	s.chain = chain
 	s.block = block
@@ -53,13 +55,17 @@ func (s *StateSteady) mainloop() {
 		case u := <-s.update:
 			s.handleUpdate(u)
 		case b := <-s.blocksend:
-			s.blocklock.Lock()
+			// Host did not receive all heartbeats in time
+			// Use current set of heartbeats to create new Block
+			s.lock.Lock()
 			if b == s.block.UpdateId() {
+				log.Print("STATE: Timed out waiting for heartbeats on block ID ", b)
 				// Should take into account delinquent block compilers
 				s.compileBlock()
 			}
-			s.blocklock.Unlock()
+			s.lock.Unlock()
 		case <-s.die:
+			// Kill Channel
 			return
 		}
 	}
@@ -76,16 +82,21 @@ func (s *StateSteady) handleUpdate(u common.Update) {
 		s.handleHeartbeat(n)
 	case *Block:
 		s.handleBlock(n)
+	case *NodeAlive:
+		log.Println("STATE: Steady received NodeAlive: Blockchain ", n.SwarmId(), ", Id ", n.UpdateId())
 	default:
-		// Do nothing, for now.
+		// Only recording type and Blockchain source.
+		log.Println("STATE: Steady received unknown Update: Type ", n.Type(), ", Blockchain ", n.SwarmId())
 	}
 }
 
 func (s *StateSteady) handleBlock(b *Block) {
-	s.blocklock.Lock()
-	defer s.blocklock.Unlock()
-	go s.makeHeartbeat(s.block)
+	// Verify block, update block used, send new heartbeats
+	log.Println("STATE: Steady handling new Block")
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	// VerifyBlock(b)
+	go s.makeHeartbeat(s.block)
 	s.block = b
 	s.chain.AddBlock(b)
 	go func(Id string) {
@@ -100,7 +111,7 @@ func (s *StateSteady) handleHeartbeat(h *Heartbeat) {
 	// Increment count of heartbeats
 	// If count equal to number of connected hosts
 	// Initiate block compilation
-	// New round of heartbeats.
+	log.Println("STATE: Steady handling Heartbeat: Blockchain ", h.SwarmId(), ", Id ", h.UpdateId())
 	s.Heartbeats = append(s.Heartbeats, h)
 
 	if len(s.Heartbeats) == len(s.Hosts) {
@@ -115,9 +126,11 @@ func (s *StateSteady) compileBlock() {
 		hosts = append(hosts, host)
 	}
 	compiler := common.RendezvousHash(sha256.New(), hosts, s.block.UpdateId())
+	log.Println("STATE: Steady block compiler is ", compiler)
 	// If we are the block compiler, make a block and send and handle it
 	// Otherwise, do nothing and wait for the block compiler to send a block
 	if compiler == s.chain.Host {
+		log.Println("STATE: ", compiler, " creating new block")
 		id, _ := common.RandomString(8)
 		b := &Block{id, s.chain.Id, s.chain.Host, nil, nil}
 		b.StorageMapping = s.chain.BlockHistory[0].StorageMapping
@@ -130,6 +143,8 @@ func (s *StateSteady) compileBlock() {
 }
 
 func (s *StateSteady) makeHeartbeat(prevState *Block) {
+	// Create new heartbeat using previous, then send to Blockchain
+	log.Println("STATE: Making new round of heartbeats")
 	var Stage1, Stage2 string
 	Stage2 = s.secretstring
 	Stage1, s.secretstring = common.HashedRandomData(sha256.New(), 8)
@@ -138,5 +153,6 @@ func (s *StateSteady) makeHeartbeat(prevState *Block) {
 }
 
 func (s *StateSteady) sendUpdate(u common.Update) {
+	// Blockchain handles this, pass update to the blockchain
 	s.chain.outgoingUpdates <- u
 }
