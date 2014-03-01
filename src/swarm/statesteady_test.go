@@ -11,16 +11,19 @@ func TestStateSteady(t *testing.T) {
 	hosts := []string{"A", "B", "C", "D"}
 	swarm := "test"
 	var swarms []*Blockchain
-	var hostsseen map[string]int
+	hostsseen := make(map[string]int)
 	baseblock := &Block{"", swarm, "", nil, nil}
-	for i, v := range hosts {
-		swarms[i] = NewBlockchain(v, swarm, nil)
-		hostsseen[v] = 1
+	for i := 0; i < len(hosts); i++ {
+		swarms = append(swarms, NewBlockchain(hosts[i], swarm, nil))
+		if state, ok := swarms[i].state.(*StateSwarmInformed); ok {
+			// Prevent race hazards
+			state.Die()
+		}
+		hostsseen[hosts[i]] = 1
 		swarms[i].AddSource(mult)
 	}
-	for i, v := range swarms {
-		baseblock.Blockchain = hosts[i]
-		v.state = NewStateSteady(v, baseblock, hostsseen)
+	for i := 0; i < len(swarms); i++ {
+		swarms[i].state = NewStateSteady(swarms[i], baseblock, hostsseen)
 	}
 	time.Sleep(5 * time.Second)
 	// Die swarm, you don't belong in this world
