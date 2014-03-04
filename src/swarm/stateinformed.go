@@ -3,7 +3,9 @@ package swarm
 import (
 	"common"
 	"crypto/sha256"
+	"errors"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -59,12 +61,10 @@ type StateSwarmInformed struct {
 
 	chain *Blockchain
 
-	// Internal channels
-	blockgen      <-chan time.Time
-	sendBroadcast chan struct{}
-	update        chan uwrap
-	sync          chan struct{}
-	die           chan struct{}
+	lock *sync.Mutex
+
+	blockgen <-chan time.Time
+	die      chan struct{}
 }
 
 type uwrap struct {
@@ -78,15 +78,13 @@ func NewStateSwarmInformed(chain *Blockchain) (s *StateSwarmInformed) {
 
 	// When transitions / timeouts happen
 	// Should be dynamically set
-	s.blockgen = time.Tick(1 * time.Second)
+	s.blockgen = time.Tick(common.STATEINFORMEDDELTA)
 
-	s.alive = true
+	s.lock = &sync.Mutex{}
 
 	s.learning = true
+	s.alive = true
 	s.hostsseen = make(map[string]int)
-	s.sendBroadcast = make(chan struct{})
-	s.update = make(chan uwrap)
-	s.sync = make(chan struct{})
 	s.die = make(chan struct{})
 
 	go s.broadcastLife()
@@ -94,32 +92,19 @@ func NewStateSwarmInformed(chain *Blockchain) (s *StateSwarmInformed) {
 	return
 }
 
-func (s *StateSwarmInformed) Sync() {
-	<-s.sync
-}
-
-func (s *StateSwarmInformed) Die() {
-	s.die <- struct{}{}
-	<-s.die
-	close(s.die)
+func (s *StateSwarmInformed) Die(lock bool) {
+	if lock {
+		s.lock.Lock()
+		defer s.lock.Unlock()
+	}
+	s.alive = false
 }
 
 func (s *StateSwarmInformed) sendUpdate(u common.Update) {
 	s.chain.outgoingUpdates <- u
 }
 
-func (s *StateSwarmInformed) HandleUpdate(u common.Update) State {
-	log.Print("STATE: Block queed to be handled")
-	if !s.alive {
-		return s
-	}
-	c := make(chan State)
-	s.update <- uwrap{u, c}
-	r := <-c
-	return r
-}
-
-func (s *StateSwarmInformed) blockCompiler() (compiler string) {
+func (s *StateSwarmInformed) blockCompiler() (string, error) {
 
 	hosts := make([]string, 0, len(s.hostsseen))
 
@@ -131,110 +116,111 @@ func (s *StateSwarmInformed) blockCompiler() (compiler string) {
 		hosts = append(hosts, host)
 	}
 
+	if len(hosts) == 0 {
+		return "", errors.New("No valid hosts")
+	}
+
 	//Check if we should be the block generator
-	compiler = common.RendezvousHash(sha256.New(), hosts, s.chain.Host)
-	return
+	return common.RendezvousHash(sha256.New(), hosts, s.chain.Host), nil
 }
 
 func (s *StateSwarmInformed) mainloop() {
 
 	var compiler string
+	var err error
 
 	for {
-		select {
-		case _ = <-s.die:
-			s.alive = false
-			close(s.sendBroadcast)
-			close(s.update)
-			close(s.sync)
-			s.die <- struct{}{}
+		_ = <-s.blockgen
+		s.lock.Lock()
+		log.Print("STATE: Blockgen Recieved")
+
+		if !s.alive {
+			defer s.lock.Unlock()
 			return
-		case _ = <-s.sendBroadcast:
-			log.Print("STATE: NodeAlive Update to be Queed")
-			s.broadcastcount += 1
-			go s.sendUpdate(NewNodeAlive(s.chain.Host, s.chain.Id))
+		}
 
-		case s.sync <- struct{}{}:
-
-		case t := <-s.update:
-			log.Print("STATE: Update Recieved")
-			b := s.handleUpdate(t.update)
-			t.ret <- b
-
-		case _ = <-s.blockgen:
-			log.Print("STATE: Blockgen Recieved")
-
-			if s.learning {
-				s.learning = false
-				log.Print("STATE: Disable Learning")
-			} else if len(s.chain.BlockHistory) == 0 {
-				if compiler != "" {
-					s.hostsseen[compiler] += 1
-					log.Print("STATE: Block Compiler not found")
-				}
-			}
-
-			//Dont't try to generate a block if we don't have a majority of hosts
-			if len(s.hostsseen) <= common.SWARMSIZE/2 {
-				continue
-				//Should actually switch to state swarmdied after a while
-			}
-
-			compiler = s.blockCompiler()
-
-			log.Print("STATE: Block Compiler ", compiler, " Me ", s.chain.Host,
-				" chain len ", len(s.chain.BlockHistory),
-				" good ", compiler == s.chain.Host)
-
-			if len(s.chain.BlockHistory) == 0 && compiler == s.chain.Host {
-
-				log.Print("STATE: Generating Block type 1")
-
-				id, err := common.RandomString(8)
-				if err != nil {
-					panic("checkBlockGenRandom" + err.Error())
-				}
-				b := &Block{id, s.chain.Id, s.chain.Host, nil, nil}
-				b.StorageMapping = make(map[string]interface{})
-				for host, _ := range s.hostsseen {
-					b.StorageMapping[host] = nil
-				}
-
-				s.heartbeats = s.heartbeats[0:0]
-				time.Sleep(100 * time.Millisecond)
-				go s.sendUpdate(b)
-			}
-
-			if len(s.chain.BlockHistory) == 1 && len(s.heartbeats) > 2 {
-
-				log.Print("STATE: Generating Block type 2")
-
-				id, err := common.RandomString(8)
-				if err != nil {
-					panic(err)
-				}
-
-				b := &Block{id, s.chain.Id, s.chain.Host, nil, nil}
-				b.StorageMapping = s.chain.BlockHistory[0].StorageMapping
-				b.Heartbeats = make(map[string]*Heartbeat)
-				for _, h := range s.heartbeats {
-					b.Heartbeats[h.Host] = h
-				}
-
-				// Arbitrary hard coded constant to make the testcases pass
-				time.Sleep(500 * time.Millisecond)
-				go s.sendUpdate(b)
+		if s.learning {
+			s.learning = false
+			log.Print("STATE: Disable Learning")
+		} else if len(s.chain.BlockHistory) == 0 {
+			if compiler != "" {
+				s.hostsseen[compiler] += 1
+				log.Print("STATE: Block Compiler not found")
 			}
 		}
+
+		//Dont't try to generate a block if we don't have a majority of hosts
+		if len(s.hostsseen) <= common.SWARMSIZE/2 {
+			s.lock.Unlock()
+			continue
+			//Should actually switch to state swarmdied after a while
+		}
+
+		compiler, err = s.blockCompiler()
+		if err != nil {
+			log.Print("State: ", err)
+		}
+
+		log.Print("STATE: Block Compiler ", compiler, " Me ", s.chain.Host,
+			" chain len ", len(s.chain.BlockHistory),
+			" good ", compiler == s.chain.Host)
+
+		if len(s.chain.BlockHistory) == 0 && compiler == s.chain.Host {
+
+			log.Print("STATE: Generating Block type 1")
+
+			id, err := common.RandomString(8)
+			if err != nil {
+				panic("checkBlockGenRandom" + err.Error())
+			}
+			b := &Block{id, s.chain.Id, s.chain.Host, nil, nil}
+			b.StorageMapping = make(map[string]interface{})
+			for host, _ := range s.hostsseen {
+				b.StorageMapping[host] = nil
+			}
+
+			s.heartbeats = s.heartbeats[0:0]
+			time.Sleep(100 * time.Millisecond)
+			go s.sendUpdate(b)
+		}
+
+		if len(s.chain.BlockHistory) == 1 && len(s.heartbeats) > 2 {
+
+			log.Print("STATE: Generating Block type 2")
+
+			id, err := common.RandomString(8)
+			if err != nil {
+				panic(err)
+			}
+
+			b := &Block{id, s.chain.Id, s.chain.Host, nil, nil}
+			b.StorageMapping = s.chain.BlockHistory[0].StorageMapping
+			b.Heartbeats = make(map[string]*Heartbeat)
+			for _, h := range s.heartbeats {
+				b.Heartbeats[h.Host] = h
+			}
+
+			// Arbitrary hard coded constant to make the testcases pass
+			time.Sleep(500 * time.Millisecond)
+			go s.sendUpdate(b)
+		}
+		s.lock.Unlock()
 		log.Print("STATE: Signal Handling Finished")
 	}
 }
 
 func (s *StateSwarmInformed) broadcastLife() {
-	s.sendBroadcast <- struct{}{}
+	log.Print("STATE: NodeAlive Update to be Queed")
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.broadcastcount += 1
+	go s.sendUpdate(NewNodeAlive(s.chain.Host, s.chain.Id))
+
 }
 
-func (s *StateSwarmInformed) handleUpdate(t common.Update) State {
+func (s *StateSwarmInformed) HandleUpdate(t common.Update) State {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	switch n := t.(type) {
 	case *NodeAlive:
 		if !s.learning {
@@ -257,7 +243,8 @@ func (s *StateSwarmInformed) handleUpdate(t common.Update) State {
 		}
 
 		// If we're not trying to compile we don't care
-		if s.blockCompiler() != s.chain.Host {
+		c, _ := s.blockCompiler()
+		if c != s.chain.Host {
 			return s
 		}
 
@@ -282,7 +269,8 @@ func (s *StateSwarmInformed) handleBlock(b *Block) State {
 	}
 
 	// All blocks in this state should be generated by the ideal host
-	if b.Compiler != s.blockCompiler() {
+	c, _ := s.blockCompiler()
+	if b.Compiler != c {
 		log.Print("STATE: Block rejected b/c wrong compiler")
 		return s
 	}
@@ -312,7 +300,7 @@ func (s *StateSwarmInformed) handleBlock(b *Block) State {
 		if _, ok := b.StorageMapping[s.chain.Host]; ok {
 			//If we're in the block switch to signal mode
 			log.Print("STATE: Switching to connected")
-			go s.Die()
+			s.Die(false)
 			return NewStateSteady()
 		} else {
 			//Join the swarm

@@ -22,6 +22,9 @@ type Blockchain struct {
 	DRNGSeed         []byte
 	StorageMapping   map[string]interface{}
 	SeenTransactions map[string]bool
+
+	//mapping of the wallets
+	WalletMapping map[string]uint64
 }
 
 func (b *Blockchain) AddSource(plexer common.NetworkMultiplexer) {

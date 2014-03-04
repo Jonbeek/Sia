@@ -59,8 +59,7 @@ func TestStateJoin(t *testing.T) {
 	for _, s := range swarms {
 		switch t := s.state.(type) {
 		case *StateSwarmInformed:
-			t.Sync()
-			t.Die()
+			t.Die(true)
 			informed += 1
 			broadcast += t.broadcastcount
 			seen += len(t.hostsseen)
