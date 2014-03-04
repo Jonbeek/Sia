@@ -7,9 +7,9 @@ import (
 
 func Test_SwarmStoring(t *testing.T) {
 	i, err := CreateSwarmSystem("f")
-    if err!=nil{
-        t.Error(err.Error())
-    }
+	if err != nil {
+		t.Error(err.Error())
+	}
 	i.CreateFile("0", 1000)
 	i.CreateFile("1", 10)
 	i.SaveSwarm()

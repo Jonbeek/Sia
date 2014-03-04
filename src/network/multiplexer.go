@@ -3,6 +3,7 @@ package network
 import (
 	"common"
 	"log"
+	"net"
 )
 
 type NetworkMultiplexer struct {
@@ -49,8 +50,31 @@ func (m *NetworkMultiplexer) SendNetworkMessage(o common.NetworkMessage) {
 
 func (m *NetworkMultiplexer) Listen(addr string) {
 
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Println("MULTI: ERROR CANNOT FIND ADDRESS:", addr)
+	}
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			log.Println("MULTI: ERROR CONNECTION REFUSED WITH ADDRESS:", addr)
+			continue
+		}
+		defer conn.Close()
+	}
+	defer ln.Close()
+
+}
+
+func (m *NetworkMultiplexer) accept(c common.NetworkMessageHandler) {
+	panic("Not Implementes")
 }
 
 func (m *NetworkMultiplexer) Connect(addr string) {
-
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		log.Println("MULTI: ERROR CANNOT CONECT TO ADDRESS:", addr)
+	}
+	log.Println("MULTI: CONNECTED TO ADDRESS:", addr)
+	defer conn.Close()
 }
