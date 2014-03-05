@@ -76,7 +76,7 @@ func TestStateJoin(t *testing.T) {
 	blocks := 0
 
 	for _, s := range swarms {
-		switch t := s.state.(type) {
+		switch t := s.GetState().(type) {
 		case *StateSwarmInformed:
 			t.Die(true)
 			informed += 1
