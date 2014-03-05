@@ -30,7 +30,7 @@ type StateSteady struct {
 	lock sync.Mutex
 }
 
-func NewStateSteady(chain *Blockchain, block *Block, hostsseen map[string]int) (s *StateSteady) {
+func NewStateSteady(chain *Blockchain, block *Block, hostsseen map[string]int, secretstring string) (s *StateSteady) {
 	log.Println("STATE: Creating new StateSteady")
 	s = new(StateSteady)
 	s.chain = chain
@@ -38,6 +38,7 @@ func NewStateSteady(chain *Blockchain, block *Block, hostsseen map[string]int) (
 	s.blocksend = make(chan string)
 	s.update = make(chan common.Update, 1)
 	s.Hosts = make(map[string]bool)
+	s.secretstring = secretstring
 
 	for k, _ := range hostsseen {
 		s.Hosts[k] = true

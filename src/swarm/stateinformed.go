@@ -301,7 +301,7 @@ func (s *StateSwarmInformed) handleBlock(b *Block) State {
 			//If we're in the block switch to signal mode
 			log.Print("STATE: Switching to connected")
 			s.Die(false)
-			return NewStateSteady()
+			return NewStateSteady(s.chain, b, s.hostsseen, s.stage2)
 		} else {
 			//Join the swarm
 			log.Print("STATE: Switching to Join")
