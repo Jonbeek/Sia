@@ -10,7 +10,7 @@ test: libraries
 	GOPATH=$(CURDIR) go test network swarm disk common main -race -timeout 5s
 
 bench: libraries
-	GOPATH=$(CURDIR) go test network swarm disk common main -bench . -test.run nothing
+	GOPATH=$(CURDIR) go test network swarm disk common main -bench .
 
 test-verbose: libraries
 	GOPATH=$(CURDIR) go test -test.v network swarm disk common main
