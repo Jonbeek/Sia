@@ -9,7 +9,6 @@ func TestBlockMarshaling(t *testing.T) {
 	b := new(Block)
 	b.Id = "2"
 	b.Heartbeats = make(map[string]*Heartbeat)
-	b.StorageMapping = make(map[string]interface{})
 
 	s := common.MarshalUpdate(b)
 

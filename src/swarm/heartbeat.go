@@ -8,9 +8,8 @@ import (
 type Heartbeat struct {
 	Id string
 
-	Blockchain  string
-	Host        string
-	ParentBlock string
+	Blockchain string
+	Host       string
 
 	EntropyStage1   string
 	EntropyStage2   string
@@ -18,13 +17,12 @@ type Heartbeat struct {
 	FileProofStage2 string
 }
 
-func NewHeartbeat(prevState *Block, Host, Stage1, Stage2 string) (h *Heartbeat) {
+func NewHeartbeat(swarm, Host, Stage1, Stage2 string) (h *Heartbeat) {
 	h = new(Heartbeat)
-	h.Blockchain = prevState.SwarmId()
+	h.Blockchain = swarm
 	h.EntropyStage1 = Stage1
 	h.EntropyStage2 = Stage2
 	h.Id, _ = common.RandomString(8)
-	h.ParentBlock = prevState.Id
 	return
 }
 
