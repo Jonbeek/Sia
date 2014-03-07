@@ -3,6 +3,7 @@ package swarm
 import (
 	"common"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -25,6 +26,8 @@ type Blockchain struct {
 
 	//mapping of the wallets
 	WalletMapping map[string]uint64
+
+	lock *sync.Mutex
 }
 
 func (b *Blockchain) AddSource(plexer common.NetworkMultiplexer) {
@@ -34,28 +37,30 @@ func (b *Blockchain) AddSource(plexer common.NetworkMultiplexer) {
 }
 
 func (b *Blockchain) mainloop(plexer common.NetworkMultiplexer) {
-	for {
-		select {
-		case i := <-b.outgoingUpdates:
-			log.Print("SWARM: sending outgoing transaction")
-			plexer.SendNetworkMessage(common.MarshalUpdate(i))
-		case m := <-b.incomingMessages:
-			log.Print("SWARM: network message recieved")
-
-			if b.SeenTransactions[m.UpdateId] {
-				log.Print("Swarm: Update Already Seen")
-				continue
-			}
-
-			u, err := UnmarshalUpdate(m)
-			if err != nil {
-				panic(err)
-			}
-
-			b.state = b.state.HandleUpdate(u)
-			log.Print("SWARM: Update handling finished")
-		}
+	for i := range b.outgoingUpdates {
+		log.Print("SWARM: sending outgoing transaction")
+		plexer.SendNetworkMessage(common.MarshalUpdate(i))
 	}
+}
+
+func (b *Blockchain) HandleNetworkMessage(m common.NetworkMessage) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	log.Print("SWARM: network message recieved")
+
+	if b.SeenTransactions[m.UpdateId] {
+		log.Print("Swarm: Update Already Seen")
+		return
+	}
+
+	u, err := UnmarshalUpdate(m)
+	if err != nil {
+		panic(err)
+	}
+
+	b.state = b.state.HandleUpdate(u)
+	log.Print("SWARM: Update handling finished")
 }
 
 func (b *Blockchain) AddBlock(block *Block) {
@@ -65,6 +70,8 @@ func (b *Blockchain) AddBlock(block *Block) {
 	b.BlockHistory = append(b.BlockHistory, block)
 }
 
-func (b *Blockchain) HandleNetworkMessage(m common.NetworkMessage) {
-	b.incomingMessages <- m
+func (b *Blockchain) GetState() State {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	return b.state
 }
