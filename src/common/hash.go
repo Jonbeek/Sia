@@ -31,6 +31,7 @@ func RendezvousHash(h hash.Hash, items []string, key string) (r string) {
 		//Hash
 		h.Reset()
 		h.Write([]byte(i))
+  		h.Write([]byte(key))
 
 		//Convert to Number and Compare
 		t.SetBytes(h.Sum(nil))
