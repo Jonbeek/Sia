@@ -2,6 +2,7 @@ package swarm
 
 import (
 	"common"
+	"sync"
 )
 
 //List of states
@@ -23,6 +24,7 @@ func newBlockchain(Host string, Id string, StorageMapping map[string]interface{}
 	b.outgoingUpdates = make(chan common.Update)
 	b.incomingMessages = make(chan common.NetworkMessage)
 	b.SeenTransactions = make(map[string]bool)
+	b.lock = &sync.Mutex{}
 	return
 }
 
