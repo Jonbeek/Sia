@@ -28,7 +28,7 @@ func TestStateSteady(t *testing.T) {
 		// The initial secret string needs to be unique, use host ID
 		swarms[i].state = NewStateSteady(swarms[i], baseblock, hostsseen, hosts[i])
 	}
-	time.Sleep(5 * time.Second)
+	time.Sleep(time.Second)
 	// Die swarm, you don't belong in this world
 	for _, v := range swarms {
 		switch s := v.state.(type) {
