@@ -134,7 +134,7 @@ func (s *StateSteady) compileBlock() {
 		log.Println("STATE: ", compiler, " creating new block")
 		id, _ := common.RandomString(8)
 		b := &Block{id, s.chain.Id, s.chain.Host, nil, nil}
-		b.StorageMapping = s.chain.BlockHistory[0].StorageMapping
+		b.StorageMapping = s.block.StorageMapping
 		b.Heartbeats = make(map[string]*Heartbeat)
 		for s, h := range s.Heartbeats {
 			b.Heartbeats[s] = h
