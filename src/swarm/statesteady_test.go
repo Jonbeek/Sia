@@ -26,7 +26,9 @@ func TestStateSteady(t *testing.T) {
 	for i := 0; i < len(swarms); i++ {
 		// Set all blockchains to StateSteady
 		// The initial secret string needs to be unique, use host ID
+		swarms[i].lock.Lock()
 		swarms[i].state = NewStateSteady(swarms[i], baseblock, hostsseen, hosts[i])
+		swarms[i].lock.Lock()
 	}
 	time.Sleep(time.Second)
 	// Die swarm, you don't belong in this world
