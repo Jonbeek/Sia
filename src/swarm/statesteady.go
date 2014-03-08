@@ -25,7 +25,7 @@ type StateSteady struct {
 	block        *Block
 	secretstring string
 	// Heartbeats is all received heartbeats from other hosts.
-	Heartbeats   map[string]*Heartbeat
+	Heartbeats map[string]*Heartbeat
 
 	lock sync.Mutex
 }
@@ -111,7 +111,7 @@ func (s *StateSteady) handleHeartbeat(h *Heartbeat) {
 	// Record heartbeat.
 	// If heartbeat count equal to count of hosts, initiate block compilation
 	log.Println("STATE: Steady handling Heartbeat: Blockchain ", h.SwarmId(), ", Id ", h.UpdateId())
-	if _, ok = s.Heartbeats[h.Host] {
+	if _, ok := s.Heartbeats[h.Host]; !ok {
 		s.Heartbeats[h.Host] = h
 	}
 	if len(s.Heartbeats) == len(s.Hosts) {
@@ -125,7 +125,7 @@ func (s *StateSteady) compileBlock() {
 	for host, _ := range s.Hosts {
 		hosts = append(hosts, host)
 	}
-	compiler := common.RendezvousHash(sha256.New(), hosts, s.block.UpdateId())
+	compiler := common.RendezvousHash(sha256.New(), hosts, string(s.chain.DRNGSeed))
 	log.Println("STATE: Steady block compiler is ", compiler)
 	// If we are the block compiler, make a block and send and handle it
 	// Otherwise, do nothing and wait for the block compiler to send a block
@@ -148,7 +148,7 @@ func (s *StateSteady) makeHeartbeat(prevState *Block) {
 	var Stage1, Stage2 string
 	Stage2 = s.secretstring
 	Stage1, s.secretstring = common.HashedRandomData(sha256.New(), 8)
-	curHeartbeat := NewHeartbeat(prevState, Stage1, Stage2)
+	curHeartbeat := NewHeartbeat(prevState, s.chain.Host, Stage1, Stage2)
 	s.sendUpdate(curHeartbeat)
 }
 
