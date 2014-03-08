@@ -14,16 +14,19 @@ func TestStateSteady(t *testing.T) {
 	hostsseen := make(map[string]int)
 	baseblock := &Block{"", swarm, "", nil, nil}
 	for i := 0; i < len(hosts); i++ {
+		// Create all the blockchains and let them do nothing.
 		swarms = append(swarms, NewBlockchain(hosts[i], swarm, nil))
 		if state, ok := swarms[i].state.(*StateSwarmInformed); ok {
 			// Prevent race hazards
-			state.Die()
+			state.Die(true)
 		}
 		hostsseen[hosts[i]] = 1
 		swarms[i].AddSource(mult)
 	}
 	for i := 0; i < len(swarms); i++ {
-		swarms[i].state = NewStateSteady(swarms[i], baseblock, hostsseen)
+		// Set all blockchains to StateSteady
+		// The initial secret string needs to be unique, use host ID
+		swarms[i].state = NewStateSteady(swarms[i], baseblock, hostsseen, hosts[i])
 	}
 	time.Sleep(5 * time.Second)
 	// Die swarm, you don't belong in this world
