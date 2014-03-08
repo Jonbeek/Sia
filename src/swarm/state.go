@@ -3,6 +3,7 @@ package swarm
 import (
 	"common"
 	"sync"
+	"time"
 )
 
 //List of states
@@ -28,8 +29,8 @@ func newBlockchain(Host string, Id string, StorageMapping map[string]interface{}
 	return
 }
 
-func NewBlockchain(Host string, Id string, StorageMapping map[string]interface{}) (b *Blockchain) {
+func NewBlockchain(Host string, Id string, start time.Time, StorageMapping map[string]interface{}) (b *Blockchain) {
 	b = newBlockchain(Host, Id, StorageMapping)
-	b.state = NewStateSwarmInformed(b)
+	b.state = NewStateSwarmInformed(b, start)
 	return
 }
