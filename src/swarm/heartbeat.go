@@ -21,6 +21,7 @@ type Heartbeat struct {
 func NewHeartbeat(prevState *Block, Host, Stage1, Stage2 string) (h *Heartbeat) {
 	h = new(Heartbeat)
 	h.Blockchain = prevState.SwarmId()
+	h.Host = Host
 	h.EntropyStage1 = Stage1
 	h.EntropyStage2 = Stage2
 	h.Id, _ = common.RandomString(8)

@@ -6,14 +6,20 @@ import (
 )
 
 func TestRendezvousHash(t *testing.T) {
-	h := "test"
-	c := make([]string, 0)
-	c = append(c, "foo")
-	r := RendezvousHash(sha256.New(), c, h)
+	c := []string{"foo", "bar"}
+	r := RendezvousHash(sha256.New(), c, "test")
+
+	if r != "bar" {
+		t.Log(r)
+		t.Log("test")
+		t.Fatal("Got wrong host")
+	}
+
+	r = RendezvousHash(sha256.New(), c, "foofootest")
 
 	if r != "foo" {
 		t.Log(r)
-		t.Log(h)
-		t.Fatal("Got back a item we didn't give to RendezvousHash")
+		t.Log("foofootest")
+		t.Fatal("Got wrong host")
 	}
 }
