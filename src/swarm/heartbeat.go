@@ -8,9 +8,8 @@ import (
 type Heartbeat struct {
 	Id string
 
-	Blockchain  string
-	Host        string
-	ParentBlock string
+	Blockchain string
+	Host       string
 
 	EntropyStage1   string
 	EntropyStage2   string
@@ -18,14 +17,13 @@ type Heartbeat struct {
 	FileProofStage2 string
 }
 
-func NewHeartbeat(prevState *Block, Host, Stage1, Stage2 string) (h *Heartbeat) {
+func NewHeartbeat(swarm, Host, Stage1, Stage2 string) (h *Heartbeat) {
 	h = new(Heartbeat)
-	h.Blockchain = prevState.SwarmId()
+	h.Blockchain = swarm
 	h.Host = Host
 	h.EntropyStage1 = Stage1
 	h.EntropyStage2 = Stage2
 	h.Id, _ = common.RandomString(8)
-	h.ParentBlock = prevState.Id
 	return
 }
 
@@ -44,13 +42,13 @@ func (h *Heartbeat) Type() string {
 func (h *Heartbeat) MarshalString() string {
 	w, err := json.Marshal(h)
 	if err != nil {
-		panic("Unable to marshal HeartBeatTransaction, this should not happen" + err.Error())
+		panic("Unable to marshal HeartbeatTransaction, this should not happen" + err.Error())
 	}
 
 	return string(w)
 }
 
-func (h *Heartbeat) GetStage2() string {
+func (h *Heartbeat) Stage2() string {
 	return h.EntropyStage2
 }
 

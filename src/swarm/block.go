@@ -8,12 +8,19 @@ import (
 type Block struct {
 	Id         string
 	Blockchain string
-	Compiler   string
 
 	Heartbeats map[string]*Heartbeat
+	Signatures map[string]map[string]string
+}
 
-	//Mapping of hosts -> what they store
-	StorageMapping map[string]interface{}
+func NewBlock(blockchain, id string, heartbeats map[string]*Heartbeat,
+	signatures map[string]map[string]string) *Block {
+	b := new(Block)
+	b.Id = id
+	b.Blockchain = blockchain
+	b.Heartbeats = heartbeats
+	b.Signatures = signatures
+	return b
 }
 
 func (b *Block) SwarmId() string {
