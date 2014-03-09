@@ -162,7 +162,7 @@ func (s *StateSwarmInformed) decideBlock() bool {
 	b := NewBlock(s.chain.Id, s.chain.Host, s.heartbeats, s.signatures)
 	go func(b *Block) {
 		s.chain.AddBlock(b)
-		s.chain.SwitchState(NewStateSteady())
+		s.chain.SwitchState(NewStateSteady(s.chain, b, b.Heartbeats, s.stage2))
 	}(b)
 
 	return true
