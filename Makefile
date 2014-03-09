@@ -1,4 +1,4 @@
-all: libraries docs
+all: libraries
 
 race-libs:
 	GOPATH=$(CURDIR) go install -race std
