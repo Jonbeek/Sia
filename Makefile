@@ -1,4 +1,4 @@
-all: libraries
+all: libraries docs
 
 race-libs:
 	GOPATH=$(CURDIR) go install -race std
@@ -22,4 +22,7 @@ fmt:
 	go fmt src/common/*.go
 	go fmt src/main/*.go
 
-.PHONY: all test fmt libraries test-verbose
+docs:
+	pdflatex -output-directory=doc/ doc/whitepaper.tex 
+
+.PHONY: all test fmt libraries test-verbose docs

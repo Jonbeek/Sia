@@ -1,10 +1,19 @@
 \newcommand{\numhosts}{192}
 \newcommand{\storageperhost}{256GB}
+
 \newcommand{\childrenperparent}{192}
+
 \newcommand{\fortynine}{$\frac{n}{2} - 1$}
 \newcommand{\fiftyone}{$\frac{n}{2} + 1$}
+
 \newcommand{\filechecksize}{256 bytes}
+
 \newcommand{\maxcorruption}{80\%}
+\newcommand{\inversemaxcorruption}{20\%}
+\newcommand{\maxredundancy}{5}
+\newcommand{\minuncorruptedhosts}{$\frac{n}{5}$}
+
+\newcommand{\maxslicesize}{1mb}
 
 \documentclass[twocolumn]{article}
 
@@ -159,15 +168,7 @@ The state is updated in blocks, which are produced in a concensus algorithm.
 
 Blocks are composed of 'heartbeats', which is an update package from a host.
 Each block, every host must submit a heartbeat.
-This is how the host proves that they are online, and also how the host performs proof-of-storage.
-
-Each block, every host must include the following:
-\begin{itemize}
-	\item A proof that the host is storing files
-	\item A random string to produce entropy for the blockchain
-	\item All updates/transactions submitted to the host
-	\item Timing information to keep the blockchain synchronized
-\end{itemize}
+Heartbeats contain storage proofs, keepalive information, and general network transactions and updates, and will be discussed in greater detail later.
 
 The blockchain algorithm assumes that up to \fortynine \space of the hosts in the blockchain are dishonest and malicious.
 Each block, honest hosts must be guaranteed to have their heartbeat included.
@@ -195,49 +196,103 @@ Assumptions:
 \end{itemize}
 
 In step 1, every honest host will get heartbeats from every other honest host.
-If \fiftyone hosts are honest, every honest host is guaranteed to have their heartbeat seen by at least \fiftyone hosts.
+If \fiftyone \space hosts are honest, every honest host is guaranteed to have their heartbeat seen by at least \fiftyone \space hosts.
 
 In step 2, every host tells each other host which heartbeats they have seen, and attatch a signature that they saw the heartbeat.
 This means that any heartbeat that was seen by any honest host will be seen by every other honest host.
 
-In step 3, every host tells each other host which heartbeats they got which were seen by at least \fiftyone hosts.
+In step 3, every host tells each other host which heartbeats they got which were seen by at least \fiftyone \space hosts.
 This is to guarantee that the heartbeat was seen by at least 1 honest host in the previous step.
 If it was seen by at least 1 honest host, then every honest host is guaranteed to have received it in this step.
-Therefore, every honest host is guaranteed to include every heartbeat that was seen by \fiftyone hosts in the second step.
+Therefore, every honest host is guaranteed to include every heartbeat that was seen by \fiftyone \space hosts in the second step.
+
+\section{Dishonest Blockchains}
+
+In a network of randomly assembled blockchains where \fortynine \space of the hosts are compromised, around half of the blockchains are also likely to be compromised.
+This means that honest hosts need to be able to detect when their blockchain has been corrupted and need a way to restore order, protect wallets, and perform damage control on any files.
+
+If an attacker controls \fortynine \space of the hosts on the network, then the attacker has less than a (1 times 10 to the 16th) chance of compromising a blockchain by more than \maxcorruption.
+Compromised blockchains are okay as long as \inversemaxcorruption \space honest hosts can detect that they are participating in a dishonest blockchain and work together to protect the vital information stored on the compromised blockchain.
+
+\section{File Storage Layout}
+
+Each blockchain has \numhosts \space and \storageperhost \space per host.
+Each \storageperhost \space block of data is split up into many smaller pieces, which are to be called slices.
+Slices have no minimum file size, but have a maximum file size of \maxslicesize.
+The collection of slices on a single block of data is called a stack.
+
+The slices in each stack correcspond to each other.
+For example, if the first slice on one host is 45kb, then the first slice on every single host is also 45kb.
+These inter-host sets of congruent slices are called rings.
+
+Files are stored on multiple hosts using Reed-Solomon coding, which is maximum distance separable.
+First the user picks redundancy settings, which is what volume of the hosts need to retain their piece of the file in order for the file to be recovered.
+This is m of n recovery, where n equals \numhosts.
+If m is 1, then the file will be duplicated on every single host, and can be recovered from only a single host.
+The redundancy is then \numhosts \space, meaning that a 1GB file will take \numhosts GB of storage on the Sia network.
+If m is \fiftyone, then the file can be recovered from any \fiftyone \space hosts on the network, and the redundancy will be slightly less than 2.
+A 1GB file will therefore consume slightly less than 2GB of Sia storage.
+
+Files have header data that includes the hash for each slice in the ring and the value of m.
+The value of m can be stored as a single byte.
+Each hash will be 32 bytes and there are \numhosts pieces.
+The network assumes that under any circumstances, a blockchain will have at least \inversemaxcorruption hosts, so the redundancy on the header data will be kept at \maxredundancy.
+Altogether, this means that there is 30kb of overhead for a file.
+
+Part of the heartbeat algorithm performs keepalives on hosts and verifies that they are storing their pieces as promised.
+If a host goes offline or corrupts their data, the network can use the Reed-Solomon coding to repair the file within minutes - no interaction from the user needed.
+
+It is left to the user to pick optimal settings.
+When m is small, there is a higher chance that a malicious attacker can control enough of the network to knock the file offline.
+If a file is high risk or needs to be guaranteed safe against powerful attackers, setting m to \minuncorruptedhosts \space will be essentially guaranteed to protect the file.
 
 \section{Proof of Access}
 
-Hosts are required to store \storageperhost. 
-Heartbeats include proof that the hosts are actually storing the data.
+Each heartbeat, a host has to provide a proof that they have access to the file pieces that they are storing.
+Each block, a random \filechecksize \space segment of the storage stack is chosen to be included in the heartbeat.
+This segment will correspond to a portion of a file in a file ring.
+Each host will include their portion of the file in their heartbeat, which means that in the block there is enough information to fully reconstruct a small portion of the file.
+This will also reveal which hosts have the wrong data.
 
-Each block, a random \filechecksize \space segment of the \storageperhost \space is selected to be 
+Only \filechecksize \space is requested each block because requesting more would greatly increase bandwidth requirements per block.
+This small amount is sufficient because it is randomly selected.
+If a host is missing a substantial portion of the file, it will only be a matter of time before some part of the missing portion is randomly selected.
+This does mean that tiny corrupted sections of file can go undetected for a long time, but even small corruptions will eventually be detected and are unlikely to prevent file recovery.
 
-Clients upload files to the Sia network, and then hosts must store them.
-A part of the heartbeat contains proof that the host has access to the stored file.
-Before a file is uploaded to the network, it is split into \numhosts \space pieces using Reed-Solomon coding.
-The client can choose how redundant the file should be.
-Reed-Solomon coding works such that you pick how many total pieces there are (\numhosts) and then how many pieces are needed to recover the file.
-The client can choose any number between 1 and (\numhosts \space - 1), however if enough hosts go offline such that the file cannot be fully recovered, the file will be tossed from the network.
-Hosts prove that they have access to their piece of the file by including their piece of the file in their heartbeat update.
-The Reed-Solomon coding of the pieces means that by decoding the pieces, honest hosts can detect which pieces are incorrect or corrupted.
-This means that honest hosts can also repair corrupted file pieces and replace hosts that go offline.
+We can assume that a malicious host will receive all of the honest heartbeats before submitting their own.
+This means that, given sufficient redundnacy, a malicious host will be able to rebuild their piece of the file every step from the other heartbeats, can cna perform proof of access without actually storing anything.
+To prevent that, this process is broken up across two stages.
 
-It is too expensive to include all \storageperhost \space in every heartbeat.
-Instead, randomness is used.
-One 1kb slice is chosen from the \storageperhost \space stack at random to be included in the heartbeat.
-A host that does not have the entire \storageperhost \space stack is likely to have a missing piece randomly selected.
-If the host is missing 50\% of the file, each block the host has a 50\% chance of getting caught at being corrupt.
+In the first stage, hosts only submit the hash of the chosen segment prepended with their id.
+This forces hosts to lock in what their file piece is before they see any information revealed from the other hosts.
+In the second stage, hosts reveal what string produced the hash.
+If they reveal a string that does not hash to the string submitted in stage 1, the host is considered corrupt.
 
-Additionally, when all the honest hosts share the contents of their heartbeats with the dishonest hosts, they leak information.
-The dishonest hosts will be able to rebuild their piece of the file by completing the erasure coding algorithm.
-To prevent this, access proofs are done in two steps.
-In the first step, hosts submit a hash of their piece of the file.
-In the second step, hosts reveal the file piece that produces the hash.
-This forces dishonest hosts to lock in their piece of the file before they see what the other file pieces consist of; no informaiton is leaked.
-Each block, both steps occur.
-The second step looks at the first step from the previous block to confirm.
+\section{Proof of Storage}
 
-Indictable offenses: a host submits a hash, and then in the next block submits a file piece that does not match the submitted hash.
+Storage is considered valid on the network if it follows two constraints:
+
+\begin{itemize}
+	\item It costs money to host files on the network.
+	\item The storage is unique to the network.
+\end{itemize}
+
+The assumption for the first bullet point is that if a file costs money to upload, nobody will upload files that are not useful to them in some way.
+A host will not upload a fake file to himself or the network if the act of doing so forces the host to operate at a net loss.
+The second bullet point means that the host is not using Sia as it's source of storage, or that the host is not using a source that uses Sia as a source for storage.
+
+The first point is protected by randomly collecting together swarms.
+Any swarm will be composed of random sets of nodes, and will not have more than \maxcorruption \space dishonest hosts.
+This means that any host attempting to use themselves as exclusive storage will have to host their files on at least \inversemaxcorruption \space honest hosts.
+As long as the profit from mining on \maxcorruption \space of a fake file does not exceed the loss of paying for hosting on the \inversemaxcorruption honest hosts, there will be no incentive to do fake mining in this manner.
+Therefore, a hard cap will be placed on the amount of coins that can be mined to satisfy this condition.
+
+The second point is protected by the cost of downloads on the network.
+Downloading a file costs money, and if you are to complete the proof of access steps in the heartbeat, you need to download a fraction of the file each heartbeat.
+As long as the download system is constructed such that the cost of downloading repeatedly to perform heartbeat access proofs is greater than the reward from mining, this attack will not be a problem.
+The system for pricing downloads has currently not been created, but it will be created with this constraint in mind.
+
+% game theory stuff about why it's not beneficial for an incomplete minority to collaborate until they hit a critical mass
 
 Protection against corrupted uploads: it is possible that a host has the file that they were uploaded and yet still fail the corruption test.
 They will be indicted for storing incorrect data, and the indictment will be incorrect.
@@ -245,17 +300,7 @@ Hosts can prove themselves innocent by uploading the entire file piece as well a
 If the hosts file piece matches the hash, and the hosts indicted slice correctly matches the file piece, then the file is determined to have been corrupted at upload.
 The host is acquitted and the file piece is corrected, the host then has the correct file piece.
 
-Problems: proof of access is exactly that, there is still a problem of delegation.
-Dishonest hosts can collaborate.
-Since files have a redundancy, dishonest hosts can communicate and remove that redundancy, enabling them to claim that they are storing larger file pieces than they are actually storing.
-The proposed solution to this problem is 'false redundancy punishment', which shall be discussed later in the paper.
-
-Also, there is an undiscussed problem of looping storage, where a dishonest host pretends to store information but actually just stores it back on the Sia network. Then, when the host needs to prove access to the storage, he just downloads it from the other blockchain that's holding it. This results in free mining for the host. The way to fight this is to make it more expensive to download a file than you earn from mining it. Then hosts that participate in this behavior will be losing money.
-
-I want to note explicity that there is not a problem of uploading false files.
-Assuming that 51\% of the swarm is honest, a false file will need to pay for storage on 51\% of honest hosts, because they will store the entire false file.
-Mining will be hard capped such that hosting a file can mine a maximum of 20\% of the total income for the file.
-The remaining income must come from the client paying the network price for the file.
+\section{The Problem of Delegation}
 
 \section{Entropy}
 
@@ -273,6 +318,8 @@ By determining entropy this way, we guarantee that if even a single host produce
 This method of generating entropy is vulnmerable to an attack: dishonest hosts can intentionally withdraw from the network to influence the outcome of the random number.
 The way to prevent this is to make sure that the penalty for missing a heartbeat is more expenive than favorably generating entropy for a potential 80\% of dishonest hosts.
 There will be a penalty for missing heartbeats, and it will sufficiently satisfy this attack prevention mechanism.
+
+\section{Full Heartbeat}
 
 \section{A Tree of Blockchains}
 
