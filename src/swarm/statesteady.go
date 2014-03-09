@@ -27,10 +27,10 @@ type StateSteady struct {
 	// Heartbeats is all received heartbeats from other hosts.
 	Heartbeats map[string]*Heartbeat
 
-	lock sync.Mutex
+	lock *sync.Mutex
 }
 
-func NewStateSteady(chain *Blockchain, block *Block, hostsseen map[string]int, secretstring string) (s *StateSteady) {
+func NewStateSteady(chain *Blockchain, block *Block, hostsseen map[string]*Heartbeat, secretstring string) (s *StateSteady) {
 	log.Println("STATE: Creating new StateSteady")
 	s = new(StateSteady)
 	s.chain = chain
@@ -40,6 +40,7 @@ func NewStateSteady(chain *Blockchain, block *Block, hostsseen map[string]int, s
 	s.Hosts = make(map[string]bool)
 	s.secretstring = secretstring
 	s.Heartbeats = make(map[string]*Heartbeat)
+	s.lock = &sync.Mutex{}
 
 	for k, _ := range hostsseen {
 		s.Hosts[k] = true
@@ -83,8 +84,6 @@ func (s *StateSteady) handleUpdate(u common.Update) {
 		s.handleHeartbeat(n)
 	case *Block:
 		s.handleBlock(n)
-	case *NodeAlive:
-		log.Println("STATE: Steady received NodeAlive: Blockchain ", n.SwarmId(), ", Id ", n.UpdateId())
 	default:
 		// Only recording type and Blockchain source.
 		log.Println("STATE: Steady received unknown Update: Type ", n.Type(), ", Blockchain ", n.SwarmId())
@@ -133,8 +132,7 @@ func (s *StateSteady) compileBlock() {
 	if compiler == s.chain.Host {
 		log.Println("STATE: ", compiler, " creating new block")
 		id, _ := common.RandomString(8)
-		b := &Block{id, s.chain.Id, s.chain.Host, nil, nil}
-		b.StorageMapping = s.block.StorageMapping
+		b := &Block{id, s.chain.Id, nil, nil}
 		b.Heartbeats = make(map[string]*Heartbeat)
 		for s, h := range s.Heartbeats {
 			b.Heartbeats[s] = h
@@ -149,11 +147,15 @@ func (s *StateSteady) makeHeartbeat(prevState *Block) {
 	var Stage1, Stage2 string
 	Stage2 = s.secretstring
 	Stage1, s.secretstring = common.HashedRandomData(sha256.New(), 8)
-	curHeartbeat := NewHeartbeat(prevState, s.chain.Host, Stage1, Stage2)
+	curHeartbeat := NewHeartbeat(prevState.SwarmId(), s.chain.Host, Stage1, Stage2)
 	s.sendUpdate(curHeartbeat)
 }
 
 func (s *StateSteady) sendUpdate(u common.Update) {
 	// Blockchain handles this, pass update to the blockchain
 	s.chain.outgoingUpdates <- u
+}
+
+func (s *StateSteady) Die() {
+	s.die <- struct{}{}
 }

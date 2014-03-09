@@ -1,3 +1,7 @@
 pkg
 bin
 *.swp
+doc/*.log
+doc/*.aux
+doc/*.toc
+doc/*.pdf
