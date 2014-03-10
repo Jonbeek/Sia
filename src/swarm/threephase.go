@@ -80,7 +80,7 @@ func (s *ThreePhase) mainloop() {
             go s.handler.SendUpdate(h)
 			s.nextphase = "HeartbeatSigning"
 			s.lock.Unlock()
-			s.mainloop()
+			defer s.mainloop()
 			return
 
 		case "HeartbeatSigning":
