@@ -18,12 +18,12 @@ type StateSwarmInformed struct {
 	*ThreePhase
 }
 
-func NewStateSwarmInformed(chain *Blockchain, starttime time.Time) (s *StateSwarmInformed) {
-	s = new(StateSwarmInformed)
+func NewStateSwarmInformed(chain *Blockchain, starttime time.Time) State {
+	s := new(StateSwarmInformed)
 	s.chain = chain
 	s.ThreePhase = NewThreePhase(starttime, s)
 
-	return
+	return s
 }
 
 func (s *StateSwarmInformed) Die() {

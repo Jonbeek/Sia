@@ -77,7 +77,7 @@ func (s *ThreePhase) mainloop() {
 		switch s.nextphase {
 
 		case "Heartbeat":
-			log.Print("STATE: Heartbeat phase")
+			log.Print("3PHASE: Heartbeat phase")
 			s.phasetimer = time.Tick(common.STATEINFORMEDDELTA)
 			h := s.handler.ProduceHeartbeat()
 			go s.handler.SendUpdate(h)
@@ -87,21 +87,21 @@ func (s *ThreePhase) mainloop() {
 			return
 
 		case "HeartbeatSigning":
-			log.Print("STATE: HeartbeatSigning phase")
+			log.Print("3PHASE: HeartbeatSigning phase")
 			s.phasetimer = time.Tick(common.STATEINFORMEDDELTA)
 			s.produceSignedHeartbeats()
 			s.nextphase = "BlockGeneration"
 
 		case "BlockGeneration":
-			log.Print("STATE: BlockGeneration phase")
+			log.Print("3PHASE: BlockGeneration phase")
 			s.produceBlock()
 			s.nextphase = "BlockDecision"
 
 		case "BlockDecision":
-			log.Print("STATE: BlockDecision phase")
+			log.Print("3PHASE: BlockDecision phase")
 			ok := s.decideBlock()
 
-			log.Print("STATE: ok=", ok)
+			log.Print("3PHASE: ok=", ok)
 
 			// If we accepted a block we should stop executing and let the
 			// Next state take over
@@ -126,6 +126,7 @@ func (s *ThreePhase) produceSignedHeartbeats() {
 	signatures := make(map[string]string)
 	for id, h := range s.heartbeats {
 		if !s.handler.ValidateHeartbeat(h) {
+			log.Print("3PHASE: Validate Heartbeat Failed")
 			continue
 		}
 
@@ -143,7 +144,7 @@ func (s *ThreePhase) produceBlock() {
 }
 
 func (s *ThreePhase) decideBlock() bool {
-	log.Print("STATE: decideBlock")
+	log.Print("3PHASE: decideBlock")
 	heartbeats := make(map[string]*Heartbeat)
 	signatures := make(map[string]map[string]string)
 
@@ -159,7 +160,12 @@ func (s *ThreePhase) decideBlock() bool {
 		return false
 	}
 
-	b := NewBlock(s.handler.Id(), s.handler.Host(), s.heartbeats, s.signatures)
+	hostheartbeats := make(map[string]*Heartbeat)
+	for _, hb := range heartbeats {
+		hostheartbeats[hb.Host] = hb
+	}
+
+	b := NewBlock(s.handler.Id(), s.handler.Host(), hostheartbeats, s.signatures)
 	go s.handler.HandleBlock(b, s.nextphasetime)
 
 	return true
@@ -179,7 +185,7 @@ func (s *ThreePhase) HandleUpdate(t common.Update) State {
 		}
 
 		s.heartbeats[n.Id] = n
-		log.Print("STATE: Node added")
+		log.Print("3PHASE: Node added")
 
 	case *HeartbeatList:
 		if s.nextphase != "BlockGeneration" &&

@@ -2,6 +2,7 @@ package swarm
 
 import (
 	"common"
+	"fmt"
 	"log"
 	"network"
 	"testing"
@@ -74,22 +75,37 @@ func TestStateJoin(t *testing.T) {
 	informed := 0
 	connected := 0
 
-	for _, s := range swarms {
-		switch t := s.GetState().(type) {
+	for _, b := range swarms {
+		switch s := b.GetState().(type) {
 		case *StateSwarmInformed:
-			t.Die()
+			s.Die()
 			informed += 1
 		case *StateSteady:
+			s.Die()
 			connected += 1
+		case *ThreePhase:
+			switch s.handler.(type) {
+			case *StateSwarmInformed:
+				informed += 1
+			case *StateSteady:
+				connected += 1
+			default:
+				t.Fatal(fmt.Sprintf("3phase? %T %T", b.GetState(), s.handler))
+			}
+		default:
+			t.Fatal(fmt.Sprintf("Wrong type %T", b.GetState()))
 		}
 	}
 
-	t.Log("StateInformed", informed)
-	t.Log("StateConnected", connected)
-
-	t.Log(swarms[0].state)
-
 	if connected <= common.SWARMSIZE/2 {
+		t.Log("StateInformed", informed)
+		t.Log("StateConnected", connected)
 		t.Fatal("Failed to establish swarm")
+	}
+
+	for _, b := range swarms {
+		if b.BlockLen() < 1 {
+			t.Fatal("Blocks to short")
+		}
 	}
 }

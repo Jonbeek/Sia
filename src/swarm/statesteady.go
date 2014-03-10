@@ -3,6 +3,7 @@ package swarm
 import (
 	"common"
 	"crypto/sha256"
+	"log"
 	"time"
 )
 
@@ -18,13 +19,13 @@ type StateSteady struct {
 	*ThreePhase
 }
 
-func NewStateSteady(chain *Blockchain, starttime time.Time, stage2 string) (s *StateSteady) {
-	s = new(StateSteady)
+func NewStateSteady(chain *Blockchain, starttime time.Time, stage2 string) State {
+	s := new(StateSteady)
 	s.chain = chain
 	s.stage2 = stage2
 	s.ThreePhase = NewThreePhase(starttime, s)
 
-	return
+	return s
 }
 
 func (s *StateSteady) Die() {
@@ -48,11 +49,20 @@ func (s *StateSteady) SignHeartbeat(h *Heartbeat) string {
 }
 
 func (s *StateSteady) ValidateHeartbeat(h *Heartbeat) bool {
-	p, ok := s.chain.LastBlock().Heartbeats[h.Id]
+	p, ok := s.chain.LastBlock().Heartbeats[h.Host]
 	if !ok {
+		log.Print("STATESTEADY: previous beat not found")
 		return false
 	}
-	return common.Hash(sha256.New(), h.EntropyStage2) == p.EntropyStage1
+	log.Print(p)
+	log.Print(h)
+	ok = common.Hash(sha256.New(), h.EntropyStage2) == p.EntropyStage1
+	if !ok {
+		log.Print("STATESTEADY: hash not match")
+		log.Print(common.Hash(sha256.New(), h.EntropyStage2))
+		log.Print(p.EntropyStage1)
+	}
+	return ok
 }
 
 func (s *StateSteady) ValidateSignature(h *Heartbeat, sig string) bool {

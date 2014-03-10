@@ -79,6 +79,12 @@ func (b *Blockchain) LastBlock() *Block {
 	return b.BlockHistory[len(b.BlockHistory)-1]
 }
 
+func (b *Blockchain) BlockLen() int {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	return len(b.BlockHistory)
+}
+
 func (b *Blockchain) SwitchState(s State) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
