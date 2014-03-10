@@ -73,6 +73,12 @@ func (b *Blockchain) AddBlock(block *Block) {
 	b.BlockHistory = append(b.BlockHistory, block)
 }
 
+func (b *Blockchain) LastBlock() *Block {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	return b.BlockHistory[len(b.BlockHistory)-1]
+}
+
 func (b *Blockchain) SwitchState(s State) {
 	b.lock.Lock()
 	defer b.lock.Unlock()

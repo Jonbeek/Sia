@@ -26,35 +26,37 @@ import (
 */
 
 type NetHandler interface {
-    SendUpdate(u common.Update)
-    ProduceHeartbeat() common.Update
-    ValidateHeartbeat(h *Heartbeat) bool
-    SignHeartbeat(h *Heartbeat) string
-    ValidateSignature(h *Heartbeat, sig string) bool
-    Id() string
-    Host() string
-    HandleBlock(b *Block)
+	SendUpdate(u common.Update)
+	ProduceHeartbeat() common.Update
+	ValidateHeartbeat(h *Heartbeat) bool
+	SignHeartbeat(h *Heartbeat) string
+	ValidateSignature(h *Heartbeat, sig string) bool
+	Id() string
+	Host() string
+	HandleBlock(b *Block, nextphasetime time.Time)
 }
 
 type ThreePhase struct {
-	lock       *sync.Mutex
-	heartbeats map[string]*Heartbeat
-	signatures map[string]map[string]string
-	nextphase  string
-	phasetimer <-chan time.Time
-    handler NetHandler
+	lock          *sync.Mutex
+	heartbeats    map[string]*Heartbeat
+	signatures    map[string]map[string]string
+	nextphase     string
+	phasetimer    <-chan time.Time
+	nextphasetime time.Time
+	handler       NetHandler
 }
 
 func NewThreePhase(starttime time.Time, handler NetHandler) (s *ThreePhase) {
 
-    s = new(ThreePhase)
+	s = new(ThreePhase)
 	s.phasetimer = time.After(starttime.Sub(time.Now()))
 	s.nextphase = "Heartbeat"
+	s.nextphasetime = starttime
 
 	s.lock = &sync.Mutex{}
 	s.heartbeats = make(map[string]*Heartbeat)
 	s.signatures = make(map[string]map[string]string)
-    s.handler = handler
+	s.handler = handler
 
 	go s.mainloop()
 	return
@@ -71,13 +73,14 @@ func (s *ThreePhase) mainloop() {
 	for _ = range s.phasetimer {
 		log.Print("State: phasetimer fired")
 		s.lock.Lock()
+		s.nextphasetime = s.nextphasetime.Add(common.STATEINFORMEDDELTA)
 		switch s.nextphase {
 
 		case "Heartbeat":
 			log.Print("STATE: Heartbeat phase")
 			s.phasetimer = time.Tick(common.STATEINFORMEDDELTA)
-            h := s.handler.ProduceHeartbeat()
-            go s.handler.SendUpdate(h)
+			h := s.handler.ProduceHeartbeat()
+			go s.handler.SendUpdate(h)
 			s.nextphase = "HeartbeatSigning"
 			s.lock.Unlock()
 			defer s.mainloop()
@@ -122,9 +125,9 @@ func (s *ThreePhase) produceSignedHeartbeats() {
 
 	signatures := make(map[string]string)
 	for id, h := range s.heartbeats {
-        if ! s.handler.ValidateHeartbeat(h) {
-            continue
-        }
+		if !s.handler.ValidateHeartbeat(h) {
+			continue
+		}
 
 		signatures[id] = s.handler.SignHeartbeat(h)
 	}
@@ -157,7 +160,7 @@ func (s *ThreePhase) decideBlock() bool {
 	}
 
 	b := NewBlock(s.handler.Id(), s.handler.Host(), s.heartbeats, s.signatures)
-    go s.handler.HandleBlock(b)
+	go s.handler.HandleBlock(b, s.nextphasetime)
 
 	return true
 
@@ -185,9 +188,9 @@ func (s *ThreePhase) HandleUpdate(t common.Update) State {
 		}
 
 		for id, signature := range n.Signatures {
-            if ! s.handler.ValidateSignature(n.Heartbeats[id], signature) {
-                continue
-            }
+			if !s.handler.ValidateSignature(n.Heartbeats[id], signature) {
+				continue
+			}
 			if _, ok := s.heartbeats[id]; !ok {
 				s.heartbeats[id] = n.Heartbeats[id]
 			}
@@ -212,9 +215,9 @@ func (s *ThreePhase) HandleUpdate(t common.Update) State {
 				s.signatures[id] = make(map[string]string)
 			}
 			for host, signature := range signatures {
-                if ! s.handler.ValidateSignature(n.Heartbeats[id], signature) {
-                    continue
-                }
+				if !s.handler.ValidateSignature(n.Heartbeats[id], signature) {
+					continue
+				}
 				s.signatures[id][host] = signature
 			}
 		}

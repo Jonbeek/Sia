@@ -13,21 +13,21 @@ import (
 
 */
 type StateSwarmInformed struct {
-	chain      *Blockchain
-	stage2     string
-    *ThreePhase
+	chain  *Blockchain
+	stage2 string
+	*ThreePhase
 }
 
 func NewStateSwarmInformed(chain *Blockchain, starttime time.Time) (s *StateSwarmInformed) {
 	s = new(StateSwarmInformed)
 	s.chain = chain
-    s.ThreePhase = NewThreePhase(starttime, s)
+	s.ThreePhase = NewThreePhase(starttime, s)
 
 	return
 }
 
 func (s *StateSwarmInformed) Die() {
-    s.ThreePhase.Die()
+	s.ThreePhase.Die()
 }
 
 func (s *StateSwarmInformed) SendUpdate(u common.Update) {
@@ -40,31 +40,31 @@ func (s *StateSwarmInformed) ProduceHeartbeat() common.Update {
 	s.stage2 = stage2
 
 	h := NewHeartbeat(s.chain.Id, s.chain.Host, stage1, "")
-    return h
+	return h
 }
 
 func (s *StateSwarmInformed) SignHeartbeat(h *Heartbeat) string {
-    return h.Id
+	return h.Id
 }
 
 func (s *StateSwarmInformed) ValidateHeartbeat(h *Heartbeat) bool {
-    return len(h.EntropyStage1) > 0
+	return len(h.EntropyStage1) > 0
 }
 
 func (s *StateSwarmInformed) ValidateSignature(h *Heartbeat, sig string) bool {
-    return sig == h.Id
+	return sig == h.Id
 }
 
-func (s *StateSwarmInformed) HandleBlock(b *Block) {
-    s.chain.AddBlock(b)
-    s.chain.SwitchState(NewStateSteady(s.chain, b, b.Heartbeats, s.stage2))
-    go s.Die()
+func (s *StateSwarmInformed) HandleBlock(b *Block, next time.Time) {
+	s.chain.AddBlock(b)
+	s.chain.SwitchState(NewStateSteady(s.chain, next, s.stage2))
+	go s.Die()
 }
 
 func (s *StateSwarmInformed) Id() string {
-    return s.chain.Id
+	return s.chain.Id
 }
 
 func (s *StateSwarmInformed) Host() string {
-    return s.chain.Host
+	return s.chain.Host
 }

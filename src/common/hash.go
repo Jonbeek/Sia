@@ -6,6 +6,12 @@ import (
 	"math/big"
 )
 
+func Hash(h hash.Hash, data string) string {
+	h.Reset()
+	h.Write([]byte(data))
+	return string(h.Sum(nil))
+}
+
 func HashedRandomData(h hash.Hash, length uint64) (hash string, data string) {
 	b := make([]byte, length)
 	_, err := rand.Read(b)
@@ -13,13 +19,7 @@ func HashedRandomData(h hash.Hash, length uint64) (hash string, data string) {
 		panic(err)
 	}
 
-	h.Reset()
-	h.Write(b)
-
-	hash = string(h.Sum(nil))
-	data = string(b)
-
-	return
+	return Hash(h, string(b)), string(b)
 }
 
 func RendezvousHash(h hash.Hash, items []string, key string) (r string) {

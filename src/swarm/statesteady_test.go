@@ -1,38 +1,60 @@
 package swarm
 
 import (
+	"common"
+	"log"
 	"network"
 	"testing"
 	"time"
 )
 
 func TestStateSteady(t *testing.T) {
+
+	log.SetFlags(log.Lmicroseconds)
+
+	old := common.SWARMSIZE
+	common.SWARMSIZE = 4
+	defer func(old int) {
+		common.SWARMSIZE = old
+	}(old)
+
 	mult := network.NewNetworkMultiplexer()
-	hosts := []string{"A", "B", "C", "D"}
+
+	hosts := make([]string, common.SWARMSIZE)
+
+	storage := make(map[string]interface{})
+
 	swarm := "test"
-	var swarms []*Blockchain
-	hostsseen := make(map[string]*Heartbeat)
-	baseblock := &Block{"", swarm, nil, nil}
-	for i := 0; i < len(hosts); i++ {
-		// Create all the blockchains and let them do nothing.
-		swarms = append(swarms, newBlockchain(hosts[i], swarm, nil))
-		hostsseen[hosts[i]] = nil
+
+	for i, _ := range hosts {
+		hosts[i], _ = common.RandomString(8)
+		if len(hosts[i]) == 0 {
+			t.Fatal(hosts)
+		}
+		storage[hosts[i]] = nil
 	}
-	for i := 0; i < len(swarms); i++ {
-		// Set all blockchains to StateSteady
-		// The initial secret string needs to be unique, use host ID
-		swarms[i].state = NewStateSteady(swarms[i], baseblock, hostsseen, swarms[i].Host)
-		swarms[i].AddSource(mult)
-	}
-	time.Sleep(10 * time.Millisecond)
-	// Die swarm, you don't belong in this world
-	for _, v := range swarms {
-		switch s := v.GetState().(type) {
-		case *StateSteady:
-			go s.Die()
-		default:
-			t.Fatal("State unexpectedly changed")
+
+	swarms := make([]*Blockchain, common.SWARMSIZE)
+
+	start := time.Now().Add(100 * time.Millisecond)
+
+	for i, _ := range swarms {
+		swarms[i] = NewBlockchain(hosts[i], swarm, start, storage)
+		if len(swarms[i].Host) == 0 {
+			t.Fatal(swarms[i])
 		}
 	}
 
+	for _, s := range swarms {
+		s.AddSource(mult)
+	}
+
+	time.Sleep(10 * time.Second)
+	log.Print("TEST: stopped sleeping")
+
+	for _, s := range swarms {
+		if len(s.BlockHistory) < 2 {
+			t.Fatal("Swarm BlockHistory is to short")
+		}
+	}
 }
