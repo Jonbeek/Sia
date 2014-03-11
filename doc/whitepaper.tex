@@ -16,6 +16,8 @@
 \newcommand{\maxslicesize}{1mb}
 
 \documentclass[twocolumn]{article}
+\textheight 9 in 
+\voffset -0.75 in
 
 \begin{document}
 
@@ -37,19 +39,19 @@ Host computers contribute storage and bandwidth in return for Sia's internal cry
 In addition to receiving compensation from the users, host computers also mine siacoins in proportion to the volume of storage they contribute.
 Clients acquire siacoins (either by being hosts or through a currency exchange) to exchange for storage space and download bandwidth on the Sia network.
 The cost of renting storage is set using a supply and demand algorithm.
-Sia is a cryptosystem that is secure even when \fortynine \space of the hosts are dishonest and malicious.
+Sia is a cryptosystem that is secure even when \fortynine ~ of the hosts are dishonest and malicious.
 Sia is built out of many small blockchains arranged in a tree structure.
 Blockchains operate using a concensus algorithm instead of proof-of-work.
 To join a blockchain, you must have proof-of-storage equivalent to \storageperhost.
 
-\section{Introduction - Nontechnical}
+\section{Introduction}
 
 Sia is a decentralized platform for storing data on the internet.
 With only a few kilobytes of overhead, any file can be stored on the Sia network.
 Sia supports anonymity, and guaruantees uptime for the files.
 Files can be fetched with only a few hundred milliseconds of latency.
 Files are random-access, meaning a piece of the file can be downloaded without fetching the whole file.
-All files are seeded by \numhosts \space peers, meaning files can be uploaded and downloaded at high speed.
+All files are seeded by \numhosts ~ peers, meaning files can be uploaded and downloaded at high speed.
 Sia minimizes file redundancy while maximizing speed and security, making Sia competitive with centralized services.
 
 Files are stored by hosts in exchange for Siacoins.
@@ -86,14 +88,14 @@ One major advantage of Sia is that all shared files only need to be hosted once,
 Another advantage of Sia is that you only need to rent as much storage as you are actively using - more storage can be rented on-the-fly.
 
 % I may have included too much information in this section, but it's important to give an overview of the whole network. Pretty much every topic discussed needs to be covered, but it may not need to be so detailed.
-\section{Introduction - Technical}
+\section{Overview}
 
-Sia is built out of many small blockchains of \numhosts \space hosts each.
+Sia is built out of many small blockchains of \numhosts ~ hosts each.
 These blockchains participate in a deterministic consensus algorithm instead of using a block mining algorithm such as proof-of-work.
 Blockchains are assembled randomly from hosts on the network - hosts cannot control which blockchain they are participating in.
-Each host must be contributing \storageperhost \space to the network in order to be placed in a blockchain.
-A single machine with lots of storage can operate as many hosts simultaneously - as long as each host has \storageperhost \space of unique storage.
-Blockchains will be honest as long as at least \fiftyone \space of the hosts within the blockchain are honest.
+Each host must be contributing \storageperhost ~ to the network in order to be placed in a blockchain.
+A single machine with lots of storage can operate as many hosts simultaneously - as long as each host has \storageperhost ~ of unique storage.
+Blockchains will be honest as long as at least \fiftyone ~ of the hosts within the blockchain are honest.
 
 Storage is only valid once there are files uploaded to the network to store.
 This is because the proof-of-storage algorithm requires actual data on which to perform verifications.
@@ -129,7 +131,7 @@ Parent blockchains are in charge of load-balancing their children, and they wait
 Existing systems use only a single blockchain, where very node is aware of every event on the network.
 This will not scale well, especially in a system attempting to track potentially billions of files and hundreds of millions of daily downloads.
 Using a tree means that a leaf blockchain only needs to be aware of its parent, and its grandparent, all the way up to the root.
-Because parent blockchains are very lightweight, and because there are \childrenperparent \space children per layer, this is very little information to track.
+Because parent blockchains are very lightweight, and because there are \childrenperparent ~ children per layer, this is very little information to track.
 Because parent blockchains track aggregate resources, a leaf blockchain can be certain the the network approves of its funds without needing to know the state of the entire network.
 
 Siacoins and wallets are treated in much the same way as files.
@@ -152,16 +154,16 @@ Sia has an indictment framework - every action by a host or blockchain is signed
 If any host or blockchain is caught performing an illegal action, that host or blockchain is fined and thrown from the network.
 To make fines successful, fines must be equal to the amount of damage caused, and hosts/blockchains must always have enough siacoins to pay the maximum possible fine that they could incur (called a deductible).
 
-Sia assumes that \fiftyone \space of the hosts on the network are honest.
-If \fortynine \space of the hosts are corrupted, a large volume of blockchains will also be corrupted.
+Sia assumes that \fiftyone ~ of the hosts on the network are honest.
+If \fortynine ~ of the hosts are corrupted, a large volume of blockchains will also be corrupted.
 Parent blockchains are not immune from this corruption.
-The indictment framework, plus a series of checks and balances insures that the network can operate without loss even if as many as \maxcorruption \space of the blockchains are dishonest, and even if as many as \maxcorruption \space of the hosts in a particular blockchain are dishonest.
+The indictment framework, plus a series of checks and balances insures that the network can operate without loss even if as many as \maxcorruption ~ of the blockchains are dishonest, and even if as many as \maxcorruption ~ of the hosts in a particular blockchain are dishonest.
 
-If only \fortynine \space of the hosts are corrupted, it is extremely unlikely that the network will ever have a blockchain with more than \maxcorruption \space of the hosts corrupted, and it is also extremely unlikely that an attacker will corrupt more than \maxcorruption \space of the blockchains in the network.
+If only \fortynine ~ of the hosts are corrupted, it is extremely unlikely that the network will ever have a blockchain with more than \maxcorruption ~ of the hosts corrupted, and it is also extremely unlikely that an attacker will corrupt more than \maxcorruption ~ of the blockchains in the network.
 
 \section{Consensus Blockchains}
 
-Concensus blockchains are formed from \numhosts \space hosts all storing \storageperhost.
+Concensus blockchains are formed from \numhosts ~ hosts all storing \storageperhost.
 Each blockchain hosts a set of files and wallets that are unique to that blockchain (each object only appears on a single blockchain).
 Blockchains have a 'state', which is a representation of the current status of the network.
 The state is updated in blocks, which are produced in a concensus algorithm.
@@ -170,7 +172,7 @@ Blocks are composed of 'heartbeats', which is an update package from a host.
 Each block, every host must submit a heartbeat.
 Heartbeats contain storage proofs, keepalive information, and general network transactions and updates, and will be discussed in greater detail later.
 
-The blockchain algorithm assumes that up to \fortynine \space of the hosts in the blockchain are dishonest and malicious.
+The blockchain algorithm assumes that up to \fortynine ~ of the hosts in the blockchain are dishonest and malicious.
 Each block, honest hosts must be guaranteed to have their heartbeat included.
 Furthermore, every honest host must be guaranteed to include the same set of heartbeats, so that the blockchain can maintain a state of consistency.
 These things are guaranteed by the following algorihtm:
@@ -179,12 +181,19 @@ These things are guaranteed by the following algorihtm:
 	\item All hosts send their heartbeats to all other hosts.
 	\item All hosts tell the other hosts which heartbeats they received, and sign that they received these heartbeats.
 	In this step, hosts will fill in gaps in each other's list of heartbeats.
-	\item All hosts tell the other hosts which heartbeats they know were seen by at least \fiftyone \space of the hosts on the network, and include the list of signatures proving that the hosts actually saw the heartbeats.
+	\item All hosts tell the other hosts which heartbeats they know were seen by at least \fiftyone ~ of the hosts on the network, and include the list of signatures proving that the hosts actually saw the heartbeats.
 \end{enumerate}
 
-By the end of the third step, the honest hosts will be guaranteed to have all received the same set of heartbeats that have been seen by \fiftyone \space of the hosts on the network.
+By the end of the third step, the honest hosts will be guaranteed to have all received the same set of heartbeats that have been seen by \fiftyone ~ of the hosts on the network.
 All hosts will therefore produce the same block.
 The process can then restart for the next block.
+
+% Penalties
+At this stage, a host can be indicted for giving two seperate updates to the network.
+For example, if a host gives a heartbeat to one host and a different heartbeat to another host, then the dishonest host is indicted and thrown from the network.
+
+If a host is absent from the block, they are penalized for being inactive.
+After being inactive for 24 hours, the host is thrown from the network.
 
 \section{Concensus Algorithm Proof}
 
@@ -196,41 +205,43 @@ Assumptions:
 \end{itemize}
 
 In step 1, every honest host will get heartbeats from every other honest host.
-If \fiftyone \space hosts are honest, every honest host is guaranteed to have their heartbeat seen by at least \fiftyone \space hosts.
+If \fiftyone ~ hosts are honest, every honest host is guaranteed to have their heartbeat seen by at least \fiftyone ~ hosts.
 
 In step 2, every host tells each other host which heartbeats they have seen, and attatch a signature that they saw the heartbeat.
 This means that any heartbeat that was seen by any honest host will be seen by every other honest host.
 
-In step 3, every host tells each other host which heartbeats they got which were seen by at least \fiftyone \space hosts.
+In step 3, every host tells each other host which heartbeats they got which were seen by at least \fiftyone ~ hosts.
 This is to guarantee that the heartbeat was seen by at least 1 honest host in the previous step.
 If it was seen by at least 1 honest host, then every honest host is guaranteed to have received it in this step.
-Therefore, every honest host is guaranteed to include every heartbeat that was seen by \fiftyone \space hosts in the second step.
+Therefore, every honest host is guaranteed to include every heartbeat that was seen by \fiftyone ~ hosts in the second step.
 
 \section{Dishonest Blockchains}
 
-In a network of randomly assembled blockchains where \fortynine \space of the hosts are compromised, around half of the blockchains are also likely to be compromised.
+In a network of randomly assembled blockchains where \fortynine ~ of the hosts are compromised, around half of the blockchains are also likely to be compromised.
 This means that honest hosts need to be able to detect when their blockchain has been corrupted and need a way to restore order, protect wallets, and perform damage control on any files.
 
-If an attacker controls \fortynine \space of the hosts on the network, then the attacker has less than a (1 times 10 to the 16th) chance of compromising a blockchain by more than \maxcorruption.
-Compromised blockchains are okay as long as \inversemaxcorruption \space honest hosts can detect that they are participating in a dishonest blockchain and work together to protect the vital information stored on the compromised blockchain.
+If an attacker controls \fortynine ~ of the hosts on the network, then the attacker has less than a (1 times 10 to the 16th) chance of compromising a blockchain by more than \maxcorruption.
+Compromised blockchains are okay as long as \inversemaxcorruption ~ honest hosts can detect that they are participating in a dishonest blockchain and work together to protect the vital information stored on the compromised blockchain.
+
+% Need to discuss blockchain panic, which is what happens when an entire blockchain is found to be dishonest.
 
 \section{File Storage Layout}
 
-Each blockchain has \numhosts \space and \storageperhost \space per host.
-Each \storageperhost \space block of data is split up into many smaller pieces, which are to be called slices.
+Each blockchain has \numhosts ~ and \storageperhost ~ per host.
+Each \storageperhost ~ block of data is split up into many smaller pieces, which are to be called slices.
 Slices have no minimum file size, but have a maximum file size of \maxslicesize.
 The collection of slices on a single block of data is called a stack.
 
 The slices in each stack correcspond to each other.
-For example, if the first slice on one host is 45kb, then the first slice on every single host is also 45kb.
+For example, if the third slice on one host is 45kb, then the third slice on every single host is also 45kb.
 These inter-host sets of congruent slices are called rings.
 
 Files are stored on multiple hosts using Reed-Solomon coding, which is maximum distance separable.
 First the user picks redundancy settings, which is what volume of the hosts need to retain their piece of the file in order for the file to be recovered.
 This is m of n recovery, where n equals \numhosts.
 If m is 1, then the file will be duplicated on every single host, and can be recovered from only a single host.
-The redundancy is then \numhosts \space, meaning that a 1GB file will take \numhosts GB of storage on the Sia network.
-If m is \fiftyone, then the file can be recovered from any \fiftyone \space hosts on the network, and the redundancy will be slightly less than 2.
+The redundancy is then \numhosts ~, meaning that a 1GB file will take \numhosts GB of storage on the Sia network.
+If m is \fiftyone, then the file can be recovered from any \fiftyone ~ hosts on the network, and the redundancy will be slightly less than 2.
 A 1GB file will therefore consume slightly less than 2GB of Sia storage.
 
 Files have header data that includes the hash for each slice in the ring and the value of m.
@@ -244,17 +255,17 @@ If a host goes offline or corrupts their data, the network can use the Reed-Solo
 
 It is left to the user to pick optimal settings.
 When m is small, there is a higher chance that a malicious attacker can control enough of the network to knock the file offline.
-If a file is high risk or needs to be guaranteed safe against powerful attackers, setting m to \minuncorruptedhosts \space will be essentially guaranteed to protect the file.
+If a file is high risk or needs to be guaranteed safe against powerful attackers, setting m to \minuncorruptedhosts ~ will be essentially guaranteed to protect the file.
 
 \section{Proof of Access}
 
 Each heartbeat, a host has to provide a proof that they have access to the file pieces that they are storing.
-Each block, a random \filechecksize \space segment of the storage stack is chosen to be included in the heartbeat.
+Each block, a random \filechecksize ~ segment of the storage stack is chosen to be included in the heartbeat.
 This segment will correspond to a portion of a file in a file ring.
 Each host will include their portion of the file in their heartbeat, which means that in the block there is enough information to fully reconstruct a small portion of the file.
 This will also reveal which hosts have the wrong data.
 
-Only \filechecksize \space is requested each block because requesting more would greatly increase bandwidth requirements per block.
+Only \filechecksize ~ is requested each block because requesting more would greatly increase bandwidth requirements per block.
 This small amount is sufficient because it is randomly selected.
 If a host is missing a substantial portion of the file, it will only be a matter of time before some part of the missing portion is randomly selected.
 This does mean that tiny corrupted sections of file can go undetected for a long time, but even small corruptions will eventually be detected and are unlikely to prevent file recovery.
@@ -267,6 +278,19 @@ In the first stage, hosts only submit the hash of the chosen segment prepended w
 This forces hosts to lock in what their file piece is before they see any information revealed from the other hosts.
 In the second stage, hosts reveal what string produced the hash.
 If they reveal a string that does not hash to the string submitted in stage 1, the host is considered corrupt.
+
+% Penalties
+If a host submits a second stage string that does not match their first stage hash, they are thrown from the network.
+
+If a host submits a second stage string that is discovered as corrupt during decoding, an appeal is started.
+The host must upload the entire slice that corresponds to the corrupted segment uploaded in the heartbeat.
+The other hosts upload their chunks of the header data for that slice, which will contain the hash of the slice that the host is supposed to have.
+If the slice matches the hash, and the segment uploaded matches the slice, then the piece is determined originally corrupt.
+The host is aquitted, and the file itself is fined to pay for the bandwidth used during the appeal process.
+
+Otherwise, the host treated as not having submitted a heartbeat.
+
+If, during the appeal process, the blockchain is discovered dishonest, or a section of hosts is discovered dishonest, then the blockchain enters a panic state.
 
 \section{Proof of Storage}
 
@@ -282,9 +306,9 @@ A host will not upload a fake file to himself or the network if the act of doing
 The second bullet point means that the host is not using Sia as it's source of storage, or that the host is not using a source that uses Sia as a source for storage.
 
 The first point is protected by randomly collecting together swarms.
-Any swarm will be composed of random sets of nodes, and will not have more than \maxcorruption \space dishonest hosts.
-This means that any host attempting to use themselves as exclusive storage will have to host their files on at least \inversemaxcorruption \space honest hosts.
-As long as the profit from mining on \maxcorruption \space of a fake file does not exceed the loss of paying for hosting on the \inversemaxcorruption honest hosts, there will be no incentive to do fake mining in this manner.
+Any swarm will be composed of random sets of nodes, and will not have more than \maxcorruption ~ dishonest hosts.
+This means that any host attempting to use themselves as exclusive storage will have to host their files on at least \inversemaxcorruption ~ honest hosts.
+As long as the profit from mining on \maxcorruption ~ of a fake file does not exceed the loss of paying for hosting on the \inversemaxcorruption honest hosts, there will be no incentive to do fake mining in this manner.
 Therefore, a hard cap will be placed on the amount of coins that can be mined to satisfy this condition.
 
 The second point is protected by the cost of downloads on the network.
@@ -294,13 +318,31 @@ The system for pricing downloads has currently not been created, but it will be 
 
 % game theory stuff about why it's not beneficial for an incomplete minority to collaborate until they hit a critical mass
 
-Protection against corrupted uploads: it is possible that a host has the file that they were uploaded and yet still fail the corruption test.
-They will be indicted for storing incorrect data, and the indictment will be incorrect.
-Hosts can prove themselves innocent by uploading the entire file piece as well as the hash of the file piece that was created when the file was uploaded.
-If the hosts file piece matches the hash, and the hosts indicted slice correctly matches the file piece, then the file is determined to have been corrupted at upload.
-The host is acquitted and the file piece is corrected, the host then has the correct file piece.
-
 \section{The Problem of Delegation}
+
+These proofs have a weak vulnerability; malicious hosts can collaborate and remove redundancy from the file.
+Files have a redundancy so that they can be repaired if their hosts go offline.
+A group of collaborating hosts can remove the redundancy from their file and store a single nonredundant copy.
+When one of the group needs to do a proof on the file, the group builds the piece they need out of the pieces they have.
+
+This is unhealthy for the network; if a single host goes offline, every host that is supposed to have redundant pieces of the file in the collaborating group will lose the file.
+This will result in penalties for the hosts, but also results in a much higher liklihood of corruption of the file.
+
+It is not certain that this can be avoided, though hopefully it can be discouraged.
+
+\section{False Redundancy}
+
+The network expects that hosts will go offline in a randomly distributed manner.
+There are penalties if hosts go offline simultaneously, and they are called 'false redundancy penalties.'
+There are two priciple ways that hosts would go down simultaneously.
+The first is if they are delegating files.
+The second is if all of the hosts are in the same geographic location, and some disaster like a power outage happens.
+
+There may be other situations that cause hosts to go offline together.
+All such situations are viewed by the network as unacceptable and are penalized.
+
+The severities of these penalties have not been decided.
+It has also not been determined how to measure false redundancy.
 
 \section{Entropy}
 
@@ -319,36 +361,20 @@ This method of generating entropy is vulnmerable to an attack: dishonest hosts c
 The way to prevent this is to make sure that the penalty for missing a heartbeat is more expenive than favorably generating entropy for a potential 80\% of dishonest hosts.
 There will be a penalty for missing heartbeats, and it will sufficiently satisfy this attack prevention mechanism.
 
+\section{Updates}
+
 \section{Full Heartbeat}
 
 \section{A Tree of Blockchains}
 
-Explain that blockchains are organized into trees, operate on assumption of 51\% dishonest blockchains, talk about parent and child relationships. Talk about detecting a comporomised parent, and immediately replacing them to minimize damage to the network.
-
-\section{Dishonest Blockchains}
-
-Talking about how hosts need to be forcefully removed when hosts are dropped, talking about honest hosts resigning, etc.
-
 \section{Aggregate Transactions}
-
-Explain how aggregate transactions work, aggregate storage. Attack vectors such as dishonest swarms sending dishonest spends. Prove detection of dishonesty and integrety of aggregation given 51\% honest swarms.
 
 \section{Aggregation DHT}
 
-Explain the DHT that allows blockchains to talk to eachother without flooding the parent with communication.
-
-\section{Stuff to be integrated later}
-
-There is an entire scripting system, as well as potentially a cacheing system or something like that. I would really like to see an emergency home for dynamic pages built into this system (even if it's a crappy and slow home) because Tor has been compromised and currently there is nowhere else to go.
+\section{Script Wallets}
 
 \section{Implications}
 
-An entire section dedicated to talking about the implications of universally available cheap cloud storage, especially when it's encrypted and decentralized.
-Then I can also talk about the implications of the scripting system.
-We can expand here on services that might succeed on Sia, being able to take advantage of its unique features.
-Bittorrent, onion routing, anonymous money, etc.
-
-An entire paragraph needs to be dedicated to talking about the economic implications of the cryptocurrency.
-Min and max price, etc.
+\section{Conclusion}
 
 \end{document}
