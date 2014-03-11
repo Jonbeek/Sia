@@ -7,7 +7,7 @@ libraries: src/*/*.go fmt
 	GOPATH=$(CURDIR) go install network swarm disk common main
 
 test: libraries
-	GOPATH=$(CURDIR) go test network swarm disk common main -race -timeout 10s
+	GOPATH=$(CURDIR) go test network swarm disk common main -race -timeout 30s
 
 bench: libraries
 	GOPATH=$(CURDIR) go test network swarm disk common main -bench .
