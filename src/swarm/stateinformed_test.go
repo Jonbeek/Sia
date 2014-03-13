@@ -76,12 +76,13 @@ func TestStateJoin(t *testing.T) {
 	connected := 0
 
 	for _, b := range swarms {
+		b.GetState().Die()
+	}
+	for _, b := range swarms {
 		switch s := b.GetState().(type) {
 		case *StateSwarmInformed:
-			s.Die()
 			informed += 1
 		case *StateSteady:
-			s.Die()
 			connected += 1
 		case *ThreePhase:
 			switch s.handler.(type) {
