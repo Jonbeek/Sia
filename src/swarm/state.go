@@ -15,6 +15,7 @@ import (
 // SwarmDied - The swarm has died, terminate
 type State interface {
 	HandleUpdate(t common.Update) State
+	Die()
 }
 
 func newBlockchain(Host string, Id string, StorageMapping map[string]interface{}) (b *Blockchain) {
