@@ -2,22 +2,23 @@ package swarm
 
 import (
 	"common"
+	"fmt"
 	"log"
 	"network"
 	"testing"
 	"time"
 )
 
-func BenchmarkNodeAlive(b *testing.B) {
+func BenchmarkHeatbeat(b *testing.B) {
 
 	nodealive := make([]common.NetworkMessage, b.N)
 
 	for i := 0; i < b.N; i++ {
 		n, _ := common.RandomString(8)
-		nodealive[i] = common.MarshalUpdate(NewNodeAlive("f", n))
+		nodealive[i] = common.MarshalUpdate(&Heartbeat{Id: n})
 	}
 
-	bc := NewBlockchain("test", "f", make(map[string]interface{}))
+	bc := NewBlockchain("test", "f", time.Now().Add(1000*time.Second), make(map[string]interface{}))
 
 	b.ResetTimer()
 
@@ -55,8 +56,10 @@ func TestStateJoin(t *testing.T) {
 
 	swarms := make([]*Blockchain, common.SWARMSIZE)
 
+	start := time.Now().Add(100 * time.Millisecond)
+
 	for i, _ := range swarms {
-		swarms[i] = NewBlockchain(hosts[i], swarm, storage)
+		swarms[i] = NewBlockchain(hosts[i], swarm, start, storage)
 		if len(swarms[i].Host) == 0 {
 			t.Fatal(swarms[i])
 		}
@@ -66,37 +69,43 @@ func TestStateJoin(t *testing.T) {
 		s.AddSource(mult)
 	}
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 	log.Print("TEST: stopped sleeping")
 
 	informed := 0
-	broadcast := uint(0)
-	seen := 0
 	connected := 0
-	blocks := 0
 
-	for _, s := range swarms {
-		switch t := s.GetState().(type) {
+	for _, b := range swarms {
+		switch s := b.GetState().(type) {
 		case *StateSwarmInformed:
-			t.Die(true)
+			s.Die()
 			informed += 1
-			broadcast += t.broadcastcount
-			seen += len(t.hostsseen)
-			blocks += len(t.chain.BlockHistory)
 		case *StateSteady:
+			s.Die()
 			connected += 1
+		case *ThreePhase:
+			switch s.handler.(type) {
+			case *StateSwarmInformed:
+				informed += 1
+			case *StateSteady:
+				connected += 1
+			default:
+				t.Fatal(fmt.Sprintf("3phase? %T %T", b.GetState(), s.handler))
+			}
+		default:
+			t.Fatal(fmt.Sprintf("Wrong type %T", b.GetState()))
 		}
 	}
 
-	t.Log("StateInformed", informed)
-	t.Log("BroadCasts Sent", broadcast)
-	t.Log("PeersSeen", seen)
-	t.Log("Blocks", blocks)
-	t.Log("StateConnected", connected)
-
-	t.Log(swarms[0].state)
-
 	if connected <= common.SWARMSIZE/2 {
+		t.Log("StateInformed", informed)
+		t.Log("StateConnected", connected)
 		t.Fatal("Failed to establish swarm")
+	}
+
+	for _, b := range swarms {
+		if b.BlockLen() < 1 {
+			t.Fatal("Blocks to short")
+		}
 	}
 }

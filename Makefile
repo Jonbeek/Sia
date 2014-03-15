@@ -7,7 +7,7 @@ libraries: src/*/*.go fmt
 	GOPATH=$(CURDIR) go install network swarm disk common main
 
 test: libraries
-	GOPATH=$(CURDIR) go test network swarm disk common main -race -timeout 5s
+	GOPATH=$(CURDIR) go test network swarm disk common main -race -timeout 30s
 
 bench: libraries
 	GOPATH=$(CURDIR) go test network swarm disk common main -bench .
@@ -22,4 +22,7 @@ fmt:
 	go fmt src/common/*.go
 	go fmt src/main/*.go
 
-.PHONY: all test fmt libraries test-verbose
+docs:
+	pdflatex -output-directory=doc/ doc/whitepaper.tex 
+
+.PHONY: all test fmt libraries test-verbose docs
