@@ -53,6 +53,10 @@ func TestStateSteady(t *testing.T) {
 	log.Print("TEST: stopped sleeping")
 
 	for _, s := range swarms {
+		s.GetState().Die()
+	}
+
+	for _, s := range swarms {
 		if s.BlockLen() < 2 {
 			t.Fatal("Swarm BlockHistory is to short")
 		}
