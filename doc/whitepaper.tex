@@ -16,10 +16,9 @@
 \newcommand{\maxslicesize}{1mb}
 
 \documentclass[twocolumn]{article}
-\textheight 9 in 
-\voffset -0.75 in
 
 \begin{document}
+\frenchspacing
 
 \title{Sia : Decentralized, Compensated, Self-Repairing Computer Storage}
 
@@ -39,10 +38,10 @@ Host computers contribute storage and bandwidth in return for Sia's internal cry
 In addition to receiving compensation from the users, host computers also mine siacoins in proportion to the volume of storage they contribute.
 Clients acquire siacoins (either by being hosts or through a currency exchange) to exchange for storage space and download bandwidth on the Sia network.
 The cost of renting storage is set using a supply and demand algorithm.
-Sia is a cryptosystem that is secure even when \fortynine{} of the hosts are dishonest and malicious.
+Sia is a cryptosystem that is secure with only a simple majority honest hosts.
 Sia is built out of many small blockchains arranged in a tree structure.
 Blockchains operate using a concensus algorithm instead of proof-of-work.
-To join a blockchain, you must have proof-of-storage equivalent to \storageperhost.
+To join a blockchain, you must have proof-of-storage equivalent to \storageperhost{}.
 
 \section{Introduction}
 
@@ -62,13 +61,13 @@ Siacoin is a superset of Bitcoin.
 
 Files can be stored in two modes.
 \begin{itemize}
+	\item Mutable - the contents of the file can be changed by anyone with permission.
+	The original contents of the file are permanently lost after a change is made.
+	Most files will be mutable.
 	\item Immutable - once uploaded, the file can never be altered, and the size of the file is constant.
 	At the end of the file, there is a pointer to another file, which can contain information about updates to the original file.
 	This pointer can be null.
-	Immutable files are appropriate for shared data.
-	\item Mutable - the contents of the file can be changed by anyone with permission.
-	The original contents of the file are permanently lost after a change is made.
-	Mutable files are appropriate for personal/private data.
+	Immutable files are appropriate for public and shared data and media - if you use a public file, you want to be sure that the uploader won't replace it with something else.
 \end{itemize}
 
 Files have a balance of siacoins, which is used to pay the hosts that store the file.
@@ -80,39 +79,31 @@ There is no way to extract coins from the balance - once sent to a file, siacoin
 These constraints protect against censorship.
 
 Sia can be used as a more efficient replacement for many of todays services.
-These services include Bittorrent, Bitcoin, and Filelockers.
-Sia can also be used as a place to host embedded web content.
-On fast connections, Sia can be used as a replacement for hard drives - computers would only need enough local storage to boot and connect to the internet.
+These services include Bittorrent, Bitcoin, and file lockers such as MediaFire.
+On fast connections, Sia could be used as a replacement for hard drives - computers would only need enough local storage to boot and connect to the internet.
 
 One major advantage of Sia is that all shared files only need to be hosted once, yet no central service needs to be trusted or depended on.
 Another advantage of Sia is that you only need to rent as much storage as you are actively using - more storage can be rented on-the-fly.
 
-% I may have included too much information in this section, but it's important to give an overview of the whole network. Pretty much every topic discussed needs to be covered, but it may not need to be so detailed.
 \section{Overview}
 
 Sia is built out of many small blockchains of \numhosts{} hosts each.
 These blockchains participate in a deterministic consensus algorithm instead of using a block mining algorithm such as proof-of-work.
 Blockchains are assembled randomly from hosts on the network - hosts cannot control which blockchain they are participating in.
-Each host must be contributing \storageperhost{} to the network in order to be placed in a blockchain.
-A single machine with lots of storage can operate as many hosts simultaneously - as long as each host has \storageperhost{} of unique storage.
-Blockchains will be honest as long as at least \fiftyone{} of the hosts within the blockchain are honest.
+Each host must be contributing exactly \storageperhost{} to the network in order to be placed in a blockchain.
+A single machine operate as a group of hosts each contributing exactly \storageperhost{}, as long as the storage is unique.
+Blockchains will be honest as long as at least a simple majority of the hosts within the blockchain are honest.
 
-Storage is only valid once there are files uploaded to the network to store.
-This is because the proof-of-storage algorithm requires actual data on which to perform verifications.
 The proof-of-storage algorithm makes use of the fact that data is redundant - each host is storing different Reed-Solomon coded pieces of the files uploaded to the network.
-By gathering file pieces from each host, the network can use the pieces to check for corruption.
+By gathering file pieces from each host, the network can use the pieces to check for honesty and corruption simultaneously.
 
 Each blockchain has a set of files which it tracks.
-As files are added and deleted, the network performs load-balancing.
-When the total amount of available storage on the network drops below a certain threshold, a new blockchain is created.
-The load balancing algorithms then pick a bunch of files to store on the new blockchain.
-If the network rises above a certain threshold of available storage, a blockchain is chosen to be deleted.
-That blockchain then load-balances every file to other blockchains and terminates.
+As files are added and deleted, the network performs load-balancing between blockchains to keep the file distribution even.
 
-If there are many hosts waiting to join blockchains, and not enough new files for the hosts to store, the price of storage will drop.
-Dropping the price not only affects supply and demand, it also means that existing files will be on the network for longer.
-If the amount of available storage on Sia is low and there are not many hosts for creating new blockchains, the price of storage will increase.
-Increasing the storage not only affects supply and demand, it also means that existing files will be deleted faster.
+Hosts wanting to join the network are put into a queue, where they wait until there is sufficient storage demand to justify creating a new blockchain.
+If there are many hosts joining the queue but few new files being added to the network, the price of storage will drop.
+If there are many files being uploaded and few hosts joining the queue, the price of storage will increase.
+The pricing algorithm tries to always keep hosts in a queue instead of putting files in a queue.
 
 % I need help writing this paragraph
 Blockchains are organized into a tree that manages the needs of the network.
@@ -127,43 +118,46 @@ The same happens in the reverse direction.
 When a leaf blockchain deletes a file, it tells its parent, who then updates its aggreagate resource.
 Parent blockchains are in charge of load-balancing their children, and they wait for their parents to load balane them.
 
-% And this one too - heck, probably all of them
-Existing systems use only a single blockchain, where very node is aware of every event on the network.
-This will not scale well, especially in a system attempting to track potentially billions of files and hundreds of millions of daily downloads.
-Using a tree means that a leaf blockchain only needs to be aware of its parent, and its grandparent, all the way up to the root.
-Because parent blockchains are very lightweight, and because there are \childrenperparent{} children per layer, this is very little information to track.
-Because parent blockchains track aggregate resources, a leaf blockchain can be certain the the network approves of its funds without needing to know the state of the entire network.
+Using a tree of blockchains allows each host to participate in a lightweight blockchain that stores only a fraction of the information on the network.
+Additionally, each host must only perform calculations on a fraction of the network.
 
-Siacoins and wallets are treated in much the same way as files.
-Wallets consume space on the network, and get charged for the space they consume.
+The aggregate nature of the tree allows each host and wallet to verify that their segment of the network is honest, even though they cannot see every action occuring on the network.
+
+Wallets take space on the network, and are charged the file price for existing on the network.
+Each block, money is removed from the wallet and when the funds run out, the wallet is deleted.
+As wallets only take up a few kilobytes, the amount charged is minimal.
+
 When wallets send money to a different blockchain, the transaction propagates through the tree.
-Information is aggregated, meaning that the parent blockchain will only say how many coins have moved between children - it will not say which wallet the coins are from or which wallet the coins are for.
-This compression is necessary to keep the amount of information sent through the root blockchain at a minimum.
-This compression also means that there needs to be another way to determine which wallets incoming siacoins are for.
+Information is aggregated, meaning that the parent blockchain will only say how many coins have moved between children; it will not say which wallet the coins are from or which wallet the coins are for.
+This compression means that there needs to be a way to determine which wallets incoming siacoins are for, but it also means that the parent blockchains have a low maximum amount of work they have to perform per block.
 
-This is accomplished by having leaf blockchains directly talk to eachother.
-When a wallet in one leaf blockchain is sending money to a wallet on another leaf blockchain, the first blockchain will send a message indicating that coins are going to be sent.
-The second blockchain then claims to its parent the correct volume of blockchains, using the sent message as proof.
-The parent then knows how many coins to claim.
+To determine how aggregated transactions get divided, the sending blockchain messages the receiving blockchain, informing them that coins are incoming.
+The receiving blockchain then claims the coins from the parent.
 
 Blockchains can look up the direct communcation address of other blockchains through a DHT.
-All leaf blockchains participate in the DHT, and only leaf blockchains participate in the DHT.
+All leaf blockchains participate in the DHT.
 This allows blockchains to find eachother in log(n) time without sending high volumes of messages through their parents, and without needing to store the direct communication address of every blockchain in the network.
 
-Sia has an indictment framework - every action by a host or blockchain is signed and verified by a large number of other hosts or blockchains.
-If any host or blockchain is caught performing an illegal action, that host or blockchain is fined and thrown from the network.
-To make fines successful, fines must be equal to the amount of damage caused, and hosts/blockchains must always have enough siacoins to pay the maximum possible fine that they could incur (called a deductible).
+Any time that a host is caught by the network performing an illegal action, the host will be fined.
+The fine will be equal to or greater than the amount of damaged caused to the network.
+To make sure that hosts can be fined, they are required to have a balance equal to or greater than the maximum possible fine - a 'deductible'.
+When a host leaves the network, the deductible will be released.
 
-Sia assumes that \fiftyone{} of the hosts on the network are honest.
-If \fortynine{} of the hosts are corrupted, a large volume of blockchains will also be corrupted.
-Parent blockchains are not immune from this corruption.
-The indictment framework, plus a series of checks and balances insures that the network can operate without loss even if as many as \maxcorruption{} of the blockchains are dishonest, and even if as many as \maxcorruption{} of the hosts in a particular blockchain are dishonest.
+The security measures in Sia ensure that an attacker cannot control which blockchain its hosts are participating; they are randomly distributed.
+Sia assumes that only simple majority of the hosts on the network are honest.
+If an attacker controls \fortynine{} of the hosts on the network, the attacker has a 50\% chance of controlling a particular blockchain, and will control roughly 50\% of the blockchains on the network.
+Even controlling half of the hosts on the network, an attacker has a minimal chance of controlling more than \maxcorruption{} of the hosts in a particular blockchain, as shown in the equation below:
 
-If only \fortynine{} of the hosts are corrupted, it is extremely unlikely that the network will ever have a blockchain with more than \maxcorruption{} of the hosts corrupted, and it is also extremely unlikely that an attacker will corrupt more than \maxcorruption{} of the blockchains in the network.
+\begin{center}
+(equation here)
+\end{center}
+
+In all interactions on Sia, it is assumed that blockchains are dishonest with 50\% probability, and that all blockchains have at least \inversemaxcorruption{} honest hosts.
+Sia also has tools to detect dishonest actions by hosts and blockchains, which result in fines and being kicked from the network.
 
 \section{Consensus Blockchains}
 
-Concensus blockchains are formed from \numhosts{} hosts all storing \storageperhost.
+Concensus blockchains are formed from \numhosts{} hosts all storing \storageperhost{}.
 Each blockchain hosts a set of files and wallets that are unique to that blockchain (each object only appears on a single blockchain).
 Blockchains have a 'state', which is a representation of the current status of the network.
 The state is updated in blocks, which are produced in a concensus algorithm.
@@ -172,10 +166,10 @@ Blocks are composed of 'heartbeats', which is an update package from a host.
 Each block, every host must submit a heartbeat.
 Heartbeats contain storage proofs, keepalive information, and general network transactions and updates, and will be discussed in greater detail later.
 
-The blockchain algorithm assumes that up to \fortynine{} of the hosts in the blockchain are dishonest and malicious.
+The blockchain algorithm assumes that only a simple majority of hosts are honest.
 Each block, honest hosts must be guaranteed to have their heartbeat included.
-Furthermore, every honest host must be guaranteed to include the same set of heartbeats, so that the blockchain can maintain a state of consistency.
-These things are guaranteed by the following algorihtm:
+Furthermore, every honest host must be guaranteed to agree on the same block.
+This is achieved by the following algorithm:
 
 \begin{enumerate}
 	\item All hosts send their heartbeats to all other hosts.
@@ -317,6 +311,9 @@ As long as the download system is constructed such that the cost of downloading 
 The system for pricing downloads has currently not been created, but it will be created with this constraint in mind.
 
 % game theory stuff about why it's not beneficial for an incomplete minority to collaborate until they hit a critical mass
+\begin{center}
+Game theory stuff here
+\end{center}
 
 \section{The Problem of Delegation}
 
@@ -344,6 +341,10 @@ All such situations are viewed by the network as unacceptable and are penalized.
 The severities of these penalties have not been decided.
 It has also not been determined how to measure false redundancy.
 
+\begin{center}
+Pentalty stuff here
+\end{center}
+
 \section{Entropy}
 
 Each block, a random file segment must be selected.
@@ -361,7 +362,9 @@ This method of generating entropy is vulnerable to an attack: dishonest hosts ca
 The way to prevent this is to make sure that the penalty for missing a heartbeat is more expenive than favorably generating entropy for a potential 80\% of dishonest hosts.
 There will be a penalty for missing heartbeats, and it will sufficiently satisfy this attack prevention mechanism.
 
-% Need to have info about how entropy gets used to pick the file piece
+\begin{center}
+Pentalty stuff here
+\end{center}
 
 \section{Script Wallets}
 
@@ -435,7 +438,9 @@ Each parent keeps track of the aggregate balance of all the children.
 
 \section{Aggregate Transactions}
 
-\section{Aggregation DHT}
+\section{Blockchain Certifications}
+
+\section{Blookchain DHT}
 
 \section{Economic Model}
 
