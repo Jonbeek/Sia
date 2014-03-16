@@ -103,8 +103,11 @@ type PriorityLog struct {
 	out     io.Writer
 	// lock protects the above fields
 	lock sync.Mutex
-	// Every log helper function counts as two in pending
-	// The first for formatting, the second for creating the record
+	// stop stops creation of new log entries.
+	// THere are two mutexes solely to prevent deadlocks.
+	stop sync.Mutex
+	// Every logging function counts as two in pending
+	// The first for formatting the message, the second for creating the record
 	pending sync.WaitGroup
 }
 
@@ -117,10 +120,24 @@ func NewPriorityLog(out io.Writer, flags uint, dispose bool) *PriorityLog {
 	return pl
 }
 
+func (pl *PriorityLog) Claim() {
+	// Must be done before calls to log
+	// Lock is used to prevent one goroutine from continuously making entries
+	pl.stop.Lock()
+	defer pl.stop.Unlock()
+	// One for the caller, one for log
+	pl.pending.Add(2)
+}
+
+func (pl *PriorityLog) Unclaim() {
+	// No need to wait, finishing less harmful than starting
+	pl.pending.Done()
+}
+
 func (pl *PriorityLog) log(priority uint, message string) {
-	// The calldepth will always be 3, if called directly.
-	pl.pending.Add(1)
-	defer pl.pending.Done()
+	// Calling function called Claim, hopefully 
+	defer pl.Unclaim()
+	// The calldepth will always be 3, if called directly
 	rec := newRecord(3, priority, message)
 	// Claim complete use over the variables of pl
 	pl.lock.Lock()
@@ -131,20 +148,51 @@ func (pl *PriorityLog) log(priority uint, message string) {
 		if !pl.dispose {
 			heap.Push(pl.records, rec)
 		}
+		// If dispose is set, then it's a waste of effort
+		// But not memory, at least not long lasting memory.
 	}
 }
 
+func (pl *PriorityLog) Error(v ..interface{}) {
+	pl.Claim()
+	defer pl.Unclaim()
+	go pl.log(Perror, fmt.Sprint(v...))
+}
+
 func (pl *PriorityLog) Print(v ...interface{}) {
-	pl.pending.Add(1)
-	defer pl.pending.Done()
+	pl.Claim()
+	defer pl.Unclaim()
 	go pl.log(Pprint, fmt.Sprint(v...))
+}
+
+func (pl *PriorityLog) Warning(v ..interface{}) {
+	pl.Claim()
+	defer pl.Unclaim()
+	go pl.log(Pwarning, fmt.Sprint(v...))
+}
+
+func (pl *PriorityLog) Info(v ..interface{}) {
+	pl.Claim()
+	defer pl.Unclaim()
+	go pl.log(Pinfo, fmt.Sprint(v...))
+}
+
+func (pl *PriorityLog) Debug(v ..interface{}) {
+	pl.Claim()
+	defer pl.Unclaim()
+	go pl.log(Pdebug, fmt.Sprint(v...))
 }
 
 func (pl *PriorityLog) LogStored() {
 	// Prints and clears the log
+	// Stop making new log entries
+	pl.stop.Lock()
+	defer pl.stop.Unlock()
+	// Wait for any yet to be added log entries
 	pl.pending.Wait()
 	pl.lock.Lock()
 	defer pl.lock.Unlock()
+	// Write it all out
 	for pl.records.Len() > 0 {
 		rec := heap.Pop(pl.records).(*record)
 		pl.out.Write(rec.Format())
@@ -152,6 +200,8 @@ func (pl *PriorityLog) LogStored() {
 }
 
 func (pl *PriorityLog) Clear() {
+	// Uncertain if this should wait for all pending records or not.
+	// For now, don't bother.
 	pl.lock.Lock()
 	defer pl.lock.Unlock()
 	pl.records.Clear()
@@ -167,8 +217,32 @@ func Clear() {
 	std.Clear()
 }
 
+func Error(v ..interface{}) {
+	std.Claim()
+	defer std.Unclaim()
+	go std.log(Perror, fmt.Sprint(v...))
+}
+
 func Print(v ...interface{}) {
-	std.pending.Add(1)
-	defer std.pending.Done()
+	std.Claim()
+	defer std.Unclaim()
 	go std.log(Pprint, fmt.Sprint(v...))
+}
+
+func Warning(v ..interface{}) {
+	std.Claim()
+	defer std.Unclaim()
+	go std.log(Pwarning, fmt.Sprint(v...))
+}
+
+func Info(v ..interface{}) {
+	std.Claim()
+	defer std.Unclaim()
+	go std.log(Pinfo, fmt.Sprint(v...))
+}
+
+func Debug(v ..interface{}) {
+	std.Claim()
+	defer std.Unclaim()
+	go std.log(Pdebug, fmt.Sprint(v...))
 }
