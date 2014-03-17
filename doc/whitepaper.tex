@@ -8,10 +8,9 @@
 
 \newcommand{\filechecksize}{256 bytes}
 
-\newcommand{\maxcorruption}{80\%}
-\newcommand{\inversemaxcorruption}{20\%}
-\newcommand{\maxredundancy}{5}
-\newcommand{\minuncorruptedhosts}{$\frac{n}{5}$}
+\newcommand{\maxcorruption}{85\%}
+\newcommand{\inversemaxcorruption}{15\%}
+\newcommand{\maxredundancy}{6$\frac{2}{3}$}
 
 \newcommand{\maxslicesize}{1mb}
 
@@ -146,11 +145,7 @@ When a host leaves the network, the deductible will be released.
 The security measures in Sia ensure that an attacker cannot control which blockchain its hosts are participating; they are randomly distributed.
 Sia assumes that only simple majority of the hosts on the network are honest.
 If an attacker controls \fortynine{} of the hosts on the network, the attacker has a 50\% chance of controlling a particular blockchain, and will control roughly 50\% of the blockchains on the network.
-Even controlling half of the hosts on the network, an attacker has a minimal chance of controlling more than \maxcorruption{} of the hosts in a particular blockchain, as shown in the equation below:
-
-\begin{center}
-(equation here)
-\end{center}
+Even controlling half of the hosts on the network, an attacker has a minimal chance of controlling more than \maxcorruption{} of the hosts in a particular blockchain.
 
 In all interactions on Sia, it is assumed that blockchains are dishonest with 50\% probability, and that all blockchains have at least \inversemaxcorruption{} honest hosts.
 Sia also has tools to detect dishonest actions by hosts and blockchains, which result in fines and being kicked from the network.
@@ -211,13 +206,29 @@ Therefore, every honest host is guaranteed to include every heartbeat that was s
 
 \section{Dishonest Blockchains}
 
-In a network of randomly assembled blockchains where \fortynine{} of the hosts are compromised, around half of the blockchains are also likely to be compromised.
-This means that honest hosts need to be able to detect when their blockchain has been corrupted and need a way to restore order, protect wallets, and perform damage control on any files.
+We assume that hosts are randomly assigned to blockchains.
+In a network where honest hosts only have a simple majority, an attacker can have the majority in many individual blockchains.
 
-If an attacker controls \fortynine{} of the hosts on the network, then the attacker has less than a (1 times 10 to the 16th) chance of compromising a blockchain by more than \maxcorruption.
-Compromised blockchains are okay as long as \inversemaxcorruption{} honest hosts can detect that they are participating in a dishonest blockchain and work together to protect the vital information stored on the compromised blockchain.
+We can assume that all blockchains will have at least \inversemaxcorruption{} honest hosts given that half of the hosts on the network are honest.
 
-% Need to discuss blockchain panic, which is what happens when an entire blockchain is found to be dishonest.
+\begin{equation}
+\sum_{i=163}^{192} {192 \choose i} \; 0.5^{i} \; 0.5^{192-i} = 3.869\times10^{-24}
+\end{equation}
+
+If dishonest hosts have a majority in a blockchain, they can push honest hosts offline by preventing the honest heartbeats from getting the signatures required to be put in a block.
+This allows, in one block, or spread through many blocks, a dishonest blockchain to push off all of the honest hosts.
+
+To protect against this type of attack, each time a host is dropped from the network, 3 additional hosts are randomly selected to be dropped from the network.
+Assuming worst case, this means that for each honest host, the next three hosts that get dropped will be half honest and half dishonest, for a total expected drop of 2.5 honest hosts and 1.5 dishonest hosts, or an expected ratio of 60\% honest hosts getting dropped.
+Assuming that the network is half honest, the individual blockchain will converge to 60\% dishonest.
+
+If individual blockchains converge to being 60\% dishonest, with high probability no blockchain will have less than \inversemaxcorruption{} honest hosts.
+
+\begin{equation}
+\sum_{i=163}^{192} {192 \choose i} \; 0.6^{i} \; 0.4^{192-i} = 5.392\times10^{-14}
+\end{equation}
+
+This means that for all blockchains, we can assume that at least \inversemaxcorruption{} hosts are honest.
 
 \section{File Storage Layout}
 
@@ -242,14 +253,13 @@ Files have header data that includes the hash for each slice in the ring and the
 The value of m can be stored as a single byte.
 Each hash will be 32 bytes and there are \numhosts pieces.
 The network assumes that under any circumstances, a blockchain will have at least \inversemaxcorruption hosts, so the redundancy on the header data will be kept at \maxredundancy.
-Altogether, this means that there is 30kb of overhead for a file.
+Altogether, this means that there is 40kb of overhead for a file.
 
 Part of the heartbeat algorithm performs keepalives on hosts and verifies that they are storing their pieces as promised.
 If a host goes offline or corrupts their data, the network can use the Reed-Solomon coding to repair the file within minutes - no interaction from the user needed.
 
 It is left to the user to pick optimal settings.
 When m is small, there is a higher chance that a malicious attacker can control enough of the network to knock the file offline.
-If a file is high risk or needs to be guaranteed safe against powerful attackers, setting m to \minuncorruptedhosts{} will be essentially guaranteed to protect the file.
 
 \section{Proof of Access}
 
