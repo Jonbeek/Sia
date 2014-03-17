@@ -28,15 +28,7 @@ func BenchmarkHeatbeat(b *testing.B) {
 
 }
 
-func TestStateJoin(t *testing.T) {
-
-	log.SetFlags(log.Lmicroseconds)
-
-	old := common.SWARMSIZE
-	common.SWARMSIZE = 4
-	defer func(old int) {
-		common.SWARMSIZE = old
-	}(old)
+func CreateSteadySwarm(t *testing.T) ([]*Blockchain, common.NetworkMultiplexer) {
 
 	mult := network.NewNetworkMultiplexer()
 
@@ -48,9 +40,6 @@ func TestStateJoin(t *testing.T) {
 
 	for i, _ := range hosts {
 		hosts[i], _ = common.RandomString(8)
-		if len(hosts[i]) == 0 {
-			t.Fatal(hosts)
-		}
 		storage[hosts[i]] = nil
 	}
 
@@ -69,7 +58,22 @@ func TestStateJoin(t *testing.T) {
 		s.AddSource(mult)
 	}
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(4*time.Second + 100*time.Millisecond)
+	return swarms, mult
+}
+
+func TestStateInformed(t *testing.T) {
+
+	old := common.SWARMSIZE
+	common.SWARMSIZE = 4
+	defer func(old int) {
+		common.SWARMSIZE = old
+	}(old)
+
+	log.SetFlags(log.Lmicroseconds)
+
+	swarms, _ := CreateSteadySwarm(t)
+
 	log.Print("TEST: stopped sleeping")
 
 	informed := 0
@@ -78,6 +82,7 @@ func TestStateJoin(t *testing.T) {
 	for _, b := range swarms {
 		b.GetState().Die()
 	}
+
 	for _, b := range swarms {
 		switch s := b.GetState().(type) {
 		case *StateSwarmInformed:
