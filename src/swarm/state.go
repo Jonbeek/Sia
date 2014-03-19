@@ -14,12 +14,12 @@ import (
 // SwarmJoin - We are joining an already alive swarm
 // SwarmDied - The swarm has died, terminate
 type State interface {
-	HandleUpdate(t common.Update) State
+	HandleUpdate(t common.Update)
 	Die()
 }
 
-func newBlockchain(Host string, Id string, StorageMapping map[string]interface{}) (b *Blockchain) {
-	b = new(Blockchain)
+func newBlockchain(Host string, Id string, StorageMapping map[string]interface{}) *Blockchain {
+	b := new(Blockchain)
 	b.Host = Host
 	b.Id = Id
 	b.StorageMapping = StorageMapping
@@ -27,11 +27,17 @@ func newBlockchain(Host string, Id string, StorageMapping map[string]interface{}
 	b.incomingMessages = make(chan common.NetworkMessage)
 	b.SeenTransactions = make(map[string]bool)
 	b.lock = &sync.Mutex{}
-	return
+	return b
 }
 
-func NewBlockchain(Host string, Id string, start time.Time, StorageMapping map[string]interface{}) (b *Blockchain) {
-	b = newBlockchain(Host, Id, StorageMapping)
+func NewBlockchain(Host string, Id string, start time.Time, StorageMapping map[string]interface{}) *Blockchain {
+	b := newBlockchain(Host, Id, StorageMapping)
 	b.state = NewStateSwarmInformed(b, start)
-	return
+	return b
+}
+
+func JoinBlockchain(Host string, Id string, start time.Time, StorageMapping map[string]interface{}) *Blockchain {
+	b := newBlockchain(Host, Id, StorageMapping)
+	b.state = NewStateJoin(b, start)
+	return b
 }
