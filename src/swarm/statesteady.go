@@ -48,16 +48,24 @@ func (s *StateSteady) SignHeartbeat(h *Heartbeat) string {
 	return h.Id
 }
 
+func (s *StateSteady) NewHostOk(hostid string) bool {
+	// TODO: actually write this function
+	return hostid == "joininghost"
+}
+
 func (s *StateSteady) ValidateHeartbeat(h *Heartbeat) bool {
 	p, ok := s.chain.LastBlock().Heartbeats[h.Host]
+	if !ok && s.NewHostOk(h.Host) {
+		return true
+	}
 	if !ok {
 		log.Print("STATESTEADY: previous beat not found")
 		return false
 	}
-	log.Print(p)
-	log.Print(h)
 	ok = common.Hash(sha256.New(), h.EntropyStage2) == p.EntropyStage1
 	if !ok {
+		log.Print(p)
+		log.Print(h)
 		log.Print("STATESTEADY: hash not match")
 		log.Print(common.Hash(sha256.New(), h.EntropyStage2))
 		log.Print(p.EntropyStage1)
