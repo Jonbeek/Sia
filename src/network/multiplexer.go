@@ -59,11 +59,11 @@ func (m *NetworkMultiplexer) Listen(addr string) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			// Or it might be con.RemoteAddr().String(), unsure which to use
-			log.Println("MULTI: ERROR CONNECTION REFUSED FOR ADDRESS:", conn.LocalAddr().String())
+			// Or it might be conn.LocalAddr().String(), unsure which to use
+			log.Println("MULTI: ERROR CONNECTION REFUSED FOR ADDRESS:", conn.RemoteAddr().String())
 			continue
 		}
-		log.Println("MULTI: CONNECTED TO ADDRESS: ", conn.LocalAddr().String())
+		log.Println("MULTI: CONNECTED TO ADDRESS: ", conn.RemoteAddr().String())
 
 		defer conn.Close()
 	}
@@ -79,3 +79,4 @@ func (m *NetworkMultiplexer) Connect(addr string) {
 	log.Println("MULTI: CONNECTED TO ADDRESS:", addr)
 
 	defer conn.Close()
+}
