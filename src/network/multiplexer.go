@@ -7,9 +7,10 @@ import (
 )
 
 type NetworkMultiplexer struct {
-	in    chan common.NetworkMessage
-	out   chan idHandler
-	hosts map[string][]common.NetworkMessageHandler
+	in            chan common.NetworkMessage
+	out           chan idHandler
+	hosts         map[string][]common.NetworkMessageHandler
+	createdServer bool
 }
 
 type idHandler struct {
@@ -22,6 +23,7 @@ func NewNetworkMultiplexer() common.NetworkMultiplexer {
 	m.in = make(chan common.NetworkMessage)
 	m.out = make(chan idHandler)
 	m.hosts = make(map[string][]common.NetworkMessageHandler)
+	m.createdServer = false
 	go m.listen()
 	return m
 }
@@ -52,15 +54,20 @@ func (m *NetworkMultiplexer) Listen(addr string) {
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Println("MULTI: ERROR CANNOT CREATE ADDRESS:", addr)
+		log.Println("MULTI: ERROR COULD NOT CREATE SERVER WITH ADDRESS:", addr)
+		log.Println("MULTI ERROR MESSAGE: ", err)
+		return
 	}
+
 	log.Println("MULTI: SUCCESSFULLY CREATED ADDRESS: addr")
 	log.Println("MULTI: LISTENING FOR CONNECTORS")
+
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			// Or it might be conn.LocalAddr().String(), unsure which to use
 			log.Println("MULTI: ERROR CONNECTION REFUSED FOR ADDRESS:", conn.RemoteAddr().String())
+			log.Println("MULTI ERROR MESSAGE:", err)
 			continue
 		}
 		log.Println("MULTI: CONNECTED TO ADDRESS: ", conn.RemoteAddr().String())
@@ -73,9 +80,13 @@ func (m *NetworkMultiplexer) Listen(addr string) {
 
 func (m *NetworkMultiplexer) Connect(addr string) {
 	conn, err := net.Dial("tcp", addr)
+
 	if err != nil {
 		log.Println("MULTI: ERROR CANNOT CONNECT TO ADDRESS:", addr)
+		log.Println("MULTI ERROR MESSAGE:", err)
+		return
 	}
+
 	log.Println("MULTI: CONNECTED TO ADDRESS:", addr)
 
 	defer conn.Close()
