@@ -37,7 +37,7 @@ Host computers contribute storage and bandwidth in return for Sia's internal cry
 In addition to receiving compensation from the users, host computers also mine siacoins in proportion to the volume of storage they contribute.
 Clients acquire siacoins (either by being hosts or through a currency exchange) to exchange for storage space and download bandwidth on the Sia network.
 The cost of renting storage is set using a supply and demand algorithm.
-Sia is a cryptosystem that is secure with only a simple majority honest hosts.
+Sia is a cryptosystem that is secure with only a simple majority of honest hosts.
 Sia is built out of many small blockchains arranged in a tree structure.
 Blockchains operate using a concensus algorithm instead of proof-of-work.
 To join a blockchain, you must have proof-of-storage equivalent to \storageperhost{}.
@@ -139,8 +139,8 @@ This allows blockchains to find eachother in log(n) time without sending high vo
 
 Any time that a host is caught by the network performing an illegal action, the host will be fined.
 The fine will be equal to or greater than the amount of damaged caused to the network.
-To make sure that hosts can be fined, they are required to have a balance equal to or greater than the maximum possible fine - a 'deductible'.
-When a host leaves the network, the deductible will be released.
+To make sure that hosts can be fined, they are required to have a balance equal to or greater than the maximum possible fine - a 'security deposit'.
+When a host leaves the network, the security deposit will be released.
 
 The security measures in Sia ensure that an attacker cannot control which blockchain its hosts are participating; they are randomly distributed.
 Sia assumes that only simple majority of the hosts on the network are honest.
@@ -179,10 +179,10 @@ The process can then restart for the next block.
 
 % Penalties
 At this stage, a host can be indicted for giving two seperate updates to the network.
-For example, if a host gives a heartbeat to one host and a different heartbeat to another host, then the dishonest host is indicted and thrown from the network.
+For example, if a host gives a heartbeat to one host and a different heartbeat to another host, then the dishonest host is indicted and thrown from the swarm.
 
 If a host is absent from the block, they are penalized for being inactive.
-After being inactive for 24 hours, the host is thrown from the network.
+After being inactive for 24 hours, the host is thrown from the swarm.
 
 \section{Concensus Algorithm Proof}
 
@@ -284,7 +284,7 @@ In the second stage, hosts reveal what string produced the hash.
 If they reveal a string that does not hash to the string submitted in stage 1, the host is considered corrupt.
 
 % Penalties
-If a host submits a second stage string that does not match their first stage hash, they are thrown from the network.
+If a host submits a second stage string that does not match their first stage hash, they are thrown from the swarm.
 
 If a host submits a second stage string that is discovered as corrupt during decoding, an appeal is started.
 The host must upload the entire slice that corresponds to the corrupted segment uploaded in the heartbeat.
@@ -428,6 +428,8 @@ This means that only entities with wallets on the local blockchain can submit up
 A full heartbeat will contain the following:
 
 \begin{itemize}
+	\item Blockchain
+	\item Parent Block
 	\item Host Id
 	\item File Proof Hash - Stage 1
 	\item File Proof String - Stage 2
