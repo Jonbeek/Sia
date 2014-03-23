@@ -2,6 +2,7 @@ package network
 
 import (
 	"common"
+	"encoding/json"
 	"log"
 	"net"
 )
@@ -55,8 +56,7 @@ func (m *NetworkMultiplexer) Listen(addr string) {
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Println("MULTI: ERROR COULD NOT CREATE SERVER WITH ADDRESS:", addr)
-		log.Println("MULTI ERROR MESSAGE: ", err)
-		return
+		log.Fatal("MULTI ERROR MESSAGE:", err)
 	}
 
 	log.Println("MULTI: SUCCESSFULLY CREATED ADDRESS: addr")
@@ -71,6 +71,37 @@ func (m *NetworkMultiplexer) Listen(addr string) {
 			continue
 		}
 		log.Println("MULTI: CONNECTED TO ADDRESS: ", conn.RemoteAddr().String())
+		log.Println("MULTI: SENDING MESSAGE TO ADDRESS: ", conn.RemoteAddr().String())
+
+		msg := "TESTING CONNECTION WITH " + addr
+		b, err := json.Marshal(msg)
+		if err != nil {
+			log.Println("MULTI: ERROR CANNOT ENCODE TEST MESSAGE TO:", conn.RemoteAddr().String())
+			log.Println("MULTI ERROR MESSAGE:", err)
+			continue
+		}
+		_, err = conn.Write(b)
+		if err != nil {
+			log.Println("MULTI: ERROR COULD NOT SEND MESSAGE TO: ", conn.RemoteAddr().String())
+			log.Println("MULTI ERROR MESSAGE:", err)
+			continue
+		}
+
+		log.Println("MULTI: WAITING FOR RESPONSE FROM ADDRESS: ", conn.RemoteAddr().String())
+		_, err = conn.Read(b)
+		if err != nil {
+			log.Println("MULTI: ERROR NO MESSAGE RECEIVED FROM: ", conn.RemoteAddr().String())
+			log.Println("MULTI ERROR MESSAGE:", err)
+			continue
+		}
+		err = json.Unmarshal(b, msg)
+		if err != nil {
+			log.Println("MULTI: ERROR CANNOT DECODE MESSAGE FROM: ", conn.RemoteAddr().String())
+			log.Println("MULTI ERROR MESSAGE:", err)
+			continue
+		}
+		log.Println("MULTI: MESSAGE RECEIVED FROM:", conn.RemoteAddr().String(), "READING OUT MESSAGE")
+		log.Println(msg)
 
 		defer conn.Close()
 	}
@@ -82,12 +113,37 @@ func (m *NetworkMultiplexer) Connect(addr string) {
 	conn, err := net.Dial("tcp", addr)
 
 	if err != nil {
-		log.Println("MULTI: ERROR CANNOT CONNECT TO ADDRESS:", addr)
-		log.Println("MULTI ERROR MESSAGE:", err)
-		return
+		log.Println("MULTI: ERROR CANNOT CONNECT TO SPECIFIED ADDRESS")
+		log.Fatal("MULTI ERROR MESSAGE:", err)
 	}
 
 	log.Println("MULTI: CONNECTED TO ADDRESS:", addr)
+
+	var (
+		b   []byte
+		msg string
+	)
+
+	_, err = conn.Read(b)
+	if err != nil {
+		panic(err)
+	}
+
+	err = json.Unmarshal(b, msg)
+	if err != nil {
+		panic(err)
+	}
+	log.Println(msg)
+
+	msg = "MESSAGE FROM " + addr + " WAS RECEIVED"
+	b, err = json.Marshal(msg)
+	if err != nil {
+		panic(err)
+	}
+	_, err = conn.Write(b)
+	if err != nil {
+		panic(err)
+	}
 
 	defer conn.Close()
 }
