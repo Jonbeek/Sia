@@ -1,26 +1,25 @@
+packages = common network swarm disk main
+testpackages = $(addsuffix /..., $(packages))
+
 all: libraries
 
 race-libs:
 	GOPATH=$(CURDIR) go install -race std
 
 libraries: src/*/*.go fmt
-	GOPATH=$(CURDIR) go install network swarm disk common main
+	GOPATH=$(CURDIR) go install $(packages)
 
 test: libraries
-	GOPATH=$(CURDIR) go test network swarm disk common main -race -timeout 30s
+	GOPATH=$(CURDIR) go test $(testpackages)
 
 bench: libraries
-	GOPATH=$(CURDIR) go test network swarm disk common main -bench .
+	GOPATH=$(CURDIR) go test $(packages)
 
 test-verbose: libraries
-	GOPATH=$(CURDIR) go test -test.v network swarm disk common main
+	GOPATH=$(CURDIR) go test -test.v $(testpackages)
 
 fmt:
-	go fmt src/network/*.go
-	go fmt src/swarm/*.go
-	go fmt src/disk/*.go
-	go fmt src/common/*.go
-	go fmt src/main/*.go
+	GOPATH=$(CURDIR) go fmt $(packages)
 
 docs:
 	pdflatex -output-directory=doc/ doc/whitepaper.tex 

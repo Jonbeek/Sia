@@ -4,7 +4,6 @@ import (
 	"container/heap"
 	"fmt"
 	"io"
-	"os"
 	"sync"
 )
 
@@ -16,7 +15,6 @@ const (
 	Pdebug
 	PstdFlags = Perror | Pprint | Pwarning
 )
-
 
 // PriorityLog is a log with priority levels.
 // Upon receiving a request to log something, the PriorityLog will:
@@ -53,7 +51,7 @@ func NewPriorityLog(out io.Writer, flags uint, dispose bool) *PriorityLog {
 
 func (pl *PriorityLog) Claim() {
 	// Must be done before calls to log
-	// Lock is used to prevent one goroutine from continuously making entries
+	// Lock is used to prevent one routine from continuously making entries
 	pl.stop.Lock()
 	defer pl.stop.Unlock()
 	// One for the caller, one for log
@@ -84,34 +82,46 @@ func (pl *PriorityLog) log(priority uint, message string) {
 	}
 }
 
+func (pl *PriorityLog) SetGlobalFlags(newflags uint) {
+	pl.lock.Lock()
+	defer pl.lock.Unlock()
+	pl.now = newflags
+}
+
+func (pl *PriorityLog) SetDeferedBehavior(dispose bool) {
+	pl.lock.Lock()
+	defer pl.lock.Unlock()
+	pl.dispose = dispose
+}
+
 func (pl *PriorityLog) Error(v ...interface{}) {
 	pl.Claim()
 	defer pl.Unclaim()
-	go pl.log(Perror, fmt.Sprint(v...))
+	pl.log(Perror, fmt.Sprint(v...))
 }
 
 func (pl *PriorityLog) Print(v ...interface{}) {
 	pl.Claim()
 	defer pl.Unclaim()
-	go pl.log(Pprint, fmt.Sprint(v...))
+	pl.log(Pprint, fmt.Sprint(v...))
 }
 
 func (pl *PriorityLog) Warning(v ...interface{}) {
 	pl.Claim()
 	defer pl.Unclaim()
-	go pl.log(Pwarning, fmt.Sprint(v...))
+	pl.log(Pwarning, fmt.Sprint(v...))
 }
 
 func (pl *PriorityLog) Info(v ...interface{}) {
 	pl.Claim()
 	defer pl.Unclaim()
-	go pl.log(Pinfo, fmt.Sprint(v...))
+	pl.log(Pinfo, fmt.Sprint(v...))
 }
 
 func (pl *PriorityLog) Debug(v ...interface{}) {
 	pl.Claim()
 	defer pl.Unclaim()
-	go pl.log(Pdebug, fmt.Sprint(v...))
+	pl.log(Pdebug, fmt.Sprint(v...))
 }
 
 func (pl *PriorityLog) LogStored() {

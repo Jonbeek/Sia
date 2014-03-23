@@ -1,8 +1,8 @@
 package log
 
 import (
-	"time"
 	"runtime"
+	"time"
 )
 
 type record struct {
@@ -37,31 +37,33 @@ func (r record) Less(q record) bool {
 	return r.logtime.Before(q.logtime)
 }
 
-func itoa(i, width uint) []byte {
-	buf := make([]byte)
-	if i == 0 && width == 0 {
+func itoa(i, width int) []byte {
+	buf := make([]byte, 4)
+	u := uint(i)
+	if u == 0 && width <= 0 {
 		buf = append(buf, '0')
 		return buf
 	}
 	var b [32]byte
 	bp := len(b)
-	for ; i > 0 || width > 0; i /= 10 {
+	for ; u > 0 || width > 0; u /= 10 {
 		width--
 		bp--
-		b[bp] = byte(i % 10) + '0'
+		b[bp] = byte(u%10) + '0'
 	}
-	buf = append(buf, b[bp:])
+	buf = append(buf, b[bp:]...)
 	return buf
 }
 
 func (r record) Format() []byte {
-	buf := make([]byte)
+	buf := make([]byte, 40)
 	// Copied from the official log.
 	// Date writing
 	year, month, day := r.logtime.Date()
 	buf = append(buf, itoa(year, 4)...)
 	buf = append(buf, '/')
-	buf = append(buf, itoa(month, 2)...)
+	// Month is its own type.
+	buf = append(buf, itoa(int(month), 2)...)
 	buf = append(buf, '/')
 	buf = append(buf, itoa(day, 2)...)
 	buf = append(buf, ' ')
@@ -73,8 +75,8 @@ func (r record) Format() []byte {
 	buf = append(buf, ':')
 	buf = append(buf, itoa(sec, 2)...)
 	buf = append(buf, '.')
-	nanosec := r.logtime.Nanosecond()/1e3
-	buf = append(buf, itoa(nanosec, 6))
+	nanosec := r.logtime.Nanosecond() / 1e3
+	buf = append(buf, itoa(nanosec, 6)...)
 	buf = append(buf, ' ')
 	// Priority writing
 	switch r.priority {
@@ -93,21 +95,18 @@ func (r record) Format() []byte {
 		buf = append(buf, "[UNKNOWN] "...)
 	}
 	// Write the whole filepath because no options (yet)
-	buf = append(buf, r.file)
+	buf = append(buf, r.file...)
 	buf = append(buf, ':')
-	buf = append(buf, itoa(r.line, 0)
+	buf = append(buf, itoa(r.line, 0)...)
 	buf = append(buf, ": "...)
 	// Write the message!
-	buf = append(buf, r.message)
+	buf = append(buf, r.message...)
 	// Add a newline if not included
 	// Somewhat copied from official log
 	if len(buf) > 0 && buf[len(buf)-1] != '\n' {
 		buf = append(buf, '\n')
 	}
 	return buf
-}
-
-
 }
 
 // Does not need to be concurrent safe: PriorityLog handles concurrency
