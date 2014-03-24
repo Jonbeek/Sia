@@ -1,5 +1,10 @@
 package common
 
+type Record interface {
+	Type() string
+	MarshalString() string
+}
+
 type Update interface {
 	SwarmId() string
 	UpdateId() string
