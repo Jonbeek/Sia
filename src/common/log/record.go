@@ -14,13 +14,13 @@ type record struct {
 	line int
 }
 
-func newRecord(calldepth int, priority uint, message string) *record {
+func newRecord(calldepth int, now time.Time, priority uint, message string) *record {
 	// Calldepth in the Go log is 2, but this isn't the Go log.
 	// For the PriorityLog, it's 3.
 	// priority should be ONE AND ONLY ONE of the constants above.
 	r := new(record)
 	// Record as early as possible for most accurate timing
-	r.logtime = time.Now()
+	r.logtime = now
 	r.priority = priority
 	r.message = message
 	var ok bool
@@ -37,43 +37,25 @@ func (r record) Less(q record) bool {
 	return r.logtime.Before(q.logtime)
 }
 
-func itoa(i, width int) []byte {
-	buf := make([]byte, 4)
-	u := uint(i)
-	if u == 0 && width <= 0 {
-		buf = append(buf, '0')
-		return buf
-	}
-	var b [32]byte
-	bp := len(b)
-	for ; u > 0 || width > 0; u /= 10 {
-		width--
-		bp--
-		b[bp] = byte(u%10) + '0'
-	}
-	buf = append(buf, b[bp:]...)
-	return buf
-}
 
 func (r record) Format() []byte {
 	buf := make([]byte, 40)
-	// Copied from the official log.
 	// Date writing
 	year, month, day := r.logtime.Date()
-	buf = append(buf, itoa(year, 4)...)
+	itoa(buf, year, 4)
 	buf = append(buf, '/')
 	// Month is its own type.
-	buf = append(buf, itoa(int(month), 2)...)
+	itoa(buf, int(month), 2)
 	buf = append(buf, '/')
-	buf = append(buf, itoa(day, 2)...)
+	itoa(buf, day, 2)
 	buf = append(buf, ' ')
 	// Time writing
 	hour, min, sec := r.logtime.Clock()
-	buf = append(buf, itoa(hour, 2)...)
+	itoa(buf, hour, 2)
 	buf = append(buf, ':')
-	buf = append(buf, itoa(min, 2)...)
+	itoa(buf, min, 2)
 	buf = append(buf, ':')
-	buf = append(buf, itoa(sec, 2)...)
+	itoa(buf, sec, 2)
 	buf = append(buf, '.')
 	nanosec := r.logtime.Nanosecond() / 1e3
 	buf = append(buf, itoa(nanosec, 6)...)
@@ -97,12 +79,11 @@ func (r record) Format() []byte {
 	// Write the whole filepath because no options (yet)
 	buf = append(buf, r.file...)
 	buf = append(buf, ':')
-	buf = append(buf, itoa(r.line, 0)...)
+	itoa(buf, r.line, 0)
 	buf = append(buf, ": "...)
 	// Write the message!
 	buf = append(buf, r.message...)
 	// Add a newline if not included
-	// Somewhat copied from official log
 	if len(buf) > 0 && buf[len(buf)-1] != '\n' {
 		buf = append(buf, '\n')
 	}

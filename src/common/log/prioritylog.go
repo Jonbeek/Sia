@@ -82,12 +82,16 @@ func (pl *PriorityLog) log(priority uint, message string) {
 	}
 }
 
+// SetGlobalFlags sets the the default flag for which priority levels are
+// defered and which ones are handled immediately
 func (pl *PriorityLog) SetGlobalFlags(newflags uint) {
 	pl.lock.Lock()
 	defer pl.lock.Unlock()
 	pl.now = newflags
 }
 
+// SetDeferedBehavior changes how defered log entries are handled.
+// (i.e. disposed of or not)
 func (pl *PriorityLog) SetDeferedBehavior(dispose bool) {
 	pl.lock.Lock()
 	defer pl.lock.Unlock()

@@ -15,10 +15,12 @@ func Clear() {
 	std.Clear()
 }
 
+// SetGlobalFlags calls SetGlobalFlags on the standard logger
 func SetGlobalFlags(newflags uint) {
 	std.SetGlobalFlags(newflags)
 }
 
+// SetDeferedBehavior calls SetDeferedBehavior on the standard logger
 func SetDeferedBehavior(dispose bool) {
 	std.SetDeferedBehavior(dispose)
 }
