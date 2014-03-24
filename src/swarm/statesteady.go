@@ -39,7 +39,7 @@ func (s *StateSteady) SendUpdate(u common.Update) {
 func (s *StateSteady) ProduceHeartbeat() common.Update {
 
 	stage1, stage2 := common.HashedRandomData(sha256.New(), 8)
-	h := NewHeartbeat(s.chain.Id, s.chain.Host, stage1, s.stage2)
+	h := NewHeartbeat(s.chain.Id, s.chain.Host, stage1, s.stage2, s.chain.GetRecords())
 	s.stage2 = stage2
 	return h
 }

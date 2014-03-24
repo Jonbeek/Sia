@@ -4,20 +4,18 @@ import (
 	"common"
 	"log"
 	"sync"
-	"time"
 )
 
 type Blockchain struct {
-	Host        string
-	Id          string
-	state       State
-	compiletime chan<- time.Time
+	Host  string
+	Id    string
+	state State
 
 	incomingMessages chan common.NetworkMessage
 	outgoingUpdates  chan common.Update
 
-	// transactions []common.Transaction
-	BlockHistory []*Block
+	blockHistory   []*Block
+	pendingRecords []common.Record
 
 	//Updated every block
 	DRNGSeed         []byte
@@ -59,22 +57,22 @@ func (b *Blockchain) AddBlock(block *Block) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	if b.BlockHistory != nil && len(b.BlockHistory) == 5 {
-		b.BlockHistory = b.BlockHistory[:4]
+	if b.blockHistory != nil && len(b.blockHistory) == 5 {
+		b.blockHistory = b.blockHistory[:4]
 	}
-	b.BlockHistory = append(b.BlockHistory, block)
+	b.blockHistory = append(b.blockHistory, block)
 }
 
 func (b *Blockchain) LastBlock() *Block {
 	b.lock.Lock()
 	defer b.lock.Unlock()
-	return b.BlockHistory[len(b.BlockHistory)-1]
+	return b.blockHistory[len(b.blockHistory)-1]
 }
 
 func (b *Blockchain) BlockLen() int {
 	b.lock.Lock()
 	defer b.lock.Unlock()
-	return len(b.BlockHistory)
+	return len(b.blockHistory)
 }
 
 func (b *Blockchain) SwitchState(s State) {
@@ -93,6 +91,22 @@ func (b *Blockchain) HostActive(host string) bool {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	_, ok := b.BlockHistory[len(b.BlockHistory)-1].Heartbeats[host]
+	_, ok := b.blockHistory[len(b.blockHistory)-1].Heartbeats[host]
 	return ok
+}
+
+func (b *Blockchain) AddRecord(r common.Record) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	b.pendingRecords = append(b.pendingRecords)
+}
+
+func (b *Blockchain) GetRecords() []common.Record {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	c := make([]common.Record, 0, len(b.pendingRecords))
+	for _, r := range b.pendingRecords {
+		c = append(c, r)
+	}
+	return c
 }
