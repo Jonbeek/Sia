@@ -108,7 +108,7 @@ func (m *NetworkMultiplexer) Connect(addr string) {
 	log.Println("MULTI: MESSAGE RECEIVED FROM:", addr)
 	log.Println(msg)
 
-	msg = "MESSAGE CONFIRMED AS RECIEVED"
+	msg = "MESSAGE CONFIRMED AS RECEIVED"
 
 	en := json.NewEncoder(conn)
 	en.Encode(msg)
