@@ -3,23 +3,26 @@ package swarm
 import (
 	"encoding/json"
 	"log"
+	"time"
 )
 
 type Block struct {
 	Id         string
 	Blockchain string
+	Time       time.Time
 
 	Heartbeats map[string]*Heartbeat
 	Signatures map[string]map[string]string
 }
 
 func NewBlock(blockchain, id string, heartbeats map[string]*Heartbeat,
-	signatures map[string]map[string]string) *Block {
+	signatures map[string]map[string]string, time time.Time) *Block {
 	b := new(Block)
 	b.Id = id
 	b.Blockchain = blockchain
 	b.Heartbeats = heartbeats
 	b.Signatures = signatures
+	b.Time = time
 	return b
 }
 

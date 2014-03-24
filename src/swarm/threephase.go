@@ -100,16 +100,11 @@ func (s *ThreePhase) mainloop() {
 		case "BlockDecision":
 			log.Print("3PHASE: BlockDecision phase")
 			ok := s.decideBlock()
-
 			log.Print("3PHASE: ok=", ok)
+			s.nextphase = "Heartbeat"
+			s.heartbeats = make(map[string]*Heartbeat)
+			s.signatures = make(map[string]map[string]string)
 
-			// If we accepted a block we should stop executing and let the
-			// Next state take over
-			if ok {
-				s.nextphase = "Dead"
-			} else {
-				s.nextphase = "Heartbeat"
-			}
 		case "Dead":
 			defer s.lock.Unlock()
 			return
@@ -137,22 +132,38 @@ func (s *ThreePhase) produceSignedHeartbeats() {
 	go s.handler.SendUpdate(h)
 }
 
+func (s *ThreePhase) copyMaps() (map[string]*Heartbeat, map[string]map[string]string) {
+	heartbeats := make(map[string]*Heartbeat)
+	signatures := make(map[string]map[string]string)
+
+	for id, heartbeat := range s.heartbeats {
+		heartbeats[id] = heartbeat
+		if signatures[id] == nil {
+			signatures[id] = make(map[string]string)
+		}
+		for host, sign := range s.signatures[id] {
+			signatures[id][host] = sign
+		}
+	}
+	return heartbeats, signatures
+}
+
 func (s *ThreePhase) produceBlock() {
 
-	b := NewBlock(s.handler.Id(), s.handler.Host(), s.heartbeats, s.signatures)
+	heartbeats, signatures := s.copyMaps()
+	b := NewBlock(s.handler.Id(), s.handler.Host(), heartbeats, signatures, s.nextphasetime.Add(common.STATEINFORMEDDELTA))
 	go s.handler.SendUpdate(b)
 }
 
 func (s *ThreePhase) decideBlock() bool {
 	log.Print("3PHASE: decideBlock")
-	heartbeats := make(map[string]*Heartbeat)
-	signatures := make(map[string]map[string]string)
+	heartbeats, signatures := s.copyMaps()
 
-	for id, heartbeat := range s.heartbeats {
-		log.Print("Heartbeat id=", id, " len(signatures)=", len(s.signatures[id]))
-		if len(s.signatures[id]) > common.SWARMSIZE/2 {
-			heartbeats[id] = heartbeat
-			signatures[id] = s.signatures[id]
+	for id, _ := range heartbeats {
+		log.Print("Heartbeat id=", id, " len(signatures)=", len(signatures[id]))
+		if len(signatures[id]) <= common.SWARMSIZE/2 {
+			delete(heartbeats, id)
+			delete(signatures, id)
 		}
 	}
 
@@ -165,14 +176,15 @@ func (s *ThreePhase) decideBlock() bool {
 		hostheartbeats[hb.Host] = hb
 	}
 
-	b := NewBlock(s.handler.Id(), s.handler.Host(), hostheartbeats, s.signatures)
-	go s.handler.HandleBlock(b, s.nextphasetime)
+	b := NewBlock(s.handler.Id(), s.handler.Host(), hostheartbeats,
+		signatures, s.nextphasetime)
+	s.handler.HandleBlock(b, s.nextphasetime)
 
 	return true
 
 }
 
-func (s *ThreePhase) HandleUpdate(t common.Update) State {
+func (s *ThreePhase) HandleUpdate(t common.Update) {
 
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -181,7 +193,7 @@ func (s *ThreePhase) HandleUpdate(t common.Update) State {
 	case *Heartbeat:
 		if s.nextphase != "HeartbeatSigning" &&
 			s.nextphase != "Heartbeat" {
-			return s
+			return
 		}
 
 		s.heartbeats[n.Id] = n
@@ -190,7 +202,7 @@ func (s *ThreePhase) HandleUpdate(t common.Update) State {
 	case *HeartbeatList:
 		if s.nextphase != "BlockGeneration" &&
 			s.nextphase != "HeartbeatSigning" {
-			return s
+			return
 		}
 
 		for id, signature := range n.Signatures {
@@ -209,7 +221,7 @@ func (s *ThreePhase) HandleUpdate(t common.Update) State {
 	case *Block:
 		if s.nextphase != "BlockDecision" &&
 			s.nextphase != "BlockGeneration" {
-			return s
+			return
 		}
 
 		for id, signatures := range n.Signatures {
@@ -231,5 +243,5 @@ func (s *ThreePhase) HandleUpdate(t common.Update) State {
 	default:
 
 	}
-	return s
+	return
 }

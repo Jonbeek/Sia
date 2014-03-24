@@ -44,22 +44,14 @@ func (b *Blockchain) mainloop(plexer common.NetworkMultiplexer) {
 }
 
 func (b *Blockchain) HandleNetworkMessage(m common.NetworkMessage) {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-
 	log.Print("SWARM: network message recieved")
-
-	if b.SeenTransactions[m.UpdateId] {
-		log.Print("Swarm: Update Already Seen")
-		return
-	}
 
 	u, err := UnmarshalUpdate(m)
 	if err != nil {
 		panic(err)
 	}
 
-	b.state = b.state.HandleUpdate(u)
+	b.state.HandleUpdate(u)
 	log.Print("SWARM: Update handling finished")
 }
 
@@ -90,8 +82,17 @@ func (b *Blockchain) SwitchState(s State) {
 	defer b.lock.Unlock()
 	b.state = s
 }
+
 func (b *Blockchain) GetState() State {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	return b.state
+}
+
+func (b *Blockchain) HostActive(host string) bool {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	_, ok := b.BlockHistory[len(b.BlockHistory)-1].Heartbeats[host]
+	return ok
 }
