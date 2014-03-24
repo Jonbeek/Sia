@@ -74,37 +74,18 @@ func (m *NetworkMultiplexer) Listen(addr string) {
 		log.Println("MULTI: SENDING MESSAGE TO ADDRESS: ", conn.RemoteAddr().String())
 
 		msg := "TESTING CONNECTION WITH " + addr
-		b, err := json.Marshal(msg)
-		if err != nil {
-			log.Println("MULTI: ERROR CANNOT ENCODE TEST MESSAGE TO:", conn.RemoteAddr().String())
-			log.Println("MULTI ERROR MESSAGE:", err)
-			continue
-		}
-		_, err = conn.Write(b)
-		if err != nil {
-			log.Println("MULTI: ERROR COULD NOT SEND MESSAGE TO: ", conn.RemoteAddr().String())
-			log.Println("MULTI ERROR MESSAGE:", err)
-			continue
-		}
+		en := json.NewEncoder(conn)
+		en.Encode(msg)
 
-		log.Println("MULTI: WAITING FOR RESPONSE FROM ADDRESS: ", conn.RemoteAddr().String())
-		_, err = conn.Read(b)
-		if err != nil {
-			log.Println("MULTI: ERROR NO MESSAGE RECEIVED FROM: ", conn.RemoteAddr().String())
-			log.Println("MULTI ERROR MESSAGE:", err)
-			continue
-		}
-		err = json.Unmarshal(b, msg)
-		if err != nil {
-			log.Println("MULTI: ERROR CANNOT DECODE MESSAGE FROM: ", conn.RemoteAddr().String())
-			log.Println("MULTI ERROR MESSAGE:", err)
-			continue
-		}
-		log.Println("MULTI: MESSAGE RECEIVED FROM:", conn.RemoteAddr().String(), "READING OUT MESSAGE")
+		de := json.NewDecoder(conn)
+		de.Decode(msg)
+
+		log.Println("MULTI: MESSAGE RECEIVED FROM:", conn.RemoteAddr().String())
 		log.Println(msg)
 
 		defer conn.Close()
 	}
+
 	defer ln.Close()
 
 }
@@ -119,31 +100,18 @@ func (m *NetworkMultiplexer) Connect(addr string) {
 
 	log.Println("MULTI: CONNECTED TO ADDRESS:", addr)
 
-	var (
-		b   []byte
-		msg string
-	)
+	var msg string
 
-	_, err = conn.Read(b)
-	if err != nil {
-		panic(err)
-	}
+	de := json.NewDecoder(conn)
+	de.Decode(msg)
 
-	err = json.Unmarshal(b, msg)
-	if err != nil {
-		panic(err)
-	}
+	log.Println("MULTI: MESSAGE RECEIVED FROM:", addr)
 	log.Println(msg)
 
-	msg = "MESSAGE FROM " + addr + " WAS RECEIVED"
-	b, err = json.Marshal(msg)
-	if err != nil {
-		panic(err)
-	}
-	_, err = conn.Write(b)
-	if err != nil {
-		panic(err)
-	}
+	msg = "MESSAGE CONFIRMED AS RECIEVED"
+
+	en := json.NewEncoder(conn)
+	en.Encode(msg)
 
 	defer conn.Close()
 }
