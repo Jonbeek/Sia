@@ -31,4 +31,13 @@ func TestNetworkMultiplexer(t *testing.T) {
 
 	c3.Receive()
 	c4.Receive()
+
+	n := NewNetworkMultiplexer()
+
+	go m.Listen(":1234")
+	go n.Connect(":1234")
+
+	o := NewNetworkMultiplexer()
+
+	go o.Connect(":1234")
 }

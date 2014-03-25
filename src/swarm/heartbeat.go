@@ -3,6 +3,7 @@ package swarm
 import (
 	"common"
 	"encoding/json"
+	"swarm/record"
 )
 
 type Heartbeat struct {
@@ -15,15 +16,23 @@ type Heartbeat struct {
 	EntropyStage2   string
 	FileProofStage1 string
 	FileProofStage2 string
+
+	Recordsenc []string
 }
 
-func NewHeartbeat(swarm, Host, Stage1, Stage2 string) (h *Heartbeat) {
+func NewHeartbeat(swarm, Host, Stage1, Stage2 string, records []common.Record) (h *Heartbeat) {
 	h = new(Heartbeat)
 	h.Blockchain = swarm
 	h.Host = Host
 	h.EntropyStage1 = Stage1
 	h.EntropyStage2 = Stage2
 	h.Id, _ = common.RandomString(8)
+
+	h.Recordsenc = nil
+	for _, r := range records {
+		h.Recordsenc = append(h.Recordsenc, record.Encode(r))
+	}
+
 	return
 }
 
@@ -48,12 +57,12 @@ func (h *Heartbeat) MarshalString() string {
 	return string(w)
 }
 
-func (h *Heartbeat) Stage2() string {
-	return h.EntropyStage2
-}
+func (h *Heartbeat) GetRecords() []common.Record {
+	r := make([]common.Record, 0, len(h.Recordsenc))
 
-func VerifyHeartBeat(prevBlock *Block, h *Heartbeat) {
-	// Just return true for now
-	// DANGEROUS
-	return
+	for _, rd := range h.Recordsenc {
+		r = append(r, record.Decode(rd))
+	}
+
+	return r
 }

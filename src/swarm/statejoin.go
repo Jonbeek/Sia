@@ -37,7 +37,7 @@ func (s *StateJoin) SendUpdate(u common.Update) {
 func (s *StateJoin) ProduceHeartbeat() common.Update {
 
 	stage1, stage2 := common.HashedRandomData(sha256.New(), 8)
-	h := NewHeartbeat(s.chain.Id, s.chain.Host, stage1, "")
+	h := NewHeartbeat(s.chain.Id, s.chain.Host, stage1, "", nil)
 	s.stage2 = stage2
 	return h
 }
