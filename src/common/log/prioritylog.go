@@ -63,13 +63,21 @@ func (pl *PriorityLog) Unclaim() {
 	pl.pending.Done()
 }
 
-func (pl *PriorityLog) log(priority uint, message string) {
+func (pl *PriorityLog) log(now time.Time, priority uint, message string) {
 	// Calling function called Claim, hopefully
 	defer pl.Unclaim()
 	// The calldepth will always be 3, if called directly
-	rec := newRecord(3, priority, message)
 	// Claim complete use over the variables of pl
+	var rec *record
 	pl.lock.Lock()
+	// Optimization!
+	if pl.now & priority || !pl.dispose {
+		pl.lock.Unlock()
+		rec := newRecord(3, priority, message)
+		pl.lock.Lock()
+	} else {
+		return
+	}
 	defer pl.lock.Unlock()
 	if pl.now&priority != 0 {
 		pl.out.Write(rec.Format())
@@ -77,8 +85,6 @@ func (pl *PriorityLog) log(priority uint, message string) {
 		if !pl.dispose {
 			heap.Push(pl.records, rec)
 		}
-		// If dispose is set, then it's a waste of effort
-		// But not memory, at least not long lasting memory.
 	}
 }
 
