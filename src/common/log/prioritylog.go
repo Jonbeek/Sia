@@ -5,15 +5,18 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 )
 
 const (
-	Perror = 1 << iota
-	Pprint
+	Pfatal = 1 << iota
+	Perror
 	Pwarning
 	Pinfo
 	Pdebug
-	PstdFlags = Perror | Pprint | Pwarning
+	PstdFlags = Pfatal | Perror | Pwarning
+	// Use only in the main program.
+	PdebugFlags = Pfatal | Perror | Pwarning | Pinfo | Pdebug
 )
 
 // PriorityLog is a log with priority levels.
@@ -66,23 +69,19 @@ func (pl *PriorityLog) Unclaim() {
 func (pl *PriorityLog) log(now time.Time, priority uint, message string) {
 	// Calling function called Claim, hopefully
 	defer pl.Unclaim()
-	// The calldepth will always be 3, if called directly
 	// Claim complete use over the variables of pl
-	var rec *record
 	pl.lock.Lock()
-	// Optimization!
-	if pl.now & priority || !pl.dispose {
-		pl.lock.Unlock()
-		rec := newRecord(3, priority, message)
-		pl.lock.Lock()
-	} else {
-		return
-	}
 	defer pl.lock.Unlock()
-	if pl.now&priority != 0 {
-		pl.out.Write(rec.Format())
-	} else {
-		if !pl.dispose {
+	// Optimization!
+	if pl.now & priority != 0 || !pl.dispose {
+		pl.lock.Unlock()
+		// Takes a while.
+		// The calldepth will always be 3, if called directly
+		rec := newRecord(3, now, priority, message)
+		pl.lock.Lock()
+		if pl.now & priority != 0 {
+			pl.out.Write(rec.Format())
+		} else {
 			heap.Push(pl.records, rec)
 		}
 	}
@@ -104,34 +103,97 @@ func (pl *PriorityLog) SetDeferedBehavior(dispose bool) {
 	pl.dispose = dispose
 }
 
+func (pl *PriorityLog) Fatal(v ...interface{}) {
+	pl.Claim()
+	defer pl.Unclaim()
+	pl.log(time.Now(), Pfatal, fmt.Sprint(v...))
+	os.Exit(1)
+}
+
 func (pl *PriorityLog) Error(v ...interface{}) {
 	pl.Claim()
 	defer pl.Unclaim()
-	pl.log(Perror, fmt.Sprint(v...))
-}
-
-func (pl *PriorityLog) Print(v ...interface{}) {
-	pl.Claim()
-	defer pl.Unclaim()
-	pl.log(Pprint, fmt.Sprint(v...))
+	pl.log(time.Now(), Perror, fmt.Sprint(v...))
 }
 
 func (pl *PriorityLog) Warning(v ...interface{}) {
 	pl.Claim()
 	defer pl.Unclaim()
-	pl.log(Pwarning, fmt.Sprint(v...))
+	pl.log(time.Now(), Pwarning, fmt.Sprint(v...))
 }
 
 func (pl *PriorityLog) Info(v ...interface{}) {
 	pl.Claim()
 	defer pl.Unclaim()
-	pl.log(Pinfo, fmt.Sprint(v...))
+	pl.log(time.Now(), Pinfo, fmt.Sprint(v...))
 }
 
 func (pl *PriorityLog) Debug(v ...interface{}) {
 	pl.Claim()
 	defer pl.Unclaim()
-	pl.log(Pdebug, fmt.Sprint(v...))
+	pl.log(time.Now(), Pdebug, fmt.Sprint(v...))
+}
+
+func (pl *PriorityLog) Fatalln(v ...interface{}) {
+	pl.Claim()
+	defer pl.Unclaim()
+	pl.log(time.Now(), Pfatal, fmt.Sprintln(v...))
+	os.Exit(1)
+}
+
+func (pl *PriorityLog) Errorln(v ...interface{}) {
+	pl.Claim()
+	defer pl.Unclaim()
+	pl.log(time.Now(), Perror, fmt.Sprintln(v...))
+}
+
+func (pl *PriorityLog) Warningln(v ...interface{}) {
+	pl.Claim()
+	defer pl.Unclaim()
+	pl.log(time.Now(), Pwarning, fmt.Sprintln(v...))
+}
+
+func (pl *PriorityLog) Infoln(v ...interface{}) {
+	pl.Claim()
+	defer pl.Unclaim()
+	pl.log(time.Now(), Pinfo, fmt.Sprintln(v...))
+}
+
+func (pl *PriorityLog) Debugln(v ...interface{}) {
+	pl.Claim()
+	defer pl.Unclaim()
+	pl.log(time.Now(), Pdebug, fmt.Sprintln(v...))
+}
+
+func (pl *PriorityLog) Fatalf(format string, v ...interface{}) {
+	pl.Claim()
+	defer pl.Unclaim()
+	pl.log(time.Now(), Pfatal, fmt.Sprintf(format, v...))
+	os.Exit(1)
+}
+
+func (pl *PriorityLog) Errorf(format string, v ...interface{}) {
+	pl.Claim()
+	defer pl.Unclaim()
+	pl.log(time.Now(), Perror, fmt.Sprintf(format, v...))
+}
+
+func (pl *PriorityLog) Warningf(format string, v ...interface{}) {
+	pl.Claim()
+	defer pl.Unclaim()
+	pl.log(time.Now(), Pwarning, fmt.Sprintf(format, v...))
+}
+
+func (pl *PriorityLog) Infof(format string, v ...interface{}) {
+	pl.Claim()
+	defer pl.Unclaim()
+	pl.log(time.Now(), Pinfo, fmt.Sprintf(format, v...))
+}
+
+func (pl *PriorityLog) Debugf(format string, v ...interface{}) {
+	pl.Claim()
+	defer pl.Unclaim()
+	pl.log(time.Now(), Pdebug, fmt.Sprintf(format, v...))
 }
 
 func (pl *PriorityLog) LogStored() {

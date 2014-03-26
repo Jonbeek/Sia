@@ -42,30 +42,30 @@ func (r record) Format() []byte {
 	buf := make([]byte, 40)
 	// Date writing
 	year, month, day := r.logtime.Date()
-	itoa(buf, year, 4)
+	itoa(&buf, year, 4)
 	buf = append(buf, '/')
 	// Month is its own type.
-	itoa(buf, int(month), 2)
+	itoa(&buf, int(month), 2)
 	buf = append(buf, '/')
-	itoa(buf, day, 2)
+	itoa(&buf, day, 2)
 	buf = append(buf, ' ')
 	// Time writing
 	hour, min, sec := r.logtime.Clock()
-	itoa(buf, hour, 2)
+	itoa(&buf, hour, 2)
 	buf = append(buf, ':')
-	itoa(buf, min, 2)
+	itoa(&buf, min, 2)
 	buf = append(buf, ':')
-	itoa(buf, sec, 2)
+	itoa(&buf, sec, 2)
 	buf = append(buf, '.')
 	nanosec := r.logtime.Nanosecond() / 1e3
-	buf = append(buf, itoa(nanosec, 6)...)
+	itoa(&buf, nanosec, 6)
 	buf = append(buf, ' ')
 	// Priority writing
 	switch r.priority {
+	case Pfatal:
+		buf = append(buf, "[FATAL] "...)
 	case Perror:
 		buf = append(buf, "[ERROR] "...)
-	case Pprint:
-		// ...no idea
 	case Pwarning:
 		buf = append(buf, "[WARNING] "...)
 	case Pinfo:
@@ -79,7 +79,7 @@ func (r record) Format() []byte {
 	// Write the whole filepath because no options (yet)
 	buf = append(buf, r.file...)
 	buf = append(buf, ':')
-	itoa(buf, r.line, 0)
+	itoa(&buf, r.line, 0)
 	buf = append(buf, ": "...)
 	// Write the message!
 	buf = append(buf, r.message...)
