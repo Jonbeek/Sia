@@ -39,7 +39,7 @@ func (s *StateSwarmInformed) ProduceHeartbeat() common.Update {
 	stage1, stage2 := common.HashedRandomData(sha256.New(), 8)
 	s.stage2 = stage2
 
-	h := NewHeartbeat(s.chain.Id, s.chain.Host, stage1, "")
+	h := NewHeartbeat(s.chain.Id, s.chain.Host, stage1, "", nil)
 	return h
 }
 
