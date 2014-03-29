@@ -2,7 +2,7 @@ package network
 
 import (
 	"common"
-	"log"
+	"common/log"
 )
 
 type NetworkMultiplexer struct {
