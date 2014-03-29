@@ -37,28 +37,6 @@ func (r record) Less(q record) bool {
 	return r.logtime.Before(q.logtime)
 }
 
-func formatDate(buf *[]byte, r record) {
-	year, month, day := r.logtime.Date()
-	itoa(buf, year, 4)
-	*buf = append(*buf, '/')
-	// Month is its own type.
-	itoa(buf, int(month), 2)
-	*buf = append(*buf, '/')
-	itoa(buf, day, 2)
-}
-
-func formatTime(buf *[]byte, r record) {
-	hour, min, sec := r.logtime.Clock()
-	itoa(buf, hour, 2)
-	*buf = append(*buf, ':')
-	itoa(buf, min, 2)
-	*buf = append(*buf, ':')
-	itoa(buf, sec, 2)
-	*buf = append(*buf, '.')
-	nanosec := r.logtime.Nanosecond() / 1e3
-	itoa(buf, nanosec, 6)
-}
-
 func formatPriority(buf *[]byte, r record) {
 	switch r.priority {
 	case Pfatal:
@@ -76,7 +54,6 @@ func formatPriority(buf *[]byte, r record) {
 		*buf = append(*buf, "[UNKNOWN]"...)
 	}
 }
-
 
 func (r record) Format() []byte {
 	buf := make([]byte, 40)
