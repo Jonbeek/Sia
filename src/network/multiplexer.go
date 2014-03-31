@@ -2,7 +2,7 @@ package network
 
 import (
 	"common"
-	"log"
+	"common/log"
 )
 
 type NetworkMultiplexer struct {
@@ -31,7 +31,7 @@ func (m *NetworkMultiplexer) listen() {
 		case c := <-m.out:
 			m.hosts[c.SwarmId] = append(m.hosts[c.SwarmId], c.handler)
 		case o := <-m.in:
-			log.Println("MULTI: Transaction ", o, "to be sent to", len(m.hosts[o.SwarmId]))
+			log.Debugln("MULTI: Transaction ", o, "to be sent to", len(m.hosts[o.SwarmId]))
 			for _, s := range m.hosts[o.SwarmId] {
 				go s.HandleNetworkMessage(o)
 			}

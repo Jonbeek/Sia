@@ -1,9 +1,9 @@
 package record
 
 import (
-    "common"
+	"common"
 )
 
 func Decode(s string) common.Record {
-    panic("Not Implemented")
+	panic("Not Implemented")
 }
