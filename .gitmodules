@@ -1,0 +1,3 @@
+[submodule "src/common/erasure/longhair"]
+	path = src/common/erasure/longhair
+	url = git://github.com/catid/longhair.git
