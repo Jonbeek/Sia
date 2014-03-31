@@ -2,10 +2,9 @@ package network
 
 import (
 	"common"
-	"encoding/json"
-	"log"
-	"net"
 	"common/log"
+	"encoding/json"
+	"net"
 )
 
 type NetworkMultiplexer struct {
@@ -56,23 +55,23 @@ func (m *NetworkMultiplexer) Listen(addr string) {
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Println("MULTI: ERROR COULD NOT CREATE SERVER WITH ADDRESS:", addr)
+		log.Debugln("MULTI: ERROR COULD NOT CREATE SERVER WITH ADDRESS:", addr)
 		log.Fatal("MULTI ERROR MESSAGE:", err)
 	}
 
-	log.Println("MULTI: SUCCESSFULLY CREATED ADDRESS: addr")
-	log.Println("MULTI: LISTENING FOR CONNECTORS")
+	log.Debugln("MULTI: SUCCESSFULLY CREATED ADDRESS: addr")
+	log.Debugln("MULTI: LISTENING FOR CONNECTORS")
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			// Or it might be conn.LocalAddr().String(), unsure which to use
-			log.Println("MULTI: ERROR CONNECTION REFUSED FOR ADDRESS:", conn.RemoteAddr().String())
-			log.Println("MULTI ERROR MESSAGE:", err)
+			log.Debugln("MULTI: ERROR CONNECTION REFUSED FOR ADDRESS:", conn.RemoteAddr().String())
+			log.Debugln("MULTI ERROR MESSAGE:", err)
 			continue
 		}
-		log.Println("MULTI: CONNECTED TO ADDRESS: ", conn.RemoteAddr().String())
-		log.Println("MULTI: SENDING MESSAGE TO ADDRESS: ", conn.RemoteAddr().String())
+		log.Debugln("MULTI: CONNECTED TO ADDRESS: ", conn.RemoteAddr().String())
+		log.Debugln("MULTI: SENDING MESSAGE TO ADDRESS: ", conn.RemoteAddr().String())
 
 		msg := "TESTING CONNECTION WITH " + addr
 		en := json.NewEncoder(conn)
@@ -81,8 +80,8 @@ func (m *NetworkMultiplexer) Listen(addr string) {
 		de := json.NewDecoder(conn)
 		de.Decode(msg)
 
-		log.Println("MULTI: MESSAGE RECEIVED FROM:", conn.RemoteAddr().String())
-		log.Println(msg)
+		log.Debugln("MULTI: MESSAGE RECEIVED FROM:", conn.RemoteAddr().String())
+		log.Debugln(msg)
 
 		defer conn.Close()
 	}
@@ -95,19 +94,19 @@ func (m *NetworkMultiplexer) Connect(addr string) {
 	conn, err := net.Dial("tcp", addr)
 
 	if err != nil {
-		log.Println("MULTI: ERROR CANNOT CONNECT TO SPECIFIED ADDRESS")
+		log.Debugln("MULTI: ERROR CANNOT CONNECT TO SPECIFIED ADDRESS")
 		log.Fatal("MULTI ERROR MESSAGE:", err)
 	}
 
-	log.Println("MULTI: CONNECTED TO ADDRESS:", addr)
+	log.Debugln("MULTI: CONNECTED TO ADDRESS:", addr)
 
 	var msg string
 
 	de := json.NewDecoder(conn)
 	de.Decode(msg)
 
-	log.Println("MULTI: MESSAGE RECEIVED FROM:", addr)
-	log.Println(msg)
+	log.Debugln("MULTI: MESSAGE RECEIVED FROM:", addr)
+	log.Debugln(msg)
 
 	msg = "MESSAGE CONFIRMED AS RECEIVED"
 
