@@ -2,7 +2,7 @@ package network
 
 import (
 	"common"
-	"log"
+	"common/log"
 )
 
 func NewSimpleMultiplexer() common.NetworkMultiplexer {
@@ -24,10 +24,10 @@ func (s *SimpleMultiplexer) listen() {
 	for {
 		select {
 		case c := <-s.out:
-			log.Println("MULTI: Host added")
+			log.Debugln("MULTI: Host added")
 			s.Hosts = append(s.Hosts, c)
 		case o := <-s.in:
-			log.Println("MULTI: Transaction ", o, " to be sent to ", len(s.Hosts))
+			log.Debugln("MULTI: Transaction ", o, " to be sent to ", len(s.Hosts))
 			for _, s := range s.Hosts {
 				go s.HandleNetworkMessage(o)
 			}
