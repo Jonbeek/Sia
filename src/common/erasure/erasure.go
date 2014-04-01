@@ -18,7 +18,7 @@ func EncodeRing(originalSlices []byte, m int, sliceSize int) (redundantSlices []
 		return
 	}
 
-	// check that sliceSize is not to big or small
+	// check that sliceSize is not too big or small
 	if sliceSize < common.MINSLICESIZE || sliceSize > common.MAXSLICESIZE {
 		err = fmt.Errorf("sliceSize must be greater than %v and smaller than %v", common.MINSLICESIZE, common.MAXSLICESIZE)
 		return
@@ -47,8 +47,6 @@ func EncodeRing(originalSlices []byte, m int, sliceSize int) (redundantSlices []
 	}
 
 	// free the memory allocated by the C file
-	// I'm not sure at this point where everything is pointing,
-	// this might also kill the redundant slices
 	C.free(unsafe.Pointer(redundantChunk))
 
 	return
