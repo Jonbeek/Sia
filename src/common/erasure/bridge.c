@@ -19,4 +19,6 @@ static char *encodeRedundancy(int k, int m, int sliceSize, char *data) {
 	if(cauchy_256_encode(k, m, originalSlices, redundantSlices, sliceSize)) {
 		exit(1);
 	}
+
+	return redundantSlices;
 }
