@@ -1,4 +1,4 @@
-packages = common network swarm disk main
+packages = common network swarm disk main common/erasure
 testpackages = $(addsuffix /..., $(packages))
 
 all: libraries
@@ -23,5 +23,6 @@ fmt:
 
 docs:
 	pdflatex -output-directory=doc/ doc/whitepaper.tex 
+	pdflatex -output-directory=doc/ doc/onepage.tex
 
 .PHONY: all test fmt libraries test-verbose docs
