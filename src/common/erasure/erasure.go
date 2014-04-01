@@ -1,6 +1,6 @@
 package erasure
 
-// #cgo LDFLAGS: longhair/bin/liblonghair.a
+// #cgo LDFLAGS: longhair/bin/liblonghair.a -lstdc++
 // #include "bridge.c"
 import "C"
 
