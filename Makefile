@@ -23,6 +23,5 @@ fmt:
 
 docs:
 	pdflatex -output-directory=doc/ doc/whitepaper.tex 
-	pdflatex -output-directory=doc/ doc/onepage.tex
 
 .PHONY: all test fmt libraries test-verbose docs
