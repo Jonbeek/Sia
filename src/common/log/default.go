@@ -2,6 +2,7 @@ package log
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"time"
 )
@@ -26,10 +27,15 @@ func SetDeferedBehavior(dispose bool) {
 	std.SetDeferedBehavior(dispose)
 }
 
+func SetOutput(out io.Writer) {
+	std.SetOutput(out)
+}
+
 func Fatal(v ...interface{}) {
 	std.Claim()
-	defer std.Unclaim()
 	std.log(time.Now(), Pfatal, fmt.Sprint(v...))
+	std.Unclaim()
+	std.LogStored()
 	os.Exit(1)
 }
 
@@ -59,8 +65,9 @@ func Debug(v ...interface{}) {
 
 func Fatalln(v ...interface{}) {
 	std.Claim()
-	defer std.Unclaim()
 	std.log(time.Now(), Pfatal, fmt.Sprintln(v...))
+	std.Unclaim()
+	std.LogStored()
 	os.Exit(1)
 }
 
@@ -90,8 +97,9 @@ func Debugln(v ...interface{}) {
 
 func Fatalf(format string, v ...interface{}) {
 	std.Claim()
-	defer std.Unclaim()
 	std.log(time.Now(), Pfatal, fmt.Sprintf(format, v...))
+	std.Unclaim()
+	std.LogStored()
 	os.Exit(1)
 }
 

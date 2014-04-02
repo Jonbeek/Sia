@@ -88,9 +88,16 @@ func (pl *PriorityLog) log(now time.Time, priority uint, message string) {
 	}
 }
 
+// All changes to the state of the log wait for all pending log entries
+// to be logged/stored. In other words, DO NOT USE THESE ANYTIME EXCEPT
+// INITIALIZATION.
+
 // SetGlobalFlags sets the the default flag for which priority levels are
 // defered and which ones are handled immediately
 func (pl *PriorityLog) SetGlobalFlags(newflags uint) {
+	pl.stop.Lock()
+	defer pl.stop.Unlock()
+	pl.pending.Wait()
 	pl.lock.Lock()
 	defer pl.lock.Unlock()
 	pl.now = newflags
@@ -99,15 +106,33 @@ func (pl *PriorityLog) SetGlobalFlags(newflags uint) {
 // SetDeferedBehavior changes how defered log entries are handled.
 // (i.e. disposed of or not)
 func (pl *PriorityLog) SetDeferedBehavior(dispose bool) {
+	pl.stop.Lock()
+	defer pl.stop.Unlock()
+	pl.pending.Wait()
 	pl.lock.Lock()
 	defer pl.lock.Unlock()
 	pl.dispose = dispose
 }
 
+// SetOutput changes the Writer used to write log entries.
+func (pl *PriorityLog) SetOutput(out io.Writer) {
+	pl.stop.Lock()
+	defer pl.stop.Unlock()
+	pl.pending.Wait()
+	pl.lock.Lock()
+	defer pl.lock.Unlock()
+	pl.out = out
+}
+
+// The following methods log a given message at a given priority level.
+// The priority level of the method should be apparent.
+// The formatting of the message depends on the suffix of the method.
+
 func (pl *PriorityLog) Fatal(v ...interface{}) {
 	pl.Claim()
-	defer pl.Unclaim()
 	pl.log(time.Now(), Pfatal, fmt.Sprint(v...))
+	pl.Unclaim()
+	pl.LogStored()
 	os.Exit(1)
 }
 
@@ -137,8 +162,9 @@ func (pl *PriorityLog) Debug(v ...interface{}) {
 
 func (pl *PriorityLog) Fatalln(v ...interface{}) {
 	pl.Claim()
-	defer pl.Unclaim()
 	pl.log(time.Now(), Pfatal, fmt.Sprintln(v...))
+	pl.Unclaim()
+	pl.LogStored()
 	os.Exit(1)
 }
 
@@ -168,8 +194,9 @@ func (pl *PriorityLog) Debugln(v ...interface{}) {
 
 func (pl *PriorityLog) Fatalf(format string, v ...interface{}) {
 	pl.Claim()
-	defer pl.Unclaim()
 	pl.log(time.Now(), Pfatal, fmt.Sprintf(format, v...))
+	pl.Unclaim()
+	pl.LogStored()
 	os.Exit(1)
 }
 
