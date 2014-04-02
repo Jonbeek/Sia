@@ -58,6 +58,42 @@ func EncodeRing(originalData []byte, m int, bytesPerSlice int) (slicedData []str
 	return
 }
 
-func RebuildRing(untaintedSlices [][]byte, k int, bytesPerSlice int) (originalData []byte) {
+func RebuildRing(untaintedSlices []string, sliceIndicies []int, k int, bytesPerSlice int) (originalData []byte, err error) {
+	m := common.SWARMSIZE - k
+
+	if k > common.SWARMSIZE || k < 1 {
+		err = fmt.Errorf("k must be greater than 0 but smaller than %v", common.SWARMSIZE)
+		return
+	}
+
+	if bytesPerSlice < common.MINSLICESIZE || bytesPerSlice > common.MAXSLICESIZE {
+		err = fmt.Errorf("bytesPerSlice must be greater than %v and smaller than %v", common.MINSLICESIZE, common.MAXSLICESIZE)
+		return
+	}
+
+	if len(untaintedSlices) != k {
+		err = fmt.Errorf("there must be k elements in untaintedSlices")
+		return
+	}
+
+	if len(sliceIndicies) != k {
+		err = fmt.Errorf("there must be k elements in sliceIndicies")
+		return
+	}
+
+	originalData = make([]byte, 0, bytesPerSlice*k)
+
+	for slice := range untaintedSlices {
+		byteSlice := []byte(untaintedSlices[slice])
+		if len(byteSlice) != bytesPerSlice {
+			err = fmt.Errorf("at least 1 of 'untaintedSlices' is the wrong length")
+			return
+		}
+
+		originalData = append(originalData, byteSlice...)
+	}
+
+	C.recoverData(C.int(k), C.int(m), C.int(bytesPerSlice), (*C.char)(unsafe.Pointer(&originalData[0])), (*C.int)(unsafe.Pointer(&sliceIndicies[0])))
+
 	return
 }
