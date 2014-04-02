@@ -10,7 +10,7 @@ import (
 	"unsafe"
 )
 
-func EncodeRing(originalData []byte, m int, bytesPerSlice int) (redundantSlices []string, err error) {
+func EncodeRing(originalData []byte, m int, bytesPerSlice int) (slicedData []string, err error) {
 	// check that 'm' is legal
 	k := common.SWARMSIZE - m
 	if k <= 0 || k >= common.SWARMSIZE {
@@ -40,10 +40,16 @@ func EncodeRing(originalData []byte, m int, bytesPerSlice int) (redundantSlices 
 	redundantChunk := C.encodeRedundancy(C.int(k), C.int(m), C.int(bytesPerSlice), (*C.char)(unsafe.Pointer(&originalData[0])))
 	redundantString := C.GoStringN(redundantChunk, C.int(m*bytesPerSlice))
 
-	// redundantChunk into redundantSlices
-	redundantSlices = make([]string, m)
-	for i := 0; i < m; i++ {
-		redundantSlices[i] = redundantString[i*bytesPerSlice : (i*bytesPerSlice)+bytesPerSlice]
+	slicedData = make([]string, common.SWARMSIZE)
+
+	// split originalData into slicedData
+	for i := 0; i < k; i++ {
+		slicedData[i] = string(originalData[i*bytesPerSlice : i*bytesPerSlice+bytesPerSlice])
+	}
+
+	// split redundantString into slicedData
+	for i := k; i < common.SWARMSIZE; i++ {
+		slicedData[i] = redundantString[(i-k)*bytesPerSlice : ((i-k)*bytesPerSlice)+bytesPerSlice]
 	}
 
 	// free the memory allocated by the C file
