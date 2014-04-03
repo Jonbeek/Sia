@@ -1,9 +1,8 @@
-package swarm
+package quorum
 
 import (
 	"common"
 	"encoding/json"
-	"swarm/record"
 )
 
 type Heartbeat struct {
@@ -27,11 +26,6 @@ func NewHeartbeat(swarm, Host, Stage1, Stage2 string, records []common.Record) (
 	h.EntropyStage1 = Stage1
 	h.EntropyStage2 = Stage2
 	h.Id, _ = common.RandomString(8)
-
-	h.Recordsenc = nil
-	for _, r := range records {
-		h.Recordsenc = append(h.Recordsenc, record.Encode(r))
-	}
 
 	return
 }
@@ -59,10 +53,6 @@ func (h *Heartbeat) MarshalString() string {
 
 func (h *Heartbeat) GetRecords() []common.Record {
 	r := make([]common.Record, 0, len(h.Recordsenc))
-
-	for _, rd := range h.Recordsenc {
-		r = append(r, record.Decode(rd))
-	}
 
 	return r
 }
