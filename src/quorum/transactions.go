@@ -6,7 +6,7 @@ import (
 	"errors"
 )
 
-func UnmarshalUpdate(m common.NetworkMessage) (common.Update, error) {
+func UnmarshalUpdate(m common.Message) (common.Update, error) {
 	var u common.Update
 
 	switch m.Type {

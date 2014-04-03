@@ -19,7 +19,7 @@ type Heartbeat struct {
 	Recordsenc []string
 }
 
-func NewHeartbeat(swarm, Host, Stage1, Stage2 string, records []common.Record) (h *Heartbeat) {
+func NewHeartbeat(swarm, Host, Stage1, Stage2 string) (h *Heartbeat) {
 	h = new(Heartbeat)
 	h.Blockchain = swarm
 	h.Host = Host
@@ -49,10 +49,4 @@ func (h *Heartbeat) MarshalString() string {
 	}
 
 	return string(w)
-}
-
-func (h *Heartbeat) GetRecords() []common.Record {
-	r := make([]common.Record, 0, len(h.Recordsenc))
-
-	return r
 }

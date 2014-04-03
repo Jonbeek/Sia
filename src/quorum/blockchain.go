@@ -11,11 +11,10 @@ type Blockchain struct {
 	Id    string
 	state State
 
-	incomingMessages chan common.NetworkMessage
+	incomingMessages chan common.Message
 	outgoingUpdates  chan common.Update
 
-	blockHistory   []*Block
-	pendingRecords []common.Record
+	blockHistory []*Block
 
 	//Updated every block
 	DRNGSeed         []byte
@@ -37,11 +36,11 @@ func (b *Blockchain) AddSource(plexer common.NetworkMultiplexer) {
 func (b *Blockchain) mainloop(plexer common.NetworkMultiplexer) {
 	for i := range b.outgoingUpdates {
 		log.Debug("SWARM: sending outgoing transaction")
-		plexer.SendNetworkMessage(common.MarshalUpdate(i))
+		plexer.SendMessage(common.MarshalUpdate(i))
 	}
 }
 
-func (b *Blockchain) HandleNetworkMessage(m common.NetworkMessage) {
+func (b *Blockchain) HandleMessage(m common.Message) {
 	log.Debug("SWARM: network message recieved")
 
 	u, err := UnmarshalUpdate(m)
@@ -93,20 +92,4 @@ func (b *Blockchain) HostActive(host string) bool {
 
 	_, ok := b.blockHistory[len(b.blockHistory)-1].Heartbeats[host]
 	return ok
-}
-
-func (b *Blockchain) AddRecord(r common.Record) {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-	b.pendingRecords = append(b.pendingRecords)
-}
-
-func (b *Blockchain) GetRecords() []common.Record {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-	c := make([]common.Record, 0, len(b.pendingRecords))
-	for _, r := range b.pendingRecords {
-		c = append(c, r)
-	}
-	return c
 }

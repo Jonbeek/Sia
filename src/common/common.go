@@ -19,11 +19,6 @@ const (
 	QUORUMSIZE int = 192
 )
 
-type Record interface {
-	Type() string
-	MarshalString() string
-}
-
 type Update interface {
 	SwarmId() string
 	UpdateId() string
@@ -31,20 +26,20 @@ type Update interface {
 	Type() string
 }
 
-type NetworkMessage struct {
+type Message struct {
 	SwarmId  string
 	UpdateId string
 	Payload  string
 	Type     string
 }
 
-type NetworkMessageHandler interface {
-	HandleNetworkMessage(m NetworkMessage)
+type MessageHandler interface {
+	HandleMessage(m Message)
 }
 
 type NetworkMultiplexer interface {
-	AddListener(Swarmid string, c NetworkMessageHandler)
-	SendNetworkMessage(o NetworkMessage)
+	AddListener(Swarmid string, c MessageHandler)
+	SendMessage(o Message)
 	Listen(addr string)
 	Connect(addr string)
 }
