@@ -1,4 +1,4 @@
-packages = common network swarm disk main
+packages = common network swarm disk main common/erasure
 testpackages = $(addsuffix /..., $(packages))
 
 all: libraries
