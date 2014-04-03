@@ -13,10 +13,10 @@ import (
 func TestCoding(t *testing.T) {
 	k := 100
 	m := common.SWARMSIZE - k
-	bytesPerSlice := 1024
+	bytesPerSegment := 1024
 
 	// generate a random original file
-	numRandomBytes := bytesPerSlice * k
+	numRandomBytes := bytesPerSegment * k
 	randomBytes := make([]byte, numRandomBytes)
 	rand.Read(randomBytes)
 
@@ -24,27 +24,27 @@ func TestCoding(t *testing.T) {
 	randomBytesHash := common.Hash(sha256.New(), string(randomBytes))
 
 	// encode original file into a data ring
-	ringSlices, err := EncodeRing(k, bytesPerSlice, randomBytes)
+	ringSegments, err := EncodeRing(k, bytesPerSegment, randomBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// verify that first k slices are still original data
+	// verify that first k segments are still original data
 	originalDataHash := common.Hash(sha256.New(), string(randomBytes))
 	if !(bytes.Equal([]byte(originalDataHash), []byte(randomBytesHash))) {
 		t.Fatal("original data was modified after caling EncodeRing!")
 	}
 
-	// reduce file to a set of k slices and print those slices out
-	remainingSlices := make([]string, k)
-	sliceIndicies := make([]uint8, k)
+	// reduce file to a set of k segments and print those segments out
+	remainingSegments := make([]string, k)
+	segmentIndicies := make([]uint8, k)
 	for i := m; i < common.SWARMSIZE; i++ {
-		remainingSlices[i-m] = ringSlices[i]
-		sliceIndicies[i-m] = uint8(i)
+		remainingSegments[i-m] = ringSegments[i]
+		segmentIndicies[i-m] = uint8(i)
 	}
 
 	// recover original data
-	recoveredData, err := RebuildBlock(k, bytesPerSlice, remainingSlices, sliceIndicies)
+	recoveredData, err := RebuildSector(k, bytesPerSegment, remainingSegments, segmentIndicies)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,6 +59,6 @@ func TestCoding(t *testing.T) {
 // At some point, there should be a long test that explores all of the edge cases.
 
 // There should be a fuzzing test that explores random inputs. In particular, I would
-// like to fuzz the 'RebuildBlock' function
+// like to fuzz the 'RebuildSector' function
 
 // There should also be a benchmarking test here.
