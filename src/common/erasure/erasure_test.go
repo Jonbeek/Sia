@@ -12,7 +12,7 @@ import (
 // will produce the correct results.
 func TestCoding(t *testing.T) {
 	k := 100
-	m := common.SWARMSIZE - k
+	m := common.QUORUMSIZE - k
 	bytesPerSegment := 1024
 
 	// generate a random original file
@@ -38,7 +38,7 @@ func TestCoding(t *testing.T) {
 	// reduce file to a set of k segments and print those segments out
 	remainingSegments := make([]string, k)
 	segmentIndicies := make([]uint8, k)
-	for i := m; i < common.SWARMSIZE; i++ {
+	for i := m; i < common.QUORUMSIZE; i++ {
 		remainingSegments[i-m] = ringSegments[i]
 		segmentIndicies[i-m] = uint8(i)
 	}

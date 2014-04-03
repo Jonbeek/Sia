@@ -21,18 +21,18 @@ import (
 	"unsafe"
 )
 
-// EncodeRing takes data and produces a set of common.SWARMSIZE pieces that include redundancy.
+// EncodeRing takes data and produces a set of common.QUORUMSIZE pieces that include redundancy.
 // 'k' indiciates the number of non-redundant segments, and 'bytesPerSegment' indicates the size of each segment.
 // 'originalData' must be 'k' * 'bytesPerSegment' in size, and should be padded before calling 'EncodeRing'.
 //
-// The return value is a set of strings common.SWARMSIZE in length.
+// The return value is a set of strings common.QUORUMSIZE in length.
 // Each string is bytesPerSegment large.
 // The first 'k' strings are the original data split up.
 // The remaining strings are newly generated redundant data.
 func EncodeRing(k int, bytesPerSegment int, originalData []byte) (segmentdData []string, err error) {
 	// check that 'k' is legal
-	if k <= 0 || k >= common.SWARMSIZE {
-		err = fmt.Errorf("k must be greater than 0 and smaller than %v", common.SWARMSIZE)
+	if k <= 0 || k >= common.QUORUMSIZE {
+		err = fmt.Errorf("k must be greater than 0 and smaller than %v", common.QUORUMSIZE)
 		return
 	}
 
@@ -50,16 +50,16 @@ func EncodeRing(k int, bytesPerSegment int, originalData []byte) (segmentdData [
 
 	// check that originalData is the correct size
 	if len(originalData) != bytesPerSegment*k {
-		err = fmt.Errorf("originalData incorrectly padded, must be of size 'bytesPerSegment' * %v - 'm'", common.SWARMSIZE)
+		err = fmt.Errorf("originalData incorrectly padded, must be of size 'bytesPerSegment' * %v - 'm'", common.QUORUMSIZE)
 		return
 	}
 
 	// call c library to encode data
-	m := common.SWARMSIZE - k
+	m := common.QUORUMSIZE - k
 	redundantChunk := C.encodeRedundancy(C.int(k), C.int(m), C.int(bytesPerSegment), (*C.char)(unsafe.Pointer(&originalData[0])))
 	redundantString := C.GoStringN(redundantChunk, C.int(m*bytesPerSegment))
 
-	segmentdData = make([]string, common.SWARMSIZE)
+	segmentdData = make([]string, common.QUORUMSIZE)
 
 	// split originalData into segmentdData
 	for i := 0; i < k; i++ {
@@ -67,7 +67,7 @@ func EncodeRing(k int, bytesPerSegment int, originalData []byte) (segmentdData [
 	}
 
 	// split redundantString into segmentdData
-	for i := k; i < common.SWARMSIZE; i++ {
+	for i := k; i < common.QUORUMSIZE; i++ {
 		segmentdData[i] = redundantString[(i-k)*bytesPerSegment : ((i-k)*bytesPerSegment)+bytesPerSegment]
 	}
 
@@ -88,9 +88,9 @@ func EncodeRing(k int, bytesPerSegment int, originalData []byte) (segmentdData [
 // The output is a single byteslice that is equivalent to the data used when initially calling EncodeRing()
 func RebuildSector(k int, bytesPerSegment int, untaintedSegments []string, segmentIndicies []uint8) (originalData []byte, err error) {
 	// check for legal size of k and m
-	m := common.SWARMSIZE - k
-	if k > common.SWARMSIZE || k < 1 {
-		err = fmt.Errorf("k must be greater than 0 but smaller than %v", common.SWARMSIZE)
+	m := common.QUORUMSIZE - k
+	if k > common.QUORUMSIZE || k < 1 {
+		err = fmt.Errorf("k must be greater than 0 but smaller than %v", common.QUORUMSIZE)
 		return
 	}
 
