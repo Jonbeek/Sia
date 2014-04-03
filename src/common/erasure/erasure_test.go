@@ -22,7 +22,7 @@ func TestCoding(t *testing.T) {
 	randomBytesHash := common.Hash(sha256.New(), string(randomBytes))
 
 	// encode original file into a data ring
-	ringSlices, err := EncodeRing(randomBytes, k, bytesPerSlice)
+	ringSlices, err := EncodeRing(k, bytesPerSlice, randomBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestCoding(t *testing.T) {
 	}
 
 	// recover original data
-	recoveredData, err := RebuildBlock(remainingSlices, sliceIndicies, k, bytesPerSlice)
+	recoveredData, err := RebuildBlock(k, bytesPerSlice, remainingSlices, sliceIndicies)
 	if err != nil {
 		t.Fatal(err)
 	}

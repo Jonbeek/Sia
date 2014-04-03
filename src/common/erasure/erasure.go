@@ -29,7 +29,7 @@ import (
 // Each string is bytesPerSlice large.
 // The first 'k' strings are the original data split up.
 // The remaining strings are newly generated redundant data.
-func EncodeRing(originalData []byte, k int, bytesPerSlice int) (slicedData []string, err error) {
+func EncodeRing(k int, bytesPerSlice int, originalData []byte) (slicedData []string, err error) {
 	// check that 'k' is legal
 	if k <= 0 || k >= common.SWARMSIZE {
 		err = fmt.Errorf("k must be greater than 0 and smaller than %v", common.SWARMSIZE)
@@ -86,7 +86,7 @@ func EncodeRing(originalData []byte, k int, bytesPerSlice int) (slicedData []str
 // This must be a uint8 because the C library uses a char.
 //
 // The output is a single byteslice that is equivalent to the data used when initially calling EncodeRing()
-func RebuildBlock(untaintedSlices []string, sliceIndicies []uint8, k int, bytesPerSlice int) (originalData []byte, err error) {
+func RebuildBlock(k int, bytesPerSlice int, untaintedSlices []string, sliceIndicies []uint8) (originalData []byte, err error) {
 	// check for legal size of k and m
 	m := common.SWARMSIZE - k
 	if k > common.SWARMSIZE || k < 1 {
