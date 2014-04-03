@@ -8,6 +8,8 @@ import (
 	"testing"
 )
 
+// Basic test for reed-solomon coding, verifies that standard input
+// will produce the correct results.
 func TestCoding(t *testing.T) {
 	k := 100
 	m := common.SWARMSIZE - k
@@ -53,3 +55,10 @@ func TestCoding(t *testing.T) {
 		t.Fatal("recovered data is different from original data")
 	}
 }
+
+// At some point, there should be a long test that explores all of the edge cases.
+
+// There should be a fuzzing test that explores random inputs. In particular, I would
+// like to fuzz the 'RebuildBlock' function
+
+// There should also be a benchmarking test here.
