@@ -1,3 +1,14 @@
+// Sia uses Reed-Solomon coding for error correction. This package has no
+// method for error detection however, so error detection must be performed
+// elsewhere.
+//
+// We use the repository 'Siacoin/longhair' to handle the erasure coding.
+// As far as I'm aware, it's the fastest library that's open source.
+// It is a fork of 'catid/longhair', and we inted to merge all changes from
+// the original.
+//
+// Longhair is a c++ library. Here, it is cast to a C library and then called
+// using cgo.
 package erasure
 
 // #cgo LDFLAGS: /home/david/git/Sia/src/common/erasure/longhair/bin/liblonghair.a -lstdc++
@@ -10,6 +21,14 @@ import (
 	"unsafe"
 )
 
+// EncodeRing takes data and produces a set of common.SWARMSIZE pieces that include redundancy.
+// 'k' indiciates the number of non-redundant slices, and 'bytesPerSlice' indicates the size of each slice.
+// 'originalData' must be 'k' * 'bytesPerSlice' in size, and should be padded before calling 'EncodeRing'.
+//
+// The return value is a set of strings common.SWARMSIZE in length.
+// Each string is bytesPerSlice large.
+// The first 'k' strings are the original data split up.
+// The remaining strings are newly generated redundant data.
 func EncodeRing(originalData []byte, k int, bytesPerSlice int) (slicedData []string, err error) {
 	// check that 'k' is legal
 	if k <= 0 || k >= common.SWARMSIZE {
@@ -58,6 +77,15 @@ func EncodeRing(originalData []byte, k int, bytesPerSlice int) (slicedData []str
 	return
 }
 
+// RebuildBlock takes a set of 'k' strings, each 'bytesPerSlice' in size, and recovers the original data.
+// 'k' must be equal to the number of non-redundant slices when the file was originally built.
+// Because recovery is just a bunch of matrix operations, there is no way to tell if the data has been corrupted
+// or if an incorrect value of 'k' has been chosen. This error checking must happen before calling RebuildBlock.
+// The set of 'untaintedSlices' will have corresponding indicies from when they were encoded.
+// There is no way to tell what the indicies are, so they must be supplied in the 'sliceIndicies' slice.
+// This must be a uint8 because the C library uses a char.
+//
+// The output is a single byteslice that is equivalent to the data used when initially calling EncodeRing()
 func RebuildBlock(untaintedSlices []string, sliceIndicies []uint8, k int, bytesPerSlice int) (originalData []byte, err error) {
 	// check for legal size of k and m
 	m := common.SWARMSIZE - k

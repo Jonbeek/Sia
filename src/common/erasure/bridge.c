@@ -3,6 +3,17 @@
 #include <stdio.h>
 #include <string.h>
 
+// encodeRedundancy takes as input a 'k', the number of nonredundant slices
+// and an 'm', the number of redundant slices. k + m must be less than 256.
+// bytesPerSlice is the size of each slice, and then originalBlock is a pointer
+// to the original data, which is assumed to be of size k * bytesPerSlice
+//
+// The return value is a block of data m * bytesPerSlice which contains all of
+// the redundant data. The data does not get segmented into pieces in this
+// function.
+//
+// encodeRedundancy does not do any error checking, all of that must happen
+// in the calling function.
 static char *encodeRedundancy(int k, int m, int bytesPerSlice, char *originalBlock) {
 	// verify that correct library is linked
 	if(cauchy_256_init()) {
@@ -29,6 +40,14 @@ static char *encodeRedundancy(int k, int m, int bytesPerSlice, char *originalBlo
 	return redundantSlices;
 }
 
+// recoverData takes as input 'k', the number of nonredundant slices and 'm',
+// the number of redundant slices. 'bytesPerSlice' indicates how large each
+// slice is. remainingSlices is a pointer to a block of data that contains
+// exactly 'k' uncorrupted slices. 'remainingSliceIndicies' indicate which
+// slices of the original set the uncorrupted ones correspond with.
+//
+// The data is edited and sorted in place. Upon returning, 'remainingSlices'
+// will be the original data in order.
 static void recoverData(int k, int m, int bytesPerSlice, unsigned char *remainingSlices, unsigned char *remainingSliceIndicies) {
 	// verify that correct library is linked
 	if(cauchy_256_init()) {
@@ -52,7 +71,7 @@ static void recoverData(int k, int m, int bytesPerSlice, unsigned char *remainin
 
 	/* sort memory back into original order */
 	/* because I want to push sooner rather than later, I'm using an n^2 sort */
-	/* eventually, I'll probably implement a radix sort */
+	/* eventually, I'll implement something more efficient */
 
 	// allocate space to copy memory into
 	char tempData[bytesPerSlice];

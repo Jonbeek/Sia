@@ -1,1 +1,0 @@
-Sia files use Reed-Solomon coding for error detection and correction. In particular, the repo 'longhair' is used, which is a C++ library.
