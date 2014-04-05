@@ -74,13 +74,13 @@ func (pl *PriorityLog) log(now time.Time, priority uint, message string) {
 	pl.lock.Lock()
 	defer pl.lock.Unlock()
 	// Optimization!
-	if pl.now & priority != 0 || !pl.dispose {
+	if pl.now&priority != 0 || !pl.dispose {
 		pl.lock.Unlock()
 		// Takes a while.
 		// The calldepth will always be 3, if called directly
 		rec := newRecord(3, now, priority, message)
 		pl.lock.Lock()
-		if pl.now & priority != 0 {
+		if pl.now&priority != 0 {
 			pl.out.Write(rec.Format())
 		} else {
 			heap.Push(pl.records, rec)

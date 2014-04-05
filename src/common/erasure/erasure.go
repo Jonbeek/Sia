@@ -11,7 +11,6 @@
 // using cgo.
 package erasure
 
-// #cgo LDFLAGS: /home/david/git/Sia/src/common/erasure/longhair/bin/liblonghair.a -lstdc++
 // #include "bridge.c"
 import "C"
 
@@ -114,8 +113,8 @@ func RebuildSector(k int, bytesPerSegment int, untaintedSegments []string, segme
 
 	// move all data into a single slice for C
 	originalData = make([]byte, 0, k*bytesPerSegment)
-	for segment := range untaintedSegments {
-		byteSlice := []byte(untaintedSegments[segment])
+	for _, segment := range untaintedSegments {
+		byteSlice := []byte(segment)
 
 		// verify that each string is the correct length
 		if len(byteSlice) != bytesPerSegment {
