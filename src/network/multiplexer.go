@@ -75,10 +75,17 @@ func (m *NetworkMultiplexer) Listen(addr string) {
 
 		msg := "TESTING CONNECTION WITH " + addr
 		en := json.NewEncoder(conn)
-		en.Encode(msg)
+		err = en.Encode(msg)
+		if err != nil {
+			log.Debugln(err)
+			continue
+		}
 
 		de := json.NewDecoder(conn)
-		de.Decode(msg)
+		err = de.Decode(msg)
+		if err != nil {
+			log.Debugln(err)
+		}
 
 		log.Debugln("MULTI: MESSAGE RECEIVED FROM:", conn.RemoteAddr().String())
 		log.Debugln(msg)
@@ -103,7 +110,10 @@ func (m *NetworkMultiplexer) Connect(addr string) {
 	var msg string
 
 	de := json.NewDecoder(conn)
-	de.Decode(msg)
+	err = de.Decode(msg)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	log.Debugln("MULTI: MESSAGE RECEIVED FROM:", addr)
 	log.Debugln(msg)
@@ -111,7 +121,10 @@ func (m *NetworkMultiplexer) Connect(addr string) {
 	msg = "MESSAGE CONFIRMED AS RECEIVED"
 
 	en := json.NewEncoder(conn)
-	en.Encode(msg)
+	err = en.Encode(msg)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	defer conn.Close()
 }

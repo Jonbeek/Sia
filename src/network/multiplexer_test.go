@@ -2,6 +2,7 @@ package network
 
 import (
 	"common"
+	"common/log"
 	"testing"
 )
 
