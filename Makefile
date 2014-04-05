@@ -17,16 +17,19 @@ libraries:
 test: libraries
 	$(govars) go test $(packages)
 
-race-libs:
-	$(govars) go install -race std
+test-verbose: libraries
+	$(govars) go test -test.v $(packages)
 
 bench: libraries
 	$(govars) go test $(packages)
 
-test-verbose: libraries
-	$(govars) go test -test.v $(packages)
+dependencies:
+	cd src/common/crypto/libsodium && ./autogen.sh && ./configure && make check && sudo make install && sudo ldconfig
+
+race-libs:
+	$(govars) go install -race std
 
 docs:
 	pdflatex -output-directory=doc/ doc/whitepaper.tex 
 
-.PHONY: all test fmt libraries test-verbose docs submodule-update
+.PHONY: all submodule-update fmt libraries test test-verbose bench dependencies race-libs docs

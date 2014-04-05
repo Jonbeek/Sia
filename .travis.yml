@@ -4,6 +4,7 @@ go:
   - 1.2
 
 install:
+  - make dependencies
   - make race-libs
   - make
 
