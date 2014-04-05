@@ -1,27 +1,32 @@
-packages = common network quorum disk main common/erasure common/crypto
-testpackages = $(addsuffix /..., $(packages))
+gopath = GOPATH=$(CURDIR)
+cgo_ldflags = CGO_LDFLAGS="$(CURDIR)/src/common/erasure/longhair/bin/liblonghair.a -lstdc++"
+govars = $(gopath) $(cgo_ldflags)
+packages = common network quorum disk main common/erasure common/crypto common/log
 
-all: libraries
+all: submodule-update fmt libraries
 
-race-libs:
-	GOPATH=$(CURDIR) go install -race std
-
-libraries: src/*/*.go fmt
-	GOPATH=$(CURDIR) go install $(packages)
-
-test: libraries
-	GOPATH=$(CURDIR) go test $(testpackages)
-
-bench: libraries
-	GOPATH=$(CURDIR) go test $(packages)
-
-test-verbose: libraries
-	GOPATH=$(CURDIR) go test -test.v $(testpackages)
+submodule-update:
+	git submodule update
 
 fmt:
-	GOPATH=$(CURDIR) go fmt $(packages)
+	$(govars) go fmt $(packages)
+
+libraries:
+	$(govars) go install $(packages)
+
+test: libraries
+	$(govars) go test $(packages)
+
+race-libs:
+	$(govars) go install -race std
+
+bench: libraries
+	$(govars) go test $(packages)
+
+test-verbose: libraries
+	$(govars) go test -test.v $(packages)
 
 docs:
 	pdflatex -output-directory=doc/ doc/whitepaper.tex 
 
-.PHONY: all test fmt libraries test-verbose docs
+.PHONY: all test fmt libraries test-verbose docs submodule-update
