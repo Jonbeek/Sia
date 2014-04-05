@@ -1,4 +1,4 @@
-package swarm
+package quorum
 
 import (
 	"common"
