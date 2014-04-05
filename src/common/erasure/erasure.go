@@ -11,7 +11,6 @@
 // using cgo.
 package erasure
 
-// #cgo LDFLAGS: /home/david/git/Sia/src/common/erasure/longhair/bin/liblonghair.a -lstdc++
 // #include "bridge.c"
 import "C"
 

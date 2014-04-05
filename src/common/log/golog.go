@@ -1,4 +1,5 @@
 package log
+
 // Copyright (c) 2012 The Go Authors. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -63,4 +64,3 @@ func formatTime(buf *[]byte, r record) {
 	nanosec := r.logtime.Nanosecond() / 1e3
 	itoa(buf, nanosec, 6)
 }
-
