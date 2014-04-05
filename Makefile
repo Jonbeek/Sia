@@ -1,4 +1,4 @@
-packages = common network quorum disk main common/erasure
+packages = common network quorum disk main common/erasure common/crypto
 testpackages = $(addsuffix /..., $(packages))
 
 all: libraries
