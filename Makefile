@@ -1,7 +1,10 @@
 packages = common network quorum disk main common/erasure common/crypto
 testpackages = $(addsuffix /..., $(packages))
 
-all: libraries
+all: submodule-update libraries
+
+submodule-update:
+	git submodule update
 
 race-libs:
 	GOPATH=$(CURDIR) go install -race std
@@ -24,4 +27,4 @@ fmt:
 docs:
 	pdflatex -output-directory=doc/ doc/whitepaper.tex 
 
-.PHONY: all test fmt libraries test-verbose docs
+.PHONY: all test fmt libraries test-verbose docs submodule-update
