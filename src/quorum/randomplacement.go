@@ -1,26 +1,26 @@
-package swarm
+package quorum
 
-import(
+import (
 	"common"
 )
 
-func RandomPlacement(toPlace int, SEED string){
+func RandomPlacement(toPlace int, SEED string) []int {
 	ascii := []byte(SEED)
 	intAscii := make([]int, len(ascii))
-	buckets := make([]int, common.REQUIREDTOFILL)
+	buckets := make([]int, common.QUORUMSIZE)
 	tmp := toPlace
 	index := 0
 	ascInd := 0
 	//splits toPlace into the buckets according to given SEED
-	for tmp != 0{
+	for tmp != 0 {
 		index += intAscii[ascInd]
-		if index >= common.REQUIREDTOFILL{
-			index = index = common.REQUIREDTOFILL
+		if index >= common.QUORUMSIZE {
+			index = index - common.QUORUMSIZE
 		}
 		buckets[index] += 1
 		tmp--
 		ascInd++
-		if ascInd == len(intAscii){
+		if ascInd == len(intAscii) {
 			ascInd = 0
 		}
 	}
