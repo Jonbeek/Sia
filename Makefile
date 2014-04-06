@@ -6,7 +6,7 @@ packages = common network quorum disk main common/erasure common/crypto common/l
 all: submodule-update fmt libraries
 
 submodule-update:
-	git submodule update
+	git submodule update --init
 
 fmt:
 	$(govars) go fmt $(packages)
