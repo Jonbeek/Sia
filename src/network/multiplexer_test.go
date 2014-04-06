@@ -12,7 +12,7 @@ func TestNetworkMultiplexer(t *testing.T) {
 	m := NewNetworkMultiplexer()
 	m.AddListener("", c)
 
-	go m.SendMessage(common.Message{"", "", "", ""})
+	go m.SendMessage(common.Message{"", ""})
 	c.Receive()
 
 	c2 := newTestListener()
@@ -23,11 +23,11 @@ func TestNetworkMultiplexer(t *testing.T) {
 	m.AddListener("2", c3)
 	m.AddListener("2", c4)
 
-	go m.SendMessage(common.Message{"1", "", "", ""})
+	go m.SendMessage(common.Message{"1", ""})
 
 	c2.Receive()
 
-	go m.SendMessage(common.Message{"2", "", "", ""})
+	go m.SendMessage(common.Message{"2", ""})
 
 	c3.Receive()
 	c4.Receive()

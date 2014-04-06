@@ -12,8 +12,8 @@ type NetworkMultiplexer struct {
 }
 
 type idHandler struct {
-	handler common.MessageHandler
-	SwarmId string
+	handler     common.MessageHandler
+	Destination string
 }
 
 func NewNetworkMultiplexer() common.NetworkMultiplexer {
@@ -29,18 +29,18 @@ func (m *NetworkMultiplexer) listen() {
 	for {
 		select {
 		case c := <-m.out:
-			m.hosts[c.SwarmId] = append(m.hosts[c.SwarmId], c.handler)
+			m.hosts[c.Destination] = append(m.hosts[c.Destination], c.handler)
 		case o := <-m.in:
-			log.Debugln("MULTI: Transaction ", o, "to be sent to", len(m.hosts[o.SwarmId]))
-			for _, s := range m.hosts[o.SwarmId] {
+			log.Debugln("MULTI: Transaction ", o, "to be sent to", len(m.hosts[o.Destination]))
+			for _, s := range m.hosts[o.Destination] {
 				go s.HandleMessage(o)
 			}
 		}
 	}
 }
 
-func (m *NetworkMultiplexer) AddListener(SwarmId string, c common.MessageHandler) {
-	m.out <- idHandler{c, SwarmId}
+func (m *NetworkMultiplexer) AddListener(Destination string, c common.MessageHandler) {
+	m.out <- idHandler{c, Destination}
 }
 
 func (m *NetworkMultiplexer) SendMessage(o common.Message) {

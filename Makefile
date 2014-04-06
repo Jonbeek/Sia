@@ -1,8 +1,7 @@
 gopath = GOPATH=$(CURDIR)
 cgo_ldflags = CGO_LDFLAGS="$(CURDIR)/src/common/erasure/longhair/bin/liblonghair.a -lstdc++"
 govars = $(gopath) $(cgo_ldflags)
-packages = common network quorum disk main common/erasure common/crypto common/log
-
+packages = common common/crypto common/erasure common/log disk network quorum
 all: submodule-update fmt libraries
 
 submodule-update:

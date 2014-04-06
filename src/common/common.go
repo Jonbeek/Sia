@@ -1,9 +1,5 @@
 package common
 
-import (
-	"time"
-)
-
 const (
 	// How many bytes of entropy must be produced each entropy cycle
 	ENTROPYVOLUME int = 32
@@ -19,18 +15,9 @@ const (
 	QUORUMSIZE int = 192
 )
 
-type Update interface {
-	SwarmId() string
-	UpdateId() string
-	MarshalString() string
-	Type() string
-}
-
 type Message struct {
-	SwarmId  string
-	UpdateId string
-	Payload  string
-	Type     string
+	Destination string
+	Payload     string
 }
 
 type MessageHandler interface {
@@ -43,8 +30,3 @@ type NetworkMultiplexer interface {
 	Listen(addr string)
 	Connect(addr string)
 }
-
-// swarmsize is the number of hosts managing each set of files
-var SWARMSIZE int = 192
-
-var STATEINFORMEDDELTA time.Duration = 1 * time.Second

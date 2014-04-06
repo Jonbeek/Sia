@@ -27,7 +27,7 @@ func TestSimpleMultiplexer(t *testing.T) {
 	m := NewSimpleMultiplexer()
 	m.AddListener("", c)
 
-	go m.SendMessage(common.Message{"", "", "", ""})
+	go m.SendMessage(common.Message{"1", ""})
 	c.Receive()
 
 	c2 := newTestListener()
@@ -36,7 +36,7 @@ func TestSimpleMultiplexer(t *testing.T) {
 	m.AddListener("", c2)
 	m.AddListener("", c3)
 
-	go m.SendMessage(common.Message{"", "", "", ""})
+	go m.SendMessage(common.Message{"2", ""})
 
 	c.Receive()
 	c2.Receive()
