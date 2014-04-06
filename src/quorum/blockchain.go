@@ -1,8 +1,8 @@
-package swarm
+package quorum
 
 import (
 	"common"
-	"log"
+	"common/log"
 	"sync"
 )
 
@@ -36,13 +36,13 @@ func (b *Blockchain) AddSource(plexer common.NetworkMultiplexer) {
 
 func (b *Blockchain) mainloop(plexer common.NetworkMultiplexer) {
 	for i := range b.outgoingUpdates {
-		log.Print("SWARM: sending outgoing transaction")
+		log.Debug("SWARM: sending outgoing transaction")
 		plexer.SendNetworkMessage(common.MarshalUpdate(i))
 	}
 }
 
 func (b *Blockchain) HandleNetworkMessage(m common.NetworkMessage) {
-	log.Print("SWARM: network message recieved")
+	log.Debug("SWARM: network message recieved")
 
 	u, err := UnmarshalUpdate(m)
 	if err != nil {
@@ -50,7 +50,7 @@ func (b *Blockchain) HandleNetworkMessage(m common.NetworkMessage) {
 	}
 
 	b.state.HandleUpdate(u)
-	log.Print("SWARM: Update handling finished")
+	log.Debug("SWARM: Update handling finished")
 }
 
 func (b *Blockchain) AddBlock(block *Block) {

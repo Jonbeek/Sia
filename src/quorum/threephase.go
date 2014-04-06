@@ -1,8 +1,8 @@
-package swarm
+package quorum
 
 import (
 	"common"
-	"log"
+	"common/log"
 	"sync"
 	"time"
 )
@@ -71,13 +71,13 @@ func (s *ThreePhase) Die() {
 func (s *ThreePhase) mainloop() {
 
 	for _ = range s.phasetimer {
-		log.Print("State: phasetimer fired")
+		log.Debug("State: phasetimer fired")
 		s.lock.Lock()
 		s.nextphasetime = s.nextphasetime.Add(common.STATEINFORMEDDELTA)
 		switch s.nextphase {
 
 		case "Heartbeat":
-			log.Print("3PHASE: Heartbeat phase")
+			log.Debug("3PHASE: Heartbeat phase")
 			s.phasetimer = time.Tick(common.STATEINFORMEDDELTA)
 			h := s.handler.ProduceHeartbeat()
 			go s.handler.SendUpdate(h)
@@ -87,20 +87,20 @@ func (s *ThreePhase) mainloop() {
 			return
 
 		case "HeartbeatSigning":
-			log.Print("3PHASE: HeartbeatSigning phase")
+			log.Debug("3PHASE: HeartbeatSigning phase")
 			s.phasetimer = time.Tick(common.STATEINFORMEDDELTA)
 			s.produceSignedHeartbeats()
 			s.nextphase = "BlockGeneration"
 
 		case "BlockGeneration":
-			log.Print("3PHASE: BlockGeneration phase")
+			log.Debug("3PHASE: BlockGeneration phase")
 			s.produceBlock()
 			s.nextphase = "BlockDecision"
 
 		case "BlockDecision":
-			log.Print("3PHASE: BlockDecision phase")
+			log.Debug("3PHASE: BlockDecision phase")
 			ok := s.decideBlock()
-			log.Print("3PHASE: ok=", ok)
+			log.Debug("3PHASE: ok=", ok)
 			s.nextphase = "Heartbeat"
 			s.heartbeats = make(map[string]*Heartbeat)
 			s.signatures = make(map[string]map[string]string)
@@ -121,7 +121,7 @@ func (s *ThreePhase) produceSignedHeartbeats() {
 	signatures := make(map[string]string)
 	for id, h := range s.heartbeats {
 		if !s.handler.ValidateHeartbeat(h) {
-			log.Print("3PHASE: Validate Heartbeat Failed")
+			log.Debug("3PHASE: Validate Heartbeat Failed")
 			continue
 		}
 
@@ -156,11 +156,11 @@ func (s *ThreePhase) produceBlock() {
 }
 
 func (s *ThreePhase) decideBlock() bool {
-	log.Print("3PHASE: decideBlock")
+	log.Debug("3PHASE: decideBlock")
 	heartbeats, signatures := s.copyMaps()
 
 	for id, _ := range heartbeats {
-		log.Print("Heartbeat id=", id, " len(signatures)=", len(signatures[id]))
+		log.Debug("Heartbeat id=", id, " len(signatures)=", len(signatures[id]))
 		if len(signatures[id]) <= common.SWARMSIZE/2 {
 			delete(heartbeats, id)
 			delete(signatures, id)
@@ -197,7 +197,7 @@ func (s *ThreePhase) HandleUpdate(t common.Update) {
 		}
 
 		s.heartbeats[n.Id] = n
-		log.Print("3PHASE: Node added")
+		log.Debug("3PHASE: Node added")
 
 	case *HeartbeatList:
 		if s.nextphase != "BlockGeneration" &&

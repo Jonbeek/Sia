@@ -1,9 +1,9 @@
-package swarm
+package quorum
 
 import (
 	"common"
+	"common/log"
 	"fmt"
-	"log"
 	"network"
 	"testing"
 	"time"
@@ -70,11 +70,9 @@ func TestStateInformed(t *testing.T) {
 		common.SWARMSIZE = old
 	}(old)
 
-	log.SetFlags(log.Lmicroseconds)
-
 	swarms, _ := CreateSteadySwarm(t)
 
-	log.Print("TEST: stopped sleeping")
+	log.Debug("TEST: stopped sleeping")
 
 	informed := 0
 	connected := 0

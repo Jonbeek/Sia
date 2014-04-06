@@ -1,8 +1,8 @@
-package swarm
+package quorum
 
 import (
 	"common"
-	"log"
+	"common/log"
 	"testing"
 	"time"
 )
@@ -15,11 +15,9 @@ func TestStateJoin(t *testing.T) {
 		common.SWARMSIZE = old
 	}(old)
 
-	log.SetFlags(log.Lmicroseconds)
-
 	swarms, mult := CreateSteadySwarm(t)
 
-	log.Print("TEST: stopped sleeping")
+	log.Debug("TEST: stopped sleeping")
 
 	host := "joininghost"
 

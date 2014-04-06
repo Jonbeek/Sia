@@ -1,9 +1,9 @@
-package swarm
+package quorum
 
 import (
 	"common"
+	"common/log"
 	"crypto/sha256"
-	"log"
 	"time"
 )
 
@@ -59,16 +59,16 @@ func (s *StateSteady) ValidateHeartbeat(h *Heartbeat) bool {
 		return true
 	}
 	if !ok {
-		log.Print("STATESTEADY: previous beat not found")
+		log.Debug("STATESTEADY: previous beat not found")
 		return false
 	}
 	ok = common.Hash(sha256.New(), h.EntropyStage2) == p.EntropyStage1
 	if !ok {
-		log.Print(p)
-		log.Print(h)
-		log.Print("STATESTEADY: hash not match")
-		log.Print(common.Hash(sha256.New(), h.EntropyStage2))
-		log.Print(p.EntropyStage1)
+		log.Debug(p)
+		log.Debug(h)
+		log.Debug("STATESTEADY: hash not match")
+		log.Debug(common.Hash(sha256.New(), h.EntropyStage2))
+		log.Debug(p.EntropyStage1)
 	}
 	return ok
 }

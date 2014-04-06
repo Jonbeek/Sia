@@ -1,0 +1,6 @@
+[submodule "src/common/erasure/longhair"]
+	path = src/common/erasure/longhair
+	url = git://github.com/Siacoin/longhair.git
+[submodule "src/common/crypto/libsodium"]
+	path = src/common/crypto/libsodium
+	url = git://github.com/Siacoin/libsodium
