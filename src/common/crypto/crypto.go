@@ -6,4 +6,11 @@
 // This primarily means using libsodium
 package crypto
 
+const (
+	// sizes in bytes
+	PublicKeySize int = 32
+	SecretKeySize int = 64
+	SignatureSize int = 64
+)
+
 type PublicKey string
