@@ -14,12 +14,9 @@ libraries:
 	$(govars) go install $(packages)
 
 test: libraries
-	$(govars) go test $(packages)
+	$(govars) go test -short $(packages)
 
-test-verbose: libraries
-	$(govars) go test -test.v $(packages)
-
-bench: libraries
+test-long: libraries
 	$(govars) go test $(packages)
 
 dependencies: submodule-update
