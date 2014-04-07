@@ -3,6 +3,10 @@
 // necessarily have an obvious place it belongs
 package common
 
+import (
+	"time"
+)
+
 const (
 	// How many bytes of entropy must be produced each entropy cycle
 	ENTROPYVOLUME int = 32
@@ -16,6 +20,9 @@ const (
 	// 	becoming more than 80% compromised by an attacker controlling 1/2 of
 	// 	the network.
 	QUORUMSIZE int = 192
+
+	// How long a single step in the consensus algorithm takes
+	STEPLENGTH time.Duration = 15 * time.Second
 )
 
 // Messages are for sending things over the network.
