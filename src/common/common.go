@@ -1,3 +1,6 @@
+// Common contains structs, data, and interfaces that
+// needs to be referenced by many packages but doesn't
+// necessarily have an obvious place it belongs
 package common
 
 const (
@@ -15,6 +18,16 @@ const (
 	QUORUMSIZE int = 192
 )
 
+// Messages are for sending things over the network.
+// Each message has a single destination, and it is
+// the job of the network package to interpret the
+// destinations.
+//
+// In consideration: each message has a set of destinations
+// instead of a single destination. Functionally, you can
+// achieve a set just by calling 'send' with a bunch of different
+// messages, each containing the same payload but different
+// destinations. This could save on memory though.
 type Message struct {
 	Destination string
 	Payload     string
