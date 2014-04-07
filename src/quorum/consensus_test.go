@@ -31,3 +31,7 @@ func TestTick(t *testing.T) {
 
 	// Plus one more test to make sure that a block-generate gets called
 }
+
+// Testing for HandleSignedHeartbeat
+
+// Testing for NewHeartbeat
