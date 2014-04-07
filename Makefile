@@ -2,6 +2,7 @@ gopath = GOPATH=$(CURDIR)
 cgo_ldflags = CGO_LDFLAGS="$(CURDIR)/src/common/erasure/longhair/bin/liblonghair.a -lstdc++"
 govars = $(gopath) $(cgo_ldflags)
 packages = common common/crypto common/erasure common/log disk network quorum
+
 all: submodule-update fmt libraries
 
 submodule-update:
@@ -28,4 +29,4 @@ race-libs:
 docs:
 	pdflatex -output-directory=doc/ doc/whitepaper.tex 
 
-.PHONY: all submodule-update fmt libraries test test-verbose bench dependencies race-libs docs
+.PHONY: all submodule-update fmt libraries test test-long dependencies race-libs docs
