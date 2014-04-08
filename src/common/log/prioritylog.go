@@ -72,7 +72,7 @@ func NewPriorityLog(out io.Writer, flags uint, dispose bool) *PriorityLog {
 	return pl
 }
 
-func (pl *PriorityLog) Claim() {
+func (pl *PriorityLog) claim() {
 	// Must be done before calls to log
 	// Lock is used to prevent one routine from continuously making entries
 	pl.stop.Lock()
@@ -81,15 +81,15 @@ func (pl *PriorityLog) Claim() {
 	pl.pending.Add(2)
 }
 
-func (pl *PriorityLog) Unclaim() {
+func (pl *PriorityLog) unclaim() {
 	// No need to wait, finishing less harmful than starting
 	pl.pending.Done()
 }
 
 func (pl *PriorityLog) log(now time.Time, priority uint, message string) {
-	// Calling function called Claim, so Unclaim when done.
-	defer pl.Unclaim()
-	// Claim complete use over the variables of pl.
+	// Calling function called claim, so unclaim when done.
+	defer pl.unclaim()
+	// claim complete use over the variables of pl.
 	pl.lock.Lock()
 	defer pl.lock.Unlock()
 	// Optimization!
@@ -152,38 +152,38 @@ func (pl *PriorityLog) SetOutput(out io.Writer) {
 
 // Log a message at the Fatal priority level, then terminate.
 func (pl *PriorityLog) Fatal(v ...interface{}) {
-	pl.Claim()
+	pl.claim()
 	pl.log(time.Now(), Pfatal, fmt.Sprint(v...))
-	pl.Unclaim()
+	pl.unclaim()
 	pl.LogStored()
 	os.Exit(1)
 }
 
 // Log a message at the Error priority level.
 func (pl *PriorityLog) Error(v ...interface{}) {
-	pl.Claim()
-	defer pl.Unclaim()
+	pl.claim()
+	defer pl.unclaim()
 	pl.log(time.Now(), Perror, fmt.Sprint(v...))
 }
 
 // Log a message at the Warning priority level.
 func (pl *PriorityLog) Warning(v ...interface{}) {
-	pl.Claim()
-	defer pl.Unclaim()
+	pl.claim()
+	defer pl.unclaim()
 	pl.log(time.Now(), Pwarning, fmt.Sprint(v...))
 }
 
 // Log a message at the Info priority level.
 func (pl *PriorityLog) Info(v ...interface{}) {
-	pl.Claim()
-	defer pl.Unclaim()
+	pl.claim()
+	defer pl.unclaim()
 	pl.log(time.Now(), Pinfo, fmt.Sprint(v...))
 }
 
 // Log a message at the Debug priority level.
 func (pl *PriorityLog) Debug(v ...interface{}) {
-	pl.Claim()
-	defer pl.Unclaim()
+	pl.claim()
+	defer pl.unclaim()
 	pl.log(time.Now(), Pdebug, fmt.Sprint(v...))
 }
 
@@ -191,38 +191,38 @@ func (pl *PriorityLog) Debug(v ...interface{}) {
 
 // Log a message at the Fatal priority level, then terminate.
 func (pl *PriorityLog) Fatalln(v ...interface{}) {
-	pl.Claim()
+	pl.claim()
 	pl.log(time.Now(), Pfatal, fmt.Sprintln(v...))
-	pl.Unclaim()
+	pl.unclaim()
 	pl.LogStored()
 	os.Exit(1)
 }
 
 // Log a message at the Error priority level.
 func (pl *PriorityLog) Errorln(v ...interface{}) {
-	pl.Claim()
-	defer pl.Unclaim()
+	pl.claim()
+	defer pl.unclaim()
 	pl.log(time.Now(), Perror, fmt.Sprintln(v...))
 }
 
 // Log a message at the Warning priority level.
 func (pl *PriorityLog) Warningln(v ...interface{}) {
-	pl.Claim()
-	defer pl.Unclaim()
+	pl.claim()
+	defer pl.unclaim()
 	pl.log(time.Now(), Pwarning, fmt.Sprintln(v...))
 }
 
 // Log a message at the Info priority level.
 func (pl *PriorityLog) Infoln(v ...interface{}) {
-	pl.Claim()
-	defer pl.Unclaim()
+	pl.claim()
+	defer pl.unclaim()
 	pl.log(time.Now(), Pinfo, fmt.Sprintln(v...))
 }
 
 // Log a message at the Debug priority level.
 func (pl *PriorityLog) Debugln(v ...interface{}) {
-	pl.Claim()
-	defer pl.Unclaim()
+	pl.claim()
+	defer pl.unclaim()
 	pl.log(time.Now(), Pdebug, fmt.Sprintln(v...))
 }
 
@@ -230,38 +230,38 @@ func (pl *PriorityLog) Debugln(v ...interface{}) {
 
 // Log a message at the Fatal priority level, then terminate.
 func (pl *PriorityLog) Fatalf(format string, v ...interface{}) {
-	pl.Claim()
+	pl.claim()
 	pl.log(time.Now(), Pfatal, fmt.Sprintf(format, v...))
-	pl.Unclaim()
+	pl.unclaim()
 	pl.LogStored()
 	os.Exit(1)
 }
 
 // Log a message at the Error priority level.
 func (pl *PriorityLog) Errorf(format string, v ...interface{}) {
-	pl.Claim()
-	defer pl.Unclaim()
+	pl.claim()
+	defer pl.unclaim()
 	pl.log(time.Now(), Perror, fmt.Sprintf(format, v...))
 }
 
 // Log a message at the Warning priority level.
 func (pl *PriorityLog) Warningf(format string, v ...interface{}) {
-	pl.Claim()
-	defer pl.Unclaim()
+	pl.claim()
+	defer pl.unclaim()
 	pl.log(time.Now(), Pwarning, fmt.Sprintf(format, v...))
 }
 
 // Log a message at the Info priority level.
 func (pl *PriorityLog) Infof(format string, v ...interface{}) {
-	pl.Claim()
-	defer pl.Unclaim()
+	pl.claim()
+	defer pl.unclaim()
 	pl.log(time.Now(), Pinfo, fmt.Sprintf(format, v...))
 }
 
 // Log a message at the Debug priority level.
 func (pl *PriorityLog) Debugf(format string, v ...interface{}) {
-	pl.Claim()
-	defer pl.Unclaim()
+	pl.claim()
+	defer pl.unclaim()
 	pl.log(time.Now(), Pdebug, fmt.Sprintf(format, v...))
 }
 
