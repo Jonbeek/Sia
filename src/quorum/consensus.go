@@ -12,9 +12,10 @@ import (
 // which has been signed by the host, and then by
 // each additional host that has seen it
 type SignedHeartbeat struct {
-	Heartbeat   Heartbeat
-	Signatures  []string
-	Signatories []crypto.PublicKey
+	Heartbeat     *Heartbeat
+	HeartbeatHash string
+	Signatures    []string
+	Signatories   []crypto.PublicKey
 }
 
 // Heartbeat contains all of the information that a host needs to
@@ -64,6 +65,8 @@ func (first *Heartbeat) IsEqual(second *Heartbeat) (rv bool) {
 	return
 }
 
+// Checks that a heartbeat follows all rules, including
+// proper stage 2 reveals.
 func (hb *Heartbeat) IsValid() (rv bool) {
 	if len(hb.EntropyStage2) != common.ENTROPYVOLUME {
 		rv = false
@@ -83,9 +86,14 @@ func (hb *Heartbeat) IsValid() (rv bool) {
 // on the algorithms used here. Paper can be found in
 // doc/The Byzantine Generals Problem
 //
-// Some of the logging in this function may be incomplete
+// Some of the logging in HandleSignedHeartbeat may be incomplete
 //
-// I am uncertain if this function will be called concurrently
+// This function is called concurrently, mutexes will be needed when
+// accessing or altering the State
+//
+// It is assumed that when this function is called, the Heartbeat in
+// question will already be in memory, and was correctly signed by the
+// first signatory
 func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) {
 	// Check that the slices of signatures and signatories are of the same length
 	if len(sh.Signatures) != len(sh.Signatories) {
@@ -93,20 +101,35 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) {
 		return
 	}
 
-	// Check that there is at least 1 signatory
-	if len(sh.Signatories) == 0 {
-		log.Infoln("Reveiced an unsigned SignedHeartbeat")
-		return
-	}
-
 	// s.CurrentStep must be less than or equal to len(sh.Signatories), unless the
-	// current step is 180 and len(sh.Signatories) == 1
-	if s.CurrentStep > len(sh.Signatories) && !(s.CurrentStep == 180 && len(sh.Signatories) == 1) {
+	// current step is common.QUORUMSIZE and len(sh.Signatories) == 1
+	if s.CurrentStep > len(sh.Signatories) && !(s.CurrentStep == common.QUORUMSIZE && len(sh.Signatories) == 1) {
 		log.Infoln("Received an invalid SignedHeartbeat")
 		return
 	}
 
+	if s.CurrentStep > len(sh.Signatories) {
+		if s.CurrentStep == common.QUORUMSIZE && len(sh.Signatories) == 1 {
+			// sleep long enough to pass the first requirement
+			time.Sleep(common.STEPLENGTH)
+
+			// verify that the first requirement still holds
+			// this is really just a debugging statement
+			if s.CurrentStep > len(sh.Signatories) {
+				log.Errorln("Incorrect HandleSignedHeartbeat logic!")
+				// maybe also log more information
+				return
+			}
+
+			// now continue to rest of function
+		} else {
+			log.Infoln("Received an out-of-sync SignedHeartbeat")
+			return
+		}
+	}
+
 	// See if the heartbeat we got is the zero value
+	// A zero valued heartbeat is equivalent to no heartbeat
 	if sh.Heartbeat.IsEmpty() {
 		log.Infoln("Received an empty SignedHeartbeat")
 		return
@@ -118,12 +141,13 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) {
 		return
 	}
 
+	// while processing signatures, signedMessage will keep growing
+	// additionally, we will keep a map of which signatures we have
+	// already seen in this SignedHeartbeat
+	signedMessage := sh.HeartbeatHash
 	var previousSignatories map[crypto.PublicKey]bool
 
-	for _, signatory := range sh.Signatories {
-		// if s.CurrentStep == 180 && len(sh.Signatories == 1, then we need to store the new
-		// heartbeat as a part of next round, not sure the best way to do that
-
+	for i, signatory := range sh.Signatories {
 		// Verify that the signatory is a participant in the quorum
 		if s.Participants[signatory].IsEmpty() {
 			log.Infoln("Received a heartbeat from an invalid signatory")
@@ -136,10 +160,25 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) {
 			return
 		}
 
-		// signal that we've seen this signatory in the current SignedHeartbeat
+		// record that we've seen this signatory in the current SignedHeartbeat
 		previousSignatories[signatory] = true
 
-		// See if the current signature is valid
+		// verify the signature
+		// this append inefficiency is enough to make me consider avoiding strings
+		signedMessage = string(append([]byte(signedMessage), sh.Signatures[i]...))
+		verification, err := crypto.Verify(string(signatory), signedMessage)
+
+		// check error message
+		if err != nil {
+			log.Infoln(err)
+			return
+		}
+
+		// check status of verification
+		if !verification {
+			log.Infoln("Received invalid signature in SignedHeartbeat")
+			return
+		}
 	}
 
 	// See that heartbeat is valid (correct parent, etc.)
@@ -148,14 +187,28 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) {
 		return
 	}
 
-	// Add to list of Heartbeats
-	s.Heartbeats[sh.Signatories[0]] = &sh.Heartbeat
+	// check if we have a different heartbeat for this host
+	// we already know that we don't have the same heartbeat
+	if !s.Heartbeats[sh.Signatories[0]].IsEmpty() {
+		// remove host from Participants, charge him fines, etc.
+		// this process will probably be handled by 'indictments.go'
+		// for the time being, that file will not exist
+	} else {
+		// Add to list of Heartbeats
+		// A conflict heartbeat is not added, which could cause
+		// DDOS related problems
+		//
+		// this map solution needs greater consideration
+		s.Heartbeats[sh.Signatories[0]] = sh.Heartbeat
+	}
 
-	// After adding/getting a new heartbeat, you need to add your signature
-	// and send it to everybody else
+	// Sign the stack of signatures and send it to all hosts
+	_, err := crypto.Sign(string(s.SecretKey), signedMessage)
+	if err != nil {
+		log.Errorln(err)
+	}
 
-	// If at any point a host is outed as having been dishonest,
-	// leave some sort of warning value in the map
+	// Send the new message to everybody
 }
 
 // Tick() should only be called once, and should run in its own go thread

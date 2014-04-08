@@ -9,6 +9,10 @@ type State struct {
 	// Who is participating in the quorum
 	Participants map[crypto.PublicKey]*Participant
 
+	// The cryptographic keys belonging to this host specifically
+	PublicKey crypto.PublicKey
+	SecretKey crypto.SecretKey
+
 	// Consensus Algorithm Variables
 	CurrentStep int
 	Heartbeats  map[crypto.PublicKey]*Heartbeat
