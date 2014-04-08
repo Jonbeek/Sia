@@ -6,7 +6,7 @@ packages = common network quorum disk main common/erasure common/crypto common/l
 all: submodule-update fmt libraries
 
 submodule-update:
-	git submodule update
+	git submodule update --init
 
 fmt:
 	$(govars) go fmt $(packages)
@@ -23,7 +23,7 @@ test-verbose: libraries
 bench: libraries
 	$(govars) go test $(packages)
 
-dependencies:
+dependencies: submodule-update
 	cd src/common/crypto/libsodium && ./autogen.sh && ./configure && make check && sudo make install && sudo ldconfig
 
 race-libs:
