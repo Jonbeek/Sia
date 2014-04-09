@@ -3,7 +3,7 @@ cgo_ldflags = CGO_LDFLAGS="$(CURDIR)/src/common/erasure/longhair/bin/liblonghair
 govars = $(gopath) $(cgo_ldflags)
 packages = common common/crypto common/erasure common/log disk network quorum
 
-all: submodule-update fmt libraries
+all: submodule-update libraries
 
 submodule-update:
 	git submodule update --init
@@ -11,7 +11,7 @@ submodule-update:
 fmt:
 	$(govars) go fmt $(packages)
 
-libraries:
+libraries: fmt
 	$(govars) go install $(packages)
 
 test: libraries
