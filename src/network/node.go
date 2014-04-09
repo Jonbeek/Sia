@@ -47,10 +47,10 @@ func SendMessage(host string, port int, message []byte) (resp []byte, err error)
 	if err != nil {
 		return
 	}
-    buffer := make([]byte, 1024)
-    /* TODO: add a timeout here */
-    b, err := conn.Read(buffer)
-    resp = buffer[:b]
+	buffer := make([]byte, 1024)
+	/* TODO: add a timeout here */
+	b, err := conn.Read(buffer)
+	resp = buffer[:b]
 	return
 }
 
