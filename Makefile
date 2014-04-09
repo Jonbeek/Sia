@@ -17,8 +17,14 @@ libraries: fmt
 test: libraries
 	$(govars) go test -short $(packages)
 
+test-verbose: libraries
+	$(govars) go test -short -v $(packages)
+
 test-long: libraries
 	$(govars) go test $(packages)
+
+test-long-verbose: libraries
+	$(govars) go test -v $(packages)
 
 dependencies: submodule-update
 	cd src/common/crypto/libsodium && ./autogen.sh && ./configure && make check && sudo make install && sudo ldconfig
