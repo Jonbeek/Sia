@@ -17,8 +17,3 @@ type SecretKey [SecretKeySize]byte
 type Signature [SignatureSize]byte
 type Hash [HashSize]byte
 type TruncatedHash [TruncatedHashSize]byte
-
-type SignedMessage struct {
-	Message   string
-	Signature Signature
-}
