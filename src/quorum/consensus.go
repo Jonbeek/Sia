@@ -13,8 +13,8 @@ import (
 // each additional host that has seen it
 type SignedHeartbeat struct {
 	Heartbeat     *Heartbeat
-	HeartbeatHash string
-	Signatures    []string
+	HeartbeatHash crypto.Hash
+	Signatures    []crypto.Signature
 	Signatories   []crypto.PublicKey
 }
 
@@ -22,53 +22,22 @@ type SignedHeartbeat struct {
 // participate in the quorum. This includes entropy proofs, file
 // proofs, and transactions from hosts.
 type Heartbeat struct {
-	EntropyStage1 string
-	EntropyStage2 string
+	EntropyStage1 crypto.Hash
+	EntropyStage2 common.Entropy
 }
 
 // Using the current State, NewHeartbeat creates a heartbeat that
 // fulfills all of the requirements of the quorum.
-func (s *State) NewHeartbeat(h Heartbeat) {
-	h.EntropyStage1 = "tbi"
-	h.EntropyStage2 = "toBeImplemented"
-}
-
-// Checks if this heartbeat is the zero value
-func (hb *Heartbeat) IsEmpty() (rv bool) {
-	if hb.EntropyStage1 != "" {
-		rv = false
-		return
-	}
-
-	if hb.EntropyStage2 != "" {
-		rv = false
-		return
-	}
-
-	rv = true
-	return
-}
-
-// Check if the two heartbeats are identical
-func (first *Heartbeat) IsEqual(second *Heartbeat) (rv bool) {
-	if first.EntropyStage1 != second.EntropyStage1 {
-		rv = false
-		return
-	}
-
-	if first.EntropyStage2 != second.EntropyStage2 {
-		rv = false
-		return
-	}
-
-	rv = true
+//
+// This function is incomplete
+func (s *State) NewHeartbeat() (hb *Heartbeat) {
 	return
 }
 
 // Checks that a heartbeat follows all rules, including
 // proper stage 2 reveals.
 func (hb *Heartbeat) IsValid() (rv bool) {
-	if len(hb.EntropyStage2) != common.ENTROPYVOLUME {
+	if len(hb.EntropyStage2) != common.EntropyVolume {
 		rv = false
 		return
 	}
@@ -93,70 +62,62 @@ func (hb *Heartbeat) IsValid() (rv bool) {
 //
 // It is assumed that when this function is called, the Heartbeat in
 // question will already be in memory, and was correctly signed by the
-// first signatory
+// first signatory, and that it matches its hash.
+//
+// Currently, host does not check if it's own signature is in the
+// pile before adding its own signature again
 func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) {
 	// Check that the slices of signatures and signatories are of the same length
 	if len(sh.Signatures) != len(sh.Signatories) {
-		log.Infoln("SignedHeartbeat has mismatched signatures")
+		log.Errorln("SignedHeartbeat has mismatched signatures")
 		return
 	}
 
 	// s.CurrentStep must be less than or equal to len(sh.Signatories), unless the
-	// current step is common.QUORUMSIZE and len(sh.Signatories) == 1
-	if s.CurrentStep > len(sh.Signatories) && !(s.CurrentStep == common.QUORUMSIZE && len(sh.Signatories) == 1) {
-		log.Infoln("Received an invalid SignedHeartbeat")
-		return
-	}
-
+	// current step is common.QuorumSize and len(sh.Signatories) == 1
 	if s.CurrentStep > len(sh.Signatories) {
-		if s.CurrentStep == common.QUORUMSIZE && len(sh.Signatories) == 1 {
+		if s.CurrentStep == common.QuorumSize && len(sh.Signatories) == 1 {
 			// sleep long enough to pass the first requirement
-			time.Sleep(common.STEPLENGTH)
-
-			// verify that the first requirement still holds
-			// this is really just a debugging statement
-			if s.CurrentStep > len(sh.Signatories) {
-				log.Errorln("Incorrect HandleSignedHeartbeat logic!")
-				// maybe also log more information
-				return
-			}
-
+			time.Sleep(common.StepDuration)
 			// now continue to rest of function
 		} else {
-			log.Infoln("Received an out-of-sync SignedHeartbeat")
+			log.Errorln("Received an out-of-sync SignedHeartbeat")
 			return
 		}
 	}
 
-	// See if the heartbeat we got is the zero value
-	// A zero valued heartbeat is equivalent to no heartbeat
-	if sh.Heartbeat.IsEmpty() {
-		log.Infoln("Received an empty SignedHeartbeat")
+	// Check that heartbeat is from a participant
+	// All participants have a map in the heartbeat map
+	_, exists := s.Heartbeats[sh.Signatories[0]]
+	if !exists {
+		log.Errorln("Received a heartbeat from a non-participant")
 		return
 	}
 
-	// Check if we have this heartbeat
-	if sh.Heartbeat.IsEqual(s.Heartbeats[sh.Signatories[0]]) {
-		// no logging needed, this will happen frequently
+	_, exists = s.Heartbeats[sh.Signatories[0]][sh.HeartbeatHash]
+	if exists {
+		// We already have this heartbeat, no action needed
+		// this will happen frequently, no logging needed either
 		return
 	}
 
 	// while processing signatures, signedMessage will keep growing
-	// additionally, we will keep a map of which signatures we have
-	// already seen in this SignedHeartbeat
-	signedMessage := sh.HeartbeatHash
+	var signedMessage crypto.SignedMessage
+	signedMessage.Message = string(sh.HeartbeatHash[:])
+	// keep a map of which signatories have already been confirmed
 	var previousSignatories map[crypto.PublicKey]bool
 
 	for i, signatory := range sh.Signatories {
 		// Verify that the signatory is a participant in the quorum
-		if s.Participants[signatory].IsEmpty() {
-			log.Infoln("Received a heartbeat from an invalid signatory")
+		_, exists := s.Participants[signatory]
+		if !exists {
+			log.Errorln("Received a heartbeat signed by an invalid signatory")
 			return
 		}
 
 		// Verify that the signatory has only been seen once in the current SignedHeartbeat
 		if previousSignatories[signatory] {
-			log.Infoln("Received a double-signed heartbeat")
+			log.Errorln("Received a double-signed heartbeat")
 			return
 		}
 
@@ -164,62 +125,56 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) {
 		previousSignatories[signatory] = true
 
 		// verify the signature
-		// this append inefficiency is enough to make me consider avoiding strings
-		signedMessage = string(append([]byte(signedMessage), sh.Signatures[i]...))
-		verification, err := crypto.Verify(string(signatory), signedMessage)
+		signedMessage.Signature = sh.Signatures[i]
+		verification, err := crypto.Verify(signatory, signedMessage)
+
+		// throwing the signature into the message here makes code cleaner in the loop
+		// and after we sign it to send it to everyone else
+		signedMessage.Message = signedMessage.CombinedMessage()
 
 		// check error message
 		if err != nil {
-			log.Infoln(err)
+			log.Errorln(err)
 			return
 		}
 
 		// check status of verification
 		if !verification {
-			log.Infoln("Received invalid signature in SignedHeartbeat")
+			log.Errorln("Received invalid signature in SignedHeartbeat")
 			return
 		}
 	}
 
+	// Add heartbeat to list of seen heartbeats
+	// Will add a signed heartbeat even if invalid
+	s.Heartbeats[sh.Signatories[0]][sh.HeartbeatHash] = sh.Heartbeat
+
 	// See that heartbeat is valid (correct parent, etc.)
 	if !sh.Heartbeat.IsValid() {
-		log.Infoln("Received an invalid heartbeat")
+		log.Errorln("Received an invalid heartbeat")
 		return
 	}
 
-	// check if we have a different heartbeat for this host
-	// we already know that we don't have the same heartbeat
-	if !s.Heartbeats[sh.Signatories[0]].IsEmpty() {
-		// remove host from Participants, charge him fines, etc.
-		// this process will probably be handled by 'indictments.go'
-		// for the time being, that file will not exist
-	} else {
-		// Add to list of Heartbeats
-		// A conflict heartbeat is not added, which could cause
-		// DDOS related problems
-		//
-		// this map solution needs greater consideration
-		s.Heartbeats[sh.Signatories[0]] = sh.Heartbeat
-	}
-
 	// Sign the stack of signatures and send it to all hosts
-	_, err := crypto.Sign(string(s.SecretKey), signedMessage)
+	_, err := crypto.Sign(s.SecretKey, signedMessage.Message)
 	if err != nil {
 		log.Errorln(err)
 	}
 
 	// Send the new message to everybody
+
+	return
 }
 
 // Tick() should only be called once, and should run in its own go thread
 // Every common.SETPLENGTH, it updates the currentStep value.
-// When the value flips from common.QUORUMSIZE to 1, Tick() calls
+// When the value flips from common.QuorumSize to 1, Tick() calls
 // 	integrateHeartbeats()
 func (s *State) Tick() {
-	// Every common.STEPLENGTH, advance the state stage
-	ticker := time.Tick(common.STEPLENGTH)
+	// Every common.StepDuration, advance the state stage
+	ticker := time.Tick(common.StepDuration)
 	for _ = range ticker {
-		if s.CurrentStep == common.QUORUMSIZE {
+		if s.CurrentStep == common.QuorumSize {
 			// call logic to compile block
 			s.CurrentStep = 1
 		} else {
