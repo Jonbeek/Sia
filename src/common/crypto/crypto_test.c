@@ -1,5 +1,10 @@
 #include <sodium.h>
 
+// This file compares the input values against the
+// libsodium constants, which allows the test suite
+// to verify that the correct constants are being
+// used in the go code.
+
 static int testPublicKeySize(int publicKeySize) {
 	if(publicKeySize != crypto_sign_PUBLICKEYBYTES) {
 		return 0;

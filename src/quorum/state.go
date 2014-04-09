@@ -32,6 +32,7 @@ type Participant struct {
 	Address string // will probably be typed to Address
 }
 
+// Create and initialize a state object
 func CreateState() (s State, err error) {
 	// initialize participants map
 	s.Participants = make(map[crypto.PublicKey]*Participant)
@@ -50,9 +51,10 @@ func CreateState() (s State, err error) {
 	return
 }
 
+// Populates a state with this participant, initializing variables as needed
 // return codes are arbitraily chosen and are only for the test suite
 func (s *State) AddParticipant(pk crypto.PublicKey, p *Participant) (returnCode int) {
-	// Check that participant is not already known
+	// Check that participant is not already known to the state
 	_, exists := s.Participants[pk]
 	if exists {
 		log.Infoln("Received a request to add an existing participant")
@@ -60,7 +62,10 @@ func (s *State) AddParticipant(pk crypto.PublicKey, p *Participant) (returnCode 
 		return
 	}
 
+	// add to list of participants
 	s.Participants[pk] = p
+
+	// initialize the heartbeat map for this participant
 	s.Heartbeats[pk] = make(map[crypto.Hash]*Heartbeat)
 
 	returnCode = 0

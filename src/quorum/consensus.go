@@ -30,18 +30,15 @@ type Heartbeat struct {
 // fulfills all of the requirements of the quorum.
 //
 // This function is incomplete
-func (s *State) NewHeartbeat() (hb *Heartbeat) {
+func (s *State) NewHeartbeat() (hb Heartbeat) {
 	return
 }
 
 // Checks that a heartbeat follows all rules, including
 // proper stage 2 reveals.
+//
+// This function is incomplete
 func (hb *Heartbeat) IsValid() (rv bool) {
-	if len(hb.EntropyStage2) != common.EntropyVolume {
-		rv = false
-		return
-	}
-
 	rv = true
 	return
 }

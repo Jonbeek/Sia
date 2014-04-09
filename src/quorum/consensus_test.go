@@ -7,9 +7,9 @@ import (
 	"time"
 )
 
-// Only to be used in long tests
 // Ensures that Tick() updates CurrentStep
 func TestTick(t *testing.T) {
+	// test takes 30 seconds; skip for short testing
 	if testing.Short() {
 		t.Skip()
 	}
@@ -19,15 +19,16 @@ func TestTick(t *testing.T) {
 		t.Fatal("Failed to create a state!")
 	}
 
+	// verify that tick is updating CurrentStep
 	s.CurrentStep = 1
 	go s.Tick()
 	time.Sleep(common.StepDuration)
 	time.Sleep(time.Second)
-
 	if s.CurrentStep == 1 {
 		t.Fatal("s.CurrentStep failed to update correctly")
 	}
 
+	// verify that tick is wrapping around properly
 	s.CurrentStep = common.QuorumSize
 	time.Sleep(common.StepDuration)
 	if s.CurrentStep != 1 {
@@ -51,6 +52,7 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 		t.Fatal("second call to CreateKeyPair() failed!")
 	}
 
+	// create SignedHeartbeat
 	var sh SignedHeartbeat
 	sh.Signatures = make([]crypto.Signature, 2)
 	sh.Signatories = make([]crypto.PublicKey, 2)
@@ -66,18 +68,18 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 		t.Fatal("error with second signing")
 	}
 
-	// first try with a valid SignedHeartbeat
+	// build a valid SignedHeartbeat
 	sh.Signatures[0] = signature0.Signature
 	sh.Signatures[1] = signature1.Signature
 	sh.Signatories[0] = pubKey0
 	sh.Signatories[1] = pubKey1
 
+	// create a state and populate it with the signatories as participants
 	s, err := CreateState()
 	if err != nil {
 		t.Fatal("error creating state!")
 	}
 
-	// add pubKey0 and pubKey1 to participants list
 	var participant Participant
 	s.AddParticipant(pubKey0, &participant)
 	s.AddParticipant(pubKey1, &participant)

@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// A basic test, checks for 3 constants
+// A basic test, checks for the crypto constants
 func TestConstants(t *testing.T) {
 	if TestPublicKeySize() != true {
 		t.Fatal("PublicKeySize does not match libsodium crypto_sign_PUBLICKEYBYTES")

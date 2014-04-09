@@ -10,23 +10,19 @@ import (
 )
 
 type SignedMessage struct {
-	Message   string
 	Signature Signature
+	Message   string
 }
 
+// Libsodium puts the signature first and the message second, therefore so do we
 func (sm *SignedMessage) CombinedMessage() (combinedMessage string) {
-	combinedMessage = string(append([]byte(sm.Message[:]), sm.Signature[:]...))
 	combinedMessage = string(append(sm.Signature[:], []byte(sm.Message[:])...))
 	return
 }
 
-// Needs no input, produces 2 strings and an int as output
-// first string is a public key, second is a secret key
+// CreateKeyPair needs no input, produces a public key and secret key as output
 func CreateKeyPair() (publicKey PublicKey, secretKey SecretKey, err error) {
-	// Create keys
 	errorCode := C.crypto_sign_keypair((*C.uchar)(unsafe.Pointer(&publicKey[0])), (*C.uchar)(unsafe.Pointer(&secretKey[0])))
-
-	// Check that the function returned without error
 	if errorCode != 0 {
 		err = fmt.Errorf("Key Creation Failed!")
 		return
@@ -35,7 +31,8 @@ func CreateKeyPair() (publicKey PublicKey, secretKey SecretKey, err error) {
 	return
 }
 
-// Take a secret key and a message, and use the secret key to sign the message.
+// Sign takes a secret key and a message, and use the secret key to sign the message.
+// Sign returns a single SignedMessage struct containing a Message and a Signature
 func Sign(secretKey SecretKey, message string) (signedMessage SignedMessage, err error) {
 	// Points to a signed message of format signature + message after sigining
 	signedMessageBytes := make([]byte, len(message)+SignatureSize)
@@ -63,15 +60,13 @@ func Sign(secretKey SecretKey, message string) (signedMessage SignedMessage, err
 
 	// sign message
 	errorCode := C.crypto_sign(signedMessagePointer, lenPointer, messagePointer, messageLen, signaturePointer)
-
-	// Check that the function returned without error
 	if errorCode != 0 {
 		err = fmt.Errorf("Signature Failed!")
 		return
 	}
 
 	signedMessage.Message = message
-	// copies the last SignatureSize bytes of signedMessageBytes into signedMessage.Signature
+	// copy the signature from the byte slice to the Signature field of signedMessage
 	copy(signedMessage.Signature[:], signedMessageBytes[:len(signedMessage.Signature)])
 
 	return
@@ -101,7 +96,6 @@ func Verify(verificationKey PublicKey, signedMessage SignedMessage) (verified bo
 
 	// verify signature
 	success := C.crypto_sign_open(messagePointer, lenPointer, signedMessagePointer, signedMessageLen, verificationKeyPointer)
-
 	if success == 0 {
 		verified = true
 		return
