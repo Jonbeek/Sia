@@ -5,6 +5,7 @@ import (
 	"strconv"
 )
 
+/* serverHandler accepts incoming connections and spawns a clientHandler for each. */
 func serverHandler(tcpServ net.Listener, data []byte) {
 	defer tcpServ.Close()
 	for {
@@ -17,7 +18,8 @@ func serverHandler(tcpServ net.Listener, data []byte) {
 	}
 }
 
-/* process incoming messages */
+/* clientHandler reads data sent by a client and processes it. */
+/* It then sends a response based on the client's message. */
 func clientHandler(conn net.Conn, data []byte) {
 	buffer := make([]byte, 1024)
 	b, err := conn.Read(buffer)
@@ -31,12 +33,11 @@ func clientHandler(conn net.Conn, data []byte) {
 	default:
 		conn.Write([]byte("unrecognized command \"" + cmd + "\""))
 	}
-	return
 }
 
-/* send a message to another node and return the response */
+/* SendMessage sends a message over TCP to a specified host and port. */
+/* It then waits for a response, and returns it after closing the connection. */
 func SendMessage(host string, port int, message []byte) (resp []byte, err error) {
-	/* open connection */
 	conn, err := net.Dial("tcp", host+":"+strconv.Itoa(port))
 	if err != nil {
 		return
@@ -47,12 +48,15 @@ func SendMessage(host string, port int, message []byte) (resp []byte, err error)
 		return
 	}
     buffer := make([]byte, 1024)
+    /* TODO: add a timeout here */
     b, err := conn.Read(buffer)
     resp = buffer[:b]
 	return
 }
 
-/* create node and begin listening on specified port */
+/* InitNode initializes a server that listens for TCP connections on a specified port. */
+/* It then spawns a serverHandler with a specified message. */
+/* It is the serverHandler's responsibility to close the TCP connection. */
 func InitNode(port int, data []byte) (err error) {
 	tcpServ, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
