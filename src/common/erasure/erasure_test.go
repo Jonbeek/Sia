@@ -1,10 +1,11 @@
 package erasure
 
-import (
+/*import (
 	"bytes"
 	"common"
-	"crypto/rand"
-	"crypto/sha256"
+	"common/crypto"
+	"crypto/rand"   // should use rand from common/crypto
+	"crypto/sha256" // should hash from common/crypto
 	"testing"
 )
 
@@ -21,7 +22,7 @@ func TestCoding(t *testing.T) {
 	rand.Read(randomBytes)
 
 	// get hash of original file
-	randomBytesHash := common.Hash(sha256.New(), string(randomBytes))
+	randomBytesHash := crypto.Hash(sha256.New(), string(randomBytes))
 
 	// encode original file into a data ring
 	ringSegments, err := EncodeRing(k, bytesPerSegment, randomBytes)
@@ -30,7 +31,7 @@ func TestCoding(t *testing.T) {
 	}
 
 	// verify that first k segments are still original data
-	originalDataHash := common.Hash(sha256.New(), string(randomBytes))
+	originalDataHash := crypto.Hash(sha256.New(), string(randomBytes))
 	if !(bytes.Equal([]byte(originalDataHash), []byte(randomBytesHash))) {
 		t.Fatal("original data was modified after caling EncodeRing!")
 	}
@@ -50,7 +51,7 @@ func TestCoding(t *testing.T) {
 	}
 
 	// compare to hash of data when first generated
-	recoveredDataHash := common.Hash(sha256.New(), string(recoveredData))
+	recoveredDataHash := crypto.Hash(sha256.New(), string(recoveredData))
 	if !(bytes.Equal([]byte(recoveredDataHash), []byte(randomBytesHash))) {
 		t.Fatal("recovered data is different from original data")
 	}
@@ -61,4 +62,4 @@ func TestCoding(t *testing.T) {
 // There should be a fuzzing test that explores random inputs. In particular, I would
 // like to fuzz the 'RebuildSector' function
 
-// There should also be a benchmarking test here.
+// There should also be a benchmarking test here.*/
