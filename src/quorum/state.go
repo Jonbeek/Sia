@@ -3,6 +3,7 @@ package quorum
 import (
 	"common"
 	"common/crypto"
+	"common/log"
 )
 
 // The state is what provides persistence to the consensus algorithms.
@@ -28,10 +29,13 @@ type State struct {
 // by knowing the public key. It's in its own struct because
 // more fields might be added.
 type Participant struct {
-	Address string
+	Address string // will probably be typed to Address
 }
 
 func CreateState() (s State, err error) {
+	// initialize participants map
+	s.Participants = make(map[crypto.PublicKey]*Participant)
+
 	// initialize crypto keys
 	pubKey, secKey, err := crypto.CreateKeyPair()
 	if err != nil {
@@ -43,6 +47,23 @@ func CreateState() (s State, err error) {
 	s.CurrentStep = 1
 	s.Heartbeats = make(map[crypto.PublicKey]map[crypto.Hash]*Heartbeat)
 	s.Wallets = make(map[string]uint64)
+	return
+}
+
+// return codes are arbitraily chosen and are only for the test suite
+func (s *State) AddParticipant(pk crypto.PublicKey, p *Participant) (returnCode int) {
+	// Check that participant is not already known
+	_, exists := s.Participants[pk]
+	if exists {
+		log.Infoln("Received a request to add an existing participant")
+		returnCode = 1
+		return
+	}
+
+	s.Participants[pk] = p
+	s.Heartbeats[pk] = make(map[crypto.Hash]*Heartbeat)
+
+	returnCode = 0
 	return
 }
 

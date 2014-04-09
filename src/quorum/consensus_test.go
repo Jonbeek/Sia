@@ -78,8 +78,15 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	}
 
 	// add pubKey0 and pubKey1 to participants list
-	// ... urg
-	s.HandleSignedHeartbeat(&sh)
+	var participant Participant
+	s.AddParticipant(pubKey0, &participant)
+	s.AddParticipant(pubKey1, &participant)
+
+	// handle the signed heartbeat, expecting code 0
+	returnCode := s.HandleSignedHeartbeat(&sh)
+	if returnCode != 0 {
+		t.Fatal("expected an invalid heartbeat:", returnCode)
+	}
 
 	// create a signed heartbeat with repeat signatures
 	// create a heartbeat signed by a non-participant
