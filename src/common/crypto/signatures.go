@@ -1,7 +1,7 @@
 package crypto
 
 // #cgo LDFLAGS: -lsodium
-// #include<sodium.h>
+// #include <sodium.h>
 import "C"
 
 import (

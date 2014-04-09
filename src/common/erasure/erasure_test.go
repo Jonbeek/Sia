@@ -1,22 +1,10 @@
 package erasure
 
 import (
-	"bytes"
 	"common"
-	//"common/crypto"
-	"crypto/rand"   // should use rand from common/crypto
-	"crypto/sha256" // should hash from common/crypto
-	"encoding/hex"  // will be removed after switching to common/crypto
-	"hash"          // will be removed after switching to common/crypto
+	"common/crypto"
 	"testing"
 )
-
-// just a patch function so we can run the erasure coding tests
-func Hash(h hash.Hash, data string) string {
-	h.Reset()
-	h.Write([]byte(data))
-	return hex.EncodeToString(h.Sum(nil))
-}
 
 // Basic test for reed-solomon coding, verifies that standard input
 // will produce the correct results.
@@ -25,13 +13,16 @@ func TestCoding(t *testing.T) {
 	m := common.QuorumSize - k
 	bytesPerSegment := 1024
 
-	// generate a random original file
-	numRandomBytes := bytesPerSegment * k
-	randomBytes := make([]byte, numRandomBytes)
-	rand.Read(randomBytes)
+	randomBytes, err := crypto.RandomBytes(bytesPerSegment * k)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// get hash of original file
-	randomBytesHash := Hash(sha256.New(), string(randomBytes))
+	randomBytesHash, err := crypto.CalculateHash(randomBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// encode original file into a data ring
 	ringSegments, err := EncodeRing(k, bytesPerSegment, randomBytes)
@@ -40,8 +31,10 @@ func TestCoding(t *testing.T) {
 	}
 
 	// verify that first k segments are still original data
-	originalDataHash := Hash(sha256.New(), string(randomBytes))
-	if !(bytes.Equal([]byte(originalDataHash), []byte(randomBytesHash))) {
+	originalDataHash, err := crypto.CalculateHash(randomBytes)
+	if err != nil {
+		t.Fatal(err)
+	} else if originalDataHash != randomBytesHash {
 		t.Fatal("original data was modified after caling EncodeRing!")
 	}
 
@@ -60,10 +53,16 @@ func TestCoding(t *testing.T) {
 	}
 
 	// compare to hash of data when first generated
-	recoveredDataHash := Hash(sha256.New(), string(recoveredData))
-	if !(bytes.Equal([]byte(recoveredDataHash), []byte(randomBytesHash))) {
+	recoveredDataHash, err := crypto.CalculateHash(recoveredData)
+	if err != nil {
+		t.Fatal(err)
+	} else if recoveredDataHash != randomBytesHash {
 		t.Fatal("recovered data is different from original data")
 	}
+
+	// In every test, we check that the hashes equal
+	// every other hash that gets created. This makes
+	// me uneasy.
 }
 
 // At some point, there should be a long test that explores all of the edge cases.
