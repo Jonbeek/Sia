@@ -23,3 +23,11 @@ static int testSignatureSize(int signatureSize) {
 
 	return 1;
 }
+
+static int testHashSize(int hashSize) {
+	if(hashSize != crypto_hash_BYTES) {
+		return 0;
+	}
+
+	return 1;
+}

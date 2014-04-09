@@ -44,3 +44,16 @@ func TestSignatureSize() (verification bool) {
 	verification = true
 	return
 }
+
+// Verify HashSize
+func TestHashSize() (verification bool) {
+	confirmation := C.testHashSize(C.int(HashSize))
+
+	if confirmation == 0 {
+		verification = false
+		return
+	}
+
+	verification = true
+	return
+}

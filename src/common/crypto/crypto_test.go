@@ -17,4 +17,8 @@ func TestConstants(t *testing.T) {
 	if TestSignatureSize() != true {
 		t.Fatal("SignatureSize does not match libsodium crypto_sign_BYTES")
 	}
+
+	if TestHashSize() != true {
+		t.Fatal("HashSize does not match libsodium crpyto_hash_BYTES")
+	}
 }
