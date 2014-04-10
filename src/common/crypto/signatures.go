@@ -42,15 +42,15 @@ func Sign(secretKey SecretKey, message string) (signedMessage SignedMessage, err
 	var signatureLen uint64
 	lenPointer := (*C.ulonglong)(unsafe.Pointer(&signatureLen))
 
-	// Pointer to the message
-	// can't point to an empty slice, get runtime panic
-	var messageBytes []byte
-	if len(message) != 0 {
-		messageBytes = []byte(message)
+	// Points to the message
+	var messagePointer *C.uchar
+	// Can't point to a slice of length 0
+	if len(message) == 0 {
+		messagePointer = (*C.uchar)(nil)
 	} else {
-		messageBytes = make([]byte, 1)
+		messageBytes := []byte(message)
+		messagePointer = (*C.uchar)(unsafe.Pointer(&messageBytes[0]))
 	}
-	messagePointer := (*C.uchar)(unsafe.Pointer(&messageBytes[0]))
 
 	// How long the message is
 	messageLen := C.ulonglong(len(message))
@@ -76,9 +76,15 @@ func Sign(secretKey SecretKey, message string) (signedMessage SignedMessage, err
 // returns whether the signature is valid or not
 func Verify(verificationKey PublicKey, signedMessage SignedMessage) (verified bool, err error) {
 	// points to unsigned message after verifying
-	// the +1 is a lazy way to prevent runtime panic if message is empty
+	var messagePointer *C.uchar
 	messageBytes := make([]byte, len(signedMessage.Message)+1)
-	messagePointer := (*C.uchar)(unsafe.Pointer(&messageBytes[0]))
+	if len(signedMessage.Message) == 0 {
+		// must point somewhere valid, but the data won't be altered
+		// can't point to [0] because the slice is empty
+		messagePointer = (*C.uchar)(unsafe.Pointer(&messageBytes))
+	} else {
+		messagePointer = (*C.uchar)(unsafe.Pointer(&messageBytes[0]))
+	}
 
 	// points to an int so the C function can return the message length after verifying
 	var messageLen uint64
