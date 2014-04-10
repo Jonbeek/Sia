@@ -6,19 +6,19 @@ import (
 
 // A basic test, checks for the crypto constants
 func TestConstants(t *testing.T) {
-	if TestPublicKeySize() != true {
+	if VerifyPublicKeySize() != true {
 		t.Fatal("PublicKeySize does not match libsodium crypto_sign_PUBLICKEYBYTES")
 	}
 
-	if TestSecretKeySize() != true {
+	if VerifySecretKeySize() != true {
 		t.Fatal("SecretKeySize does not match libsodium crypto_sign_SECRETKEYBYTES")
 	}
 
-	if TestSignatureSize() != true {
+	if VerifySignatureSize() != true {
 		t.Fatal("SignatureSize does not match libsodium crypto_sign_BYTES")
 	}
 
-	if TestHashSize() != true {
+	if VerifyHashSize() != true {
 		t.Fatal("HashSize does not match libsodium crpyto_hash_BYTES")
 	}
 }

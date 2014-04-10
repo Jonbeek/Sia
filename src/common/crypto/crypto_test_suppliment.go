@@ -7,7 +7,7 @@ import "C"
 // do the cgo-required tests in a test_supplement file
 
 // Verify PublicKeySize
-func TestPublicKeySize() (verification bool) {
+func VerifyPublicKeySize() (verification bool) {
 	confirmation := C.testPublicKeySize(C.int(PublicKeySize))
 
 	if confirmation == 0 {
@@ -20,7 +20,7 @@ func TestPublicKeySize() (verification bool) {
 }
 
 // Verify SecretKeySize
-func TestSecretKeySize() (verification bool) {
+func VerifySecretKeySize() (verification bool) {
 	confirmation := C.testSecretKeySize(C.int(SecretKeySize))
 
 	if confirmation == 0 {
@@ -33,7 +33,7 @@ func TestSecretKeySize() (verification bool) {
 }
 
 // Verify SignatureSize
-func TestSignatureSize() (verification bool) {
+func VerifySignatureSize() (verification bool) {
 	confirmation := C.testSignatureSize(C.int(SignatureSize))
 
 	if confirmation == 0 {
@@ -46,7 +46,7 @@ func TestSignatureSize() (verification bool) {
 }
 
 // Verify HashSize
-func TestHashSize() (verification bool) {
+func VerifyHashSize() (verification bool) {
 	confirmation := C.testHashSize(C.int(HashSize))
 
 	if confirmation == 0 {
