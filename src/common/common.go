@@ -31,24 +31,11 @@ type Entropy [EntropyVolume]byte
 // Each message has a single destination, and it is
 // the job of the network package to interpret the
 // destinations.
-//
-// In consideration: each message has a set of destinations
-// instead of a single destination. Functionally, you can
-// achieve a set just by calling 'send' with a bunch of different
-// messages, each containing the same payload but different
-// destinations. This could save on memory though.
 type Message struct {
-	Destination string
+	Destination []string // may not remain a string
 	Payload     string
 }
 
 type MessageHandler interface {
 	HandleMessage(m Message)
-}
-
-type NetworkMultiplexer interface {
-	AddListener(Swarmid string, c MessageHandler)
-	SendMessage(o Message)
-	Listen(addr string)
-	Connect(addr string)
 }
