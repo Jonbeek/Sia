@@ -23,7 +23,7 @@ test-verbose: libraries
 bench: libraries
 	$(govars) go test $(packages)
 
-dependencies:
+dependencies: submodule-update
 	cd src/common/crypto/libsodium && ./autogen.sh && ./configure && make check && sudo make install && sudo ldconfig
 
 race-libs:
