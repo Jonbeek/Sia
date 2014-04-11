@@ -10,11 +10,11 @@
 // However, if the "dispose" flag is set, then the message will be discarded.
 //
 // The priority levels supported by this log are Fatal, Error, Warning, Info,
-// and Debug. Aside from determining whether a given message is handled 
-// immediately, the priority level determines the associated "tag" with the 
-// message. 
+// and Debug. Aside from determining whether a given message is handled
+// immediately, the priority level determines the associated "tag" with the
+// message.
 //
-// Any message made at the Fatal priority level terminates the program 
+// Any message made at the Fatal priority level terminates the program
 // immediately after making the log request, use it only with errors which
 // cannot be recovered from
 //
@@ -41,7 +41,7 @@ const (
 	PdebugFlags = Pfatal | Perror | Pwarning | Pinfo | Pdebug
 )
 
-// PriorityLog is a log with priority levels. 
+// PriorityLog is a log with priority levels.
 type PriorityLog struct {
 	//
 	dispose bool
@@ -108,7 +108,7 @@ func (pl *PriorityLog) log(now time.Time, priority uint, message string) {
 }
 
 // All changes to the state of the log wait for all pending log entries
-// to be logged/stored. In other words, avoid use except during 
+// to be logged/stored. In other words, avoid use except during
 // initialization.
 
 // SetGlobalFlags sets the the default flag for which priority levels are
