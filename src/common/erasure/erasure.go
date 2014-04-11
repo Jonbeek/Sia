@@ -20,24 +20,24 @@ import (
 	"unsafe"
 )
 
-// EncodeRing takes data and produces a set of common.QUORUMSIZE pieces that include redundancy.
+// EncodeRing takes data and produces a set of common.QuorumSize pieces that include redundancy.
 // 'k' indiciates the number of non-redundant segments, and 'bytesPerSegment' indicates the size of each segment.
 // 'originalData' must be 'k' * 'bytesPerSegment' in size, and should be padded before calling 'EncodeRing'.
 //
-// The return value is a set of strings common.QUORUMSIZE in length.
+// The return value is a set of strings common.QuorumSize in length.
 // Each string is bytesPerSegment large.
 // The first 'k' strings are the original data split up.
 // The remaining strings are newly generated redundant data.
 func EncodeRing(k int, bytesPerSegment int, originalData []byte) (segmentdData []string, err error) {
 	// check that 'k' is legal
-	if k <= 0 || k >= common.QUORUMSIZE {
-		err = fmt.Errorf("k must be greater than 0 and smaller than %v", common.QUORUMSIZE)
+	if k <= 0 || k >= common.QuorumSize {
+		err = fmt.Errorf("k must be greater than 0 and smaller than %v", common.QuorumSize)
 		return
 	}
 
 	// check that bytesPerSegment is not too big or small
-	if bytesPerSegment < common.MINSLICESIZE || bytesPerSegment > common.MAXSLICESIZE {
-		err = fmt.Errorf("bytesPerSegment must be greater than %v and smaller than %v", common.MINSLICESIZE, common.MAXSLICESIZE)
+	if bytesPerSegment < common.MinSliceSize || bytesPerSegment > common.MaxSliceSize {
+		err = fmt.Errorf("bytesPerSegment must be greater than %v and smaller than %v", common.MinSliceSize, common.MaxSliceSize)
 		return
 	}
 
@@ -49,16 +49,16 @@ func EncodeRing(k int, bytesPerSegment int, originalData []byte) (segmentdData [
 
 	// check that originalData is the correct size
 	if len(originalData) != bytesPerSegment*k {
-		err = fmt.Errorf("originalData incorrectly padded, must be of size 'bytesPerSegment' * %v - 'm'", common.QUORUMSIZE)
+		err = fmt.Errorf("originalData incorrectly padded, must be of size 'bytesPerSegment' * %v - 'm'", common.QuorumSize)
 		return
 	}
 
 	// call c library to encode data
-	m := common.QUORUMSIZE - k
+	m := common.QuorumSize - k
 	redundantChunk := C.encodeRedundancy(C.int(k), C.int(m), C.int(bytesPerSegment), (*C.char)(unsafe.Pointer(&originalData[0])))
 	redundantString := C.GoStringN(redundantChunk, C.int(m*bytesPerSegment))
 
-	segmentdData = make([]string, common.QUORUMSIZE)
+	segmentdData = make([]string, common.QuorumSize)
 
 	// split originalData into segmentdData
 	for i := 0; i < k; i++ {
@@ -66,7 +66,7 @@ func EncodeRing(k int, bytesPerSegment int, originalData []byte) (segmentdData [
 	}
 
 	// split redundantString into segmentdData
-	for i := k; i < common.QUORUMSIZE; i++ {
+	for i := k; i < common.QuorumSize; i++ {
 		segmentdData[i] = redundantString[(i-k)*bytesPerSegment : ((i-k)*bytesPerSegment)+bytesPerSegment]
 	}
 
@@ -87,15 +87,15 @@ func EncodeRing(k int, bytesPerSegment int, originalData []byte) (segmentdData [
 // The output is a single byteslice that is equivalent to the data used when initially calling EncodeRing()
 func RebuildSector(k int, bytesPerSegment int, untaintedSegments []string, segmentIndicies []uint8) (originalData []byte, err error) {
 	// check for legal size of k and m
-	m := common.QUORUMSIZE - k
-	if k > common.QUORUMSIZE || k < 1 {
-		err = fmt.Errorf("k must be greater than 0 but smaller than %v", common.QUORUMSIZE)
+	m := common.QuorumSize - k
+	if k > common.QuorumSize || k < 1 {
+		err = fmt.Errorf("k must be greater than 0 but smaller than %v", common.QuorumSize)
 		return
 	}
 
 	// check for legal size of bytesPerSegment
-	if bytesPerSegment < common.MINSLICESIZE || bytesPerSegment > common.MAXSLICESIZE {
-		err = fmt.Errorf("bytesPerSegment must be greater than %v and smaller than %v", common.MINSLICESIZE, common.MAXSLICESIZE)
+	if bytesPerSegment < common.MinSliceSize || bytesPerSegment > common.MaxSliceSize {
+		err = fmt.Errorf("bytesPerSegment must be greater than %v and smaller than %v", common.MinSliceSize, common.MaxSliceSize)
 		return
 	}
 

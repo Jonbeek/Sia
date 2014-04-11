@@ -6,21 +6,21 @@ import (
 )
 
 type NetworkMultiplexer struct {
-	in    chan common.NetworkMessage
+	in    chan common.Message
 	out   chan idHandler
-	hosts map[string][]common.NetworkMessageHandler
+	hosts map[string][]common.MessageHandler
 }
 
 type idHandler struct {
-	handler common.NetworkMessageHandler
-	SwarmId string
+	handler     common.MessageHandler
+	Destination string
 }
 
 func NewNetworkMultiplexer() common.NetworkMultiplexer {
 	m := new(NetworkMultiplexer)
-	m.in = make(chan common.NetworkMessage)
+	m.in = make(chan common.Message)
 	m.out = make(chan idHandler)
-	m.hosts = make(map[string][]common.NetworkMessageHandler)
+	m.hosts = make(map[string][]common.MessageHandler)
 	go m.listen()
 	return m
 }
@@ -29,21 +29,21 @@ func (m *NetworkMultiplexer) listen() {
 	for {
 		select {
 		case c := <-m.out:
-			m.hosts[c.SwarmId] = append(m.hosts[c.SwarmId], c.handler)
+			m.hosts[c.Destination] = append(m.hosts[c.Destination], c.handler)
 		case o := <-m.in:
-			log.Debugln("MULTI: Transaction ", o, "to be sent to", len(m.hosts[o.SwarmId]))
-			for _, s := range m.hosts[o.SwarmId] {
-				go s.HandleNetworkMessage(o)
+			log.Debugln("MULTI: Transaction ", o, "to be sent to", len(m.hosts[o.Destination]))
+			for _, s := range m.hosts[o.Destination] {
+				go s.HandleMessage(o)
 			}
 		}
 	}
 }
 
-func (m *NetworkMultiplexer) AddListener(SwarmId string, c common.NetworkMessageHandler) {
-	m.out <- idHandler{c, SwarmId}
+func (m *NetworkMultiplexer) AddListener(Destination string, c common.MessageHandler) {
+	m.out <- idHandler{c, Destination}
 }
 
-func (m *NetworkMultiplexer) SendNetworkMessage(o common.NetworkMessage) {
+func (m *NetworkMultiplexer) SendMessage(o common.Message) {
 	m.in <- o
 }
 
