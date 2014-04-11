@@ -15,7 +15,7 @@ type SignedHeartbeat struct {
 	Heartbeat     *Heartbeat
 	HeartbeatHash crypto.Hash
 	Signatures    []crypto.Signature
-	Signatories   []crypto.PublicKey
+	Signatories   []ParticipantIndex
 }
 
 // Heartbeat contains all of the information that a host needs to
@@ -59,10 +59,8 @@ func (hb *Heartbeat) IsValid() (rv bool) {
 //
 // It is assumed that when this function is called, the Heartbeat in
 // question will already be in memory, and was correctly signed by the
-// first signatory, and that it matches its hash.
-//
-// Currently, host does not check if it's own signature is in the
-// pile before adding its own signature again
+// first signatory, the the first signatory is a participant, and that
+// it matches its hash.
 //
 // The return code is purely for the testing suite. The numbers are chosen
 // arbitrarily
@@ -88,19 +86,9 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 		}
 	}
 
-	// Check that heartbeat is from a participant
-	// All participants have a map in the heartbeat map
-	_, exists := s.Heartbeats[sh.Signatories[0]]
-	if !exists {
-		log.Infoln("Received a heartbeat from a non-participant")
-		returnCode = 3
-		return
-	}
-
-	_, exists = s.Heartbeats[sh.Signatories[0]][sh.HeartbeatHash]
+	// Check if we have already received this heartbeat
+	_, exists := s.Heartbeats[sh.Signatories[0]][sh.HeartbeatHash]
 	if exists {
-		// We already have this heartbeat, no action needed
-		// this will happen frequently, no logging needed either
 		returnCode = 8
 		return
 	}
@@ -109,12 +97,11 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 	var signedMessage crypto.SignedMessage
 	signedMessage.Message = string(sh.HeartbeatHash[:])
 	// keep a map of which signatories have already been confirmed
-	previousSignatories := make(map[crypto.PublicKey]bool)
+	previousSignatories := make(map[ParticipantIndex]bool)
 
 	for i, signatory := range sh.Signatories {
 		// Verify that the signatory is a participant in the quorum
-		_, exists := s.Participants[signatory]
-		if !exists {
+		if s.Participants[signatory] == nil {
 			log.Infoln("Received a heartbeat signed by an invalid signatory")
 			returnCode = 4
 			return
@@ -132,7 +119,7 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 
 		// verify the signature
 		signedMessage.Signature = sh.Signatures[i]
-		verification, err := crypto.Verify(signatory, signedMessage)
+		verification, err := crypto.Verify(s.Participants[signatory].PublicKey, signedMessage)
 		if err != nil {
 			log.Errorln(err)
 			return
