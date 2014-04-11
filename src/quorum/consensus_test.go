@@ -14,7 +14,7 @@ func TestTick(t *testing.T) {
 		t.Skip()
 	}
 
-	s, err := CreateState()
+	s, err := CreateState(0)
 	if err != nil {
 		t.Fatal("Failed to create a state!")
 	}
@@ -41,7 +41,7 @@ func TestTick(t *testing.T) {
 // An incomplete set of tests: the more complete suite will
 // attack the system as a whole.
 func TestHandleSignedHeartbeat(t *testing.T) {
-	// create some public keys
+	// create some public keys, 0 is self
 	pubKey0, secKey0, err := crypto.CreateKeyPair()
 	if err != nil {
 		t.Fatal("calling CreateKeyPair() failed!")
@@ -55,7 +55,9 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	// create SignedHeartbeat
 	var sh SignedHeartbeat
 	sh.Signatures = make([]crypto.Signature, 2)
-	sh.Signatories = make([]crypto.PublicKey, 2)
+	sh.Signatories = make([]ParticipantIndex, 2)
+
+	// note: heartbeat never actually created
 
 	// Create a set of signatures for the SignedHeartbeat
 	signature0, err := crypto.Sign(secKey0, string(sh.HeartbeatHash[:]))
@@ -71,18 +73,17 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	// build a valid SignedHeartbeat
 	sh.Signatures[0] = signature0.Signature
 	sh.Signatures[1] = signature1.Signature
-	sh.Signatories[0] = pubKey0
-	sh.Signatories[1] = pubKey1
+	sh.Signatories[0] = 0
+	sh.Signatories[1] = 1
 
 	// create a state and populate it with the signatories as participants
-	s, err := CreateState()
+	s, err := CreateState(0)
 	if err != nil {
 		t.Fatal("error creating state!")
 	}
 
-	var participant Participant
-	s.AddParticipant(pubKey0, &participant)
-	s.AddParticipant(pubKey1, &participant)
+	s.AddParticipant(pubKey0, 0)
+	s.AddParticipant(pubKey1, 1)
 
 	// handle the signed heartbeat, expecting code 0
 	returnCode := s.HandleSignedHeartbeat(&sh)

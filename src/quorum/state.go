@@ -61,18 +61,22 @@ func CreateState(participantIndex ParticipantIndex) (s State, err error) {
 
 // Populates a state with this participant, initializing variables as needed
 // return codes are arbitraily chosen and are only for the test suite
-func (s *State) AddParticipant(p *Participant, i ParticipantIndex) (err error) {
+func (s *State) AddParticipant(pubKey crypto.PublicKey, i ParticipantIndex) (err error) {
 	// Check that there is not already a participant for the index
 	if s.Participants[i] != nil {
 		err = fmt.Errorf("A participant already exists for the given index!")
 		return
 	}
 
-	// add to list of participants
-	s.Participants[i] = p
+	// initialize participant object
+	var p Participant
+	p.PublicKey = pubKey
 
 	// initialize the heartbeat map for this participant
 	s.Heartbeats[i] = make(map[crypto.Hash]*Heartbeat)
+
+	// add to state
+	s.Participants[i] = &p
 
 	return
 }
