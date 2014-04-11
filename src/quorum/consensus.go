@@ -13,7 +13,7 @@ import (
 // each additional host that has seen it
 type SignedHeartbeat struct {
 	Heartbeat     *Heartbeat
-	HeartbeatHash crypto.Hash
+	HeartbeatHash crypto.TruncatedHash
 	Signatures    []crypto.Signature
 	Signatories   []ParticipantIndex
 }
@@ -22,20 +22,36 @@ type SignedHeartbeat struct {
 // participate in the quorum. This includes entropy proofs, file
 // proofs, and transactions from hosts.
 type Heartbeat struct {
-	EntropyStage1 crypto.Hash
+	EntropyStage1 crypto.TruncatedHash
 	EntropyStage2 common.Entropy
+}
+
+func GenerateEntropyStage2() (entropy common.Entropy, err error) {
+	rawEntropy, err := crypto.RandomByteSlice(common.EntropyVolume)
+	if err != nil {
+		return
+	}
+
+	copy(entropy[:], rawEntropy)
+	return
 }
 
 // Using the current State, NewHeartbeat creates a heartbeat that
 // fulfills all of the requirements of the quorum.
-func (s *State) NewHeartbeat() (hb Heartbeat) {
-	return
-}
+func (s *State) NewHeartbeat() (hb Heartbeat, err error) {
+	// entropy stages
+	hb.EntropyStage2 = s.StoredEntropyStage2
+	s.StoredEntropyStage2, err = GenerateEntropyStage2()
+	if err != nil {
+		return
+	}
+	hb.EntropyStage1, err = crypto.CalculateTruncatedHash(s.StoredEntropyStage2[:])
+	if err != nil {
+		return
+	}
 
-// Verifies heartbeat against current state, making sure
-// there are no illegal actions that got signed
-func (hb *Heartbeat) IsValid() (rv bool) {
-	rv = true
+	// seems silly, but more code will be added here, so keep the if return else return
+
 	return
 }
 

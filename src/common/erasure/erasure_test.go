@@ -13,7 +13,7 @@ func TestCoding(t *testing.T) {
 	m := common.QuorumSize - k
 	bytesPerSegment := 1024
 
-	randomBytes, err := crypto.RandomBytes(bytesPerSegment * k)
+	randomBytes, err := crypto.RandomByteSlice(bytesPerSegment * k)
 	if err != nil {
 		t.Fatal(err)
 	}

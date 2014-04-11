@@ -21,9 +21,11 @@ type State struct {
 	PublicKey crypto.PublicKey
 	SecretKey crypto.SecretKey
 
+	StoredEntropyStage2 common.Entropy
+
 	// Consensus Algorithm Variables
 	CurrentStep int
-	Heartbeats  [common.QuorumSize]map[crypto.Hash]*Heartbeat
+	Heartbeats  [common.QuorumSize]map[crypto.TruncatedHash]*Heartbeat
 
 	// Wallet Data
 	Wallets map[string]uint64
@@ -73,7 +75,7 @@ func (s *State) AddParticipant(pubKey crypto.PublicKey, i ParticipantIndex) (err
 	p.PublicKey = pubKey
 
 	// initialize the heartbeat map for this participant
-	s.Heartbeats[i] = make(map[crypto.Hash]*Heartbeat)
+	s.Heartbeats[i] = make(map[crypto.TruncatedHash]*Heartbeat)
 
 	// add to state
 	s.Participants[i] = &p
