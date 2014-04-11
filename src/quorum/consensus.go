@@ -26,32 +26,34 @@ type Heartbeat struct {
 	EntropyStage2 common.Entropy
 }
 
-func GenerateEntropyStage2() (entropy common.Entropy, err error) {
+// Using the current State, NewHeartbeat creates a heartbeat that
+// fulfills all of the requirements of the quorum.
+func (s *State) NewHeartbeat() (hb *Heartbeat, err error) {
+	var heartbeat Heartbeat
+	hb = &heartbeat
+	// Fetch value used to produce EntropyStage1 in prev. heartbeat
+	hb.EntropyStage2 = s.StoredEntropyStage2
+
+	// Generate EntropyStage2 for next heartbeat
 	rawEntropy, err := crypto.RandomByteSlice(common.EntropyVolume)
 	if err != nil {
 		return
 	}
+	copy(s.StoredEntropyStage2[:], rawEntropy)
 
-	copy(entropy[:], rawEntropy)
-	return
-}
-
-// Using the current State, NewHeartbeat creates a heartbeat that
-// fulfills all of the requirements of the quorum.
-func (s *State) NewHeartbeat() (hb Heartbeat, err error) {
-	// entropy stages
-	hb.EntropyStage2 = s.StoredEntropyStage2
-	s.StoredEntropyStage2, err = GenerateEntropyStage2()
-	if err != nil {
-		return
-	}
+	// Use EntropyStage2 to generate EntropyStage1 for this heartbeat
 	hb.EntropyStage1, err = crypto.CalculateTruncatedHash(s.StoredEntropyStage2[:])
 	if err != nil {
 		return
 	}
 
-	// seems silly, but more code will be added here, so keep the if return else return
+	// more code will be added here
 
+	return
+}
+
+func (hb *Heartbeat) Marshal() (marshalledHeartbeat string) {
+	marshalledHeartbeat = string(append(hb.EntropyStage1[:], hb.EntropyStage2[:]...))
 	return
 }
 
@@ -165,6 +167,24 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 	return
 }
 
+// Takes all of the heartbeats and uses them to advance to the
+// next state
+func (s *State) Compile() {
+	// go through all hosts
+	// get some ordering for hosts
+	// go through hosts in that order
+	// throw out any host with multiple heartbeatas
+	// throw out any host with invalid heartbeats
+	// process the valid heartbeats
+
+	// clear/nil every value in the map.
+	// set it up for a new round
+
+	// generate a new heartbeat for myself
+	// sign it and send it off
+	// but first add the heartbeat to our own map
+}
+
 // Tick() should only be called once, and should run in its own go thread
 // Every common.SETPLENGTH, it updates the currentStep value.
 // When the value flips from common.QuorumSize to 1, Tick() calls
@@ -174,7 +194,7 @@ func (s *State) Tick() {
 	ticker := time.Tick(common.StepDuration)
 	for _ = range ticker {
 		if s.CurrentStep == common.QuorumSize {
-			// call logic to compile block
+			s.Compile()
 			s.CurrentStep = 1
 		} else {
 			s.CurrentStep += 1

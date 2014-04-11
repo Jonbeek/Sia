@@ -41,49 +41,56 @@ func TestTick(t *testing.T) {
 // An incomplete set of tests: the more complete suite will
 // attack the system as a whole.
 func TestHandleSignedHeartbeat(t *testing.T) {
-	// create some public keys, 0 is self
-	pubKey0, secKey0, err := crypto.CreateKeyPair()
-	if err != nil {
-		t.Fatal("calling CreateKeyPair() failed!")
-	}
-
-	pubKey1, secKey1, err := crypto.CreateKeyPair()
-	if err != nil {
-		t.Fatal("second call to CreateKeyPair() failed!")
-	}
-
-	// create SignedHeartbeat
-	var sh SignedHeartbeat
-	sh.Signatures = make([]crypto.Signature, 2)
-	sh.Signatories = make([]ParticipantIndex, 2)
-
-	// note: heartbeat never actually created
-
-	// Create a set of signatures for the SignedHeartbeat
-	signature0, err := crypto.Sign(secKey0, string(sh.HeartbeatHash[:]))
-	if err != nil {
-		t.Fatal("error signing HeartbeatHash")
-	}
-
-	signature1, err := crypto.Sign(secKey1, signature0.CombinedMessage())
-	if err != nil {
-		t.Fatal("error with second signing")
-	}
-
-	// build a valid SignedHeartbeat
-	sh.Signatures[0] = signature0.Signature
-	sh.Signatures[1] = signature1.Signature
-	sh.Signatories[0] = 0
-	sh.Signatories[1] = 1
-
 	// create a state and populate it with the signatories as participants
 	s, err := CreateState(0)
 	if err != nil {
 		t.Fatal("error creating state!")
 	}
 
-	s.AddParticipant(pubKey0, 0)
+	// create some public keys
+	pubKey1, secKey1, err := crypto.CreateKeyPair()
+	if err != nil {
+		t.Fatal("calling CreateKeyPair() failed!")
+	}
+
+	pubKey2, secKey2, err := crypto.CreateKeyPair()
+	if err != nil {
+		t.Fatal("second call to CreateKeyPair() failed!")
+	}
+
+	// Add keys as participants
 	s.AddParticipant(pubKey1, 1)
+	s.AddParticipant(pubKey2, 2)
+
+	// create SignedHeartbeat
+	var sh SignedHeartbeat
+	sh.Heartbeat, err = s.NewHeartbeat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sh.HeartbeatHash, err = crypto.CalculateTruncatedHash([]byte(sh.Heartbeat.Marshal()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sh.Signatures = make([]crypto.Signature, 2)
+	sh.Signatories = make([]ParticipantIndex, 2)
+
+	// Create a set of signatures for the SignedHeartbeat
+	signature1, err := crypto.Sign(secKey1, string(sh.HeartbeatHash[:]))
+	if err != nil {
+		t.Fatal("error signing HeartbeatHash")
+	}
+
+	signature2, err := crypto.Sign(secKey2, signature1.CombinedMessage())
+	if err != nil {
+		t.Fatal("error with second signing")
+	}
+
+	// build a valid SignedHeartbeat
+	sh.Signatures[0] = signature1.Signature
+	sh.Signatures[1] = signature2.Signature
+	sh.Signatories[0] = 1
+	sh.Signatories[1] = 2
 
 	// handle the signed heartbeat, expecting code 0
 	returnCode := s.HandleSignedHeartbeat(&sh)
@@ -98,7 +105,6 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	}
 
 	// create a signed heartbeat with repeat signatures
-	// send same second heartbeat multiple times...? (verify it doesn't get spammed out)
 	// send heartbeats with invalid signatures
 	// send heartbeats at invalid tick points
 	// send a heartbeat right at the edge of a new block

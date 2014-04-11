@@ -21,9 +21,13 @@ type State struct {
 	PublicKey crypto.PublicKey
 	SecretKey crypto.SecretKey
 
+	// The hash of this was used in stage 1 for the most recent heartbeat
 	StoredEntropyStage2 common.Entropy
 
-	// Consensus Algorithm Variables
+	// The stage 1 entropies from the last block
+	// PreviousEntropy [common.QuorumSize]*crypto.TruncatedHash
+
+	// Consensus Algorithm Status
 	CurrentStep int
 	Heartbeats  [common.QuorumSize]map[crypto.TruncatedHash]*Heartbeat
 
