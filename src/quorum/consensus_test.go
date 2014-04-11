@@ -38,6 +38,10 @@ func TestTick(t *testing.T) {
 	// Plus one more test to make sure that a block-generate gets called
 }
 
+// test create heartbeat
+
+// test heartbeat.marshal and heartbeat.unmarshal
+
 // An incomplete set of tests: the more complete suite will
 // attack the system as a whole.
 func TestHandleSignedHeartbeat(t *testing.T) {
@@ -104,14 +108,49 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 		t.Fatal("expected heartbeat to get ignored as a duplicate:", returnCode)
 	}
 
-	// create a signed heartbeat with repeat signatures
-	// send heartbeats with invalid signatures
+	// create a different heartbeat, this will be used to test the fail conditions
+	sh.Heartbeat, err = s.NewHeartbeat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sh.HeartbeatHash, err = crypto.CalculateTruncatedHash([]byte(sh.Heartbeat.Marshal()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// verify a heartbeat with bad signatures is rejected
+	returnCode = s.HandleSignedHeartbeat(&sh)
+	if returnCode != 6 {
+		t.Fatal("expected heartbeat to get ignored as having invalid signatures: ", returnCode)
+	}
+
+	// give heartbeat repeat signatures
+	signature1, err = crypto.Sign(secKey1, string(sh.HeartbeatHash[:]))
+	if err != nil {
+		t.Fatal("error with third signing")
+	}
+
+	signature2, err = crypto.Sign(secKey1, signature1.CombinedMessage())
+	if err != nil {
+		t.Fatal("error with fourth signing")
+	}
+
+	// adjust signatories slice
+	sh.Signatures[0] = signature1.Signature
+	sh.Signatures[1] = signature2.Signature
+	sh.Signatories[0] = 1
+	sh.Signatories[1] = 1
+
+	// verify repeated signatures are rejected
+	returnCode = s.HandleSignedHeartbeat(&sh)
+	if returnCode != 5 {
+		t.Fatal("expected heartbeat to be rejected for duplicate signatures: ", returnCode)
+	}
+
 	// send heartbeats at invalid tick points
 	// send a heartbeat right at the edge of a new block
-	// somehow verify that new heartbeats get properly sent out with valid signatures
+	// verify that new heartbeats get properly sent out with valid signatures
 	// check that step timing if-else logic is correct
-	// check that all signatures will verify
-	// check that heartbeats are getting added to s.Heartbeats
 }
 
 // add fuzzing tests for HandleSignedHeartbeat

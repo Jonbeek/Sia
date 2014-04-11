@@ -74,7 +74,8 @@ func (hb *Heartbeat) Marshal() (marshalledHeartbeat string) {
 // It is assumed that when this function is called, the Heartbeat in
 // question will already be in memory, and was correctly signed by the
 // first signatory, the the first signatory is a participant, and that
-// it matches its hash.
+// it matches its hash. And that the first signatory is used to store
+// the heartbeat
 //
 // The return code is purely for the testing suite. The numbers are chosen
 // arbitrarily
@@ -139,20 +140,20 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 			return
 		}
 
-		// throwing the signature into the message here makes code cleaner in the loop
-		// and after we sign it to send it to everyone else
-		signedMessage.Message = signedMessage.CombinedMessage()
-
 		// check status of verification
 		if !verification {
 			log.Infoln("Received invalid signature in SignedHeartbeat")
 			returnCode = 6
 			return
 		}
+
+		// throwing the signature into the message here makes code cleaner in the loop
+		// and after we sign it to send it to everyone else
+		signedMessage.Message = signedMessage.CombinedMessage()
 	}
 
 	// Add heartbeat to list of seen heartbeats
-	// Will add a signed heartbeat even if invalid
+	// Don't check if heartbeat is valid, that's for Compile()
 	s.Heartbeats[sh.Signatories[0]][sh.HeartbeatHash] = sh.Heartbeat
 
 	// Sign the stack of signatures and send it to all hosts
