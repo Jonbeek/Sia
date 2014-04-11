@@ -7,53 +7,25 @@ import "C"
 // do the cgo-required tests in a test_supplement file
 
 // Verify PublicKeySize
-func VerifyPublicKeySize() (verification bool) {
+func VerifyPublicKeySize() bool {
 	confirmation := C.testPublicKeySize(C.int(PublicKeySize))
-
-	if confirmation == 0 {
-		verification = false
-		return
-	}
-
-	verification = true
-	return
+	return confirmation != 0
 }
 
 // Verify SecretKeySize
-func VerifySecretKeySize() (verification bool) {
+func VerifySecretKeySize() bool {
 	confirmation := C.testSecretKeySize(C.int(SecretKeySize))
-
-	if confirmation == 0 {
-		verification = false
-		return
-	}
-
-	verification = true
-	return
+	return confirmation != 0
 }
 
 // Verify SignatureSize
 func VerifySignatureSize() (verification bool) {
 	confirmation := C.testSignatureSize(C.int(SignatureSize))
-
-	if confirmation == 0 {
-		verification = false
-		return
-	}
-
-	verification = true
-	return
+	return confirmation != 0
 }
 
 // Verify HashSize
 func VerifyHashSize() (verification bool) {
 	confirmation := C.testHashSize(C.int(HashSize))
-
-	if confirmation == 0 {
-		verification = false
-		return
-	}
-
-	verification = true
-	return
+	return confirmation != 0
 }

@@ -102,11 +102,6 @@ func Verify(verificationKey PublicKey, signedMessage SignedMessage) (verified bo
 
 	// verify signature
 	success := C.crypto_sign_open(messagePointer, lenPointer, signedMessagePointer, signedMessageLen, verificationKeyPointer)
-	if success == 0 {
-		verified = true
-		return
-	}
-
-	verified = false
+	verified = success == 0
 	return
 }

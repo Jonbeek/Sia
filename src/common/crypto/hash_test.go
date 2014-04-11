@@ -21,7 +21,7 @@ func TestHashing(t *testing.T) {
 		t.Fatal("Hash producing unexpected value")
 	}
 
-	// computer truncated hash and compare to reference
+	// compute truncated hash and compare to reference
 	tHash, err := CalculateTruncatedHash([]byte("foo"))
 	if err != nil {
 		t.Fatal(err)

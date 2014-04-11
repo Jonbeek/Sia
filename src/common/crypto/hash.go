@@ -15,7 +15,7 @@ func CalculateHash(data []byte) (hash Hash, err error) {
 	sizeOfMessage := C.ulonglong(len(data))
 	success := C.crypto_hash(hashPointer, messagePointer, sizeOfMessage)
 	if success != 0 {
-		fmt.Errorf("Error in calculating hash")
+		err = fmt.Errorf("Error in calculating hash")
 	}
 
 	return
