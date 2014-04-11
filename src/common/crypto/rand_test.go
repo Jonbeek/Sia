@@ -4,8 +4,6 @@ import (
 	"testing"
 )
 
-// test that function returns without error
-// test that function returns slice of correct size
 func TestRandom(t *testing.T) {
 	randomByteSlice, err := RandomBytes(400)
 	if err != nil {
