@@ -88,26 +88,21 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	// handle the signed heartbeat, expecting code 0
 	returnCode := s.HandleSignedHeartbeat(&sh)
 	if returnCode != 0 {
-		t.Fatal("expected an invalid heartbeat:", returnCode)
+		t.Fatal("expected heartbeat to succeed:", returnCode)
+	}
+
+	// verify that a repeat heartbeat gets ignored
+	returnCode = s.HandleSignedHeartbeat(&sh)
+	if returnCode != 8 {
+		t.Fatal("expected heartbeat to get ignored as a duplicate:", returnCode)
 	}
 
 	// create a signed heartbeat with repeat signatures
-	// create a heartbeat signed by a non-participant
-	// send different heartbeats from same participant
 	// send same second heartbeat multiple times...? (verify it doesn't get spammed out)
 	// send heartbeats with invalid signatures
 	// send heartbeats at invalid tick points
 	// send a heartbeat right at the edge of a new block
-
-	// all of this can be done without actually calling Tick()...
-
-	// somehow verify that repeat heartbeats get ignored
-
-	// somehow verify that new heartbeats get properly sent out
-	// with valid signatures no less
-
-	///////////////////
-
+	// somehow verify that new heartbeats get properly sent out with valid signatures
 	// check that step timing if-else logic is correct
 	// check that all signatures will verify
 	// check that heartbeats are getting added to s.Heartbeats

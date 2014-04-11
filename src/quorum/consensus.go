@@ -28,16 +28,12 @@ type Heartbeat struct {
 
 // Using the current State, NewHeartbeat creates a heartbeat that
 // fulfills all of the requirements of the quorum.
-//
-// This function is incomplete
 func (s *State) NewHeartbeat() (hb Heartbeat) {
 	return
 }
 
-// Checks that a heartbeat follows all rules, including
-// proper stage 2 reveals.
-//
-// This function is incomplete
+// Verifies heartbeat against current state, making sure
+// there are no illegal actions that got signed
 func (hb *Heartbeat) IsValid() (rv bool) {
 	rv = true
 	return
@@ -140,13 +136,6 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 	// Add heartbeat to list of seen heartbeats
 	// Will add a signed heartbeat even if invalid
 	s.Heartbeats[sh.Signatories[0]][sh.HeartbeatHash] = sh.Heartbeat
-
-	// See that heartbeat is valid (correct parent, etc.)
-	if !sh.Heartbeat.IsValid() {
-		log.Infoln("Received an invalid heartbeat")
-		returnCode = 7
-		return
-	}
 
 	// Sign the stack of signatures and send it to all hosts
 	_, err := crypto.Sign(s.SecretKey, signedMessage.Message)
