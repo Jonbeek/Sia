@@ -3,23 +3,33 @@ package quorum
 import (
 	"common"
 	"common/crypto"
-	"common/log"
+	"fmt"
 )
+
+type ParticipantIndex uint8
 
 // The state is what provides persistence to the consensus algorithms.
 // The state is updated every block, and every honest host is
 // guaranteed to update their state in the same way.
 type State struct {
 	// Who is participating in the quorum
-	Participants map[crypto.PublicKey]*Participant
+	Participants [common.QuorumSize]*Participant
+	// Our own index in the quorum
+	ParticipantIndex ParticipantIndex
 
 	// The cryptographic keys belonging to this host specifically
 	PublicKey crypto.PublicKey
 	SecretKey crypto.SecretKey
 
-	// Consensus Algorithm Variables
+	// The hash of this was used in stage 1 for the most recent heartbeat
+	StoredEntropyStage2 common.Entropy
+
+	// The stage 1 entropies from the last block
+	// PreviousEntropy [common.QuorumSize]*crypto.TruncatedHash
+
+	// Consensus Algorithm Status
 	CurrentStep int
-	Heartbeats  map[crypto.PublicKey]map[crypto.Hash]*Heartbeat
+	Heartbeats  [common.QuorumSize]map[crypto.TruncatedHash]*Heartbeat
 
 	// Wallet Data
 	Wallets map[string]uint64
@@ -29,46 +39,51 @@ type State struct {
 // by knowing the public key. It's in its own struct because
 // more fields might be added.
 type Participant struct {
-	Address string // will probably be typed to Address
+	PublicKey crypto.PublicKey
 }
 
 // Create and initialize a state object
-func CreateState() (s State, err error) {
-	// initialize participants map
-	s.Participants = make(map[crypto.PublicKey]*Participant)
+func CreateState(participantIndex ParticipantIndex) (s State, err error) {
+	// check that participantIndex is legal
+	if int(participantIndex) >= common.QuorumSize {
+		err = fmt.Errorf("Invalid participant index!")
+		return
+	}
 
 	// initialize crypto keys
 	pubKey, secKey, err := crypto.CreateKeyPair()
 	if err != nil {
-		// some error
+		return
 	}
 	s.PublicKey = pubKey
 	s.SecretKey = secKey
 
+	s.ParticipantIndex = participantIndex
+
 	s.CurrentStep = 1
-	s.Heartbeats = make(map[crypto.PublicKey]map[crypto.Hash]*Heartbeat)
 	s.Wallets = make(map[string]uint64)
 	return
 }
 
 // Populates a state with this participant, initializing variables as needed
 // return codes are arbitraily chosen and are only for the test suite
-func (s *State) AddParticipant(pk crypto.PublicKey, p *Participant) (returnCode int) {
-	// Check that participant is not already known to the state
-	_, exists := s.Participants[pk]
-	if exists {
-		log.Infoln("Received a request to add an existing participant")
-		returnCode = 1
+func (s *State) AddParticipant(pubKey crypto.PublicKey, i ParticipantIndex) (err error) {
+	// Check that there is not already a participant for the index
+	if s.Participants[i] != nil {
+		err = fmt.Errorf("A participant already exists for the given index!")
 		return
 	}
 
-	// add to list of participants
-	s.Participants[pk] = p
+	// initialize participant object
+	var p Participant
+	p.PublicKey = pubKey
 
 	// initialize the heartbeat map for this participant
-	s.Heartbeats[pk] = make(map[crypto.Hash]*Heartbeat)
+	s.Heartbeats[i] = make(map[crypto.TruncatedHash]*Heartbeat)
 
-	returnCode = 0
+	// add to state
+	s.Participants[i] = &p
+
 	return
 }
 

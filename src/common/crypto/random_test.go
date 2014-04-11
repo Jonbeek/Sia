@@ -5,7 +5,7 @@ import (
 )
 
 func TestRandom(t *testing.T) {
-	randomByteSlice, err := RandomBytes(400)
+	randomByteSlice, err := RandomByteSlice(400)
 	if err != nil {
 		t.Fatal(err)
 	}
