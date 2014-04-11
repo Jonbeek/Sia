@@ -52,6 +52,7 @@ func (s *State) NewHeartbeat() (hb *Heartbeat, err error) {
 	return
 }
 
+// Convert Heartbeat to string
 func (hb *Heartbeat) Marshal() (marshalledHeartbeat string) {
 	marshalledHeartbeat = string(append(hb.EntropyStage1[:], hb.EntropyStage2[:]...))
 	return

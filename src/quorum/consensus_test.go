@@ -147,10 +147,39 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 		t.Fatal("expected heartbeat to be rejected for duplicate signatures: ", returnCode)
 	}
 
-	// send heartbeats at invalid tick points
+	// remove second signature
+	sh.Signatures = sh.Signatures[:1]
+	sh.Signatories = sh.Signatories[:1]
+
+	// handle heartbeat when tick is larger than num signatures
+	s.CurrentStep = 2
+	returnCode = s.HandleSignedHeartbeat(&sh)
+	if returnCode != 2 {
+		t.Fatal("expected heartbeat to be rejected as out-of-sync: ", returnCode)
+	}
+
 	// send a heartbeat right at the edge of a new block
+	// test takes time; skip in short tests
+	if testing.Short() {
+		t.Skip()
+	}
+
+	// put block at edge
+	s.CurrentStep = common.QuorumSize
+
+	// submit heartbeat in separate thread
+	go func() {
+		returnCode = s.HandleSignedHeartbeat(&sh)
+		if returnCode != 0 {
+			t.Fatal("expected heartbeat to succeed!: ", returnCode)
+		}
+	}()
+
+	time.Sleep(time.Second)
+	s.CurrentStep = 1
+
 	// verify that new heartbeats get properly sent out with valid signatures
-	// check that step timing if-else logic is correct
 }
 
 // add fuzzing tests for HandleSignedHeartbeat
+// test race conditions on HandleSignedHeartbeat
