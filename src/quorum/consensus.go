@@ -58,6 +58,9 @@ func (hb *Heartbeat) Marshal() (marshalledHeartbeat string) {
 	return
 }
 
+// func UnmarshalHeartbeat(marshalledHeartbeat string) {
+// }
+
 // HandleSignedHeartbeat takes a heartbeat that has been signed
 // as a part of the concensus algorithm, and follows all the rules
 // that are necessary to ensure that all honest hosts arrive at
@@ -80,6 +83,9 @@ func (hb *Heartbeat) Marshal() (marshalledHeartbeat string) {
 //
 // The return code is purely for the testing suite. The numbers are chosen
 // arbitrarily
+//
+// Really, the HandleSignedHeartbeat should take a string, and open it up
+// all the way from that point. Which means the test suite needs updating
 func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 	// Check that the slices of signatures and signatories are of the same length
 	if len(sh.Signatures) != len(sh.Signatories) {
@@ -137,7 +143,7 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 		signedMessage.Signature = sh.Signatures[i]
 		verification, err := crypto.Verify(s.Participants[signatory].PublicKey, signedMessage)
 		if err != nil {
-			log.Errorln(err)
+			log.Fatalln(err)
 			return
 		}
 
@@ -160,7 +166,7 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 	// Sign the stack of signatures and send it to all hosts
 	_, err := crypto.Sign(s.SecretKey, signedMessage.Message)
 	if err != nil {
-		log.Errorln(err)
+		log.Fatalln(err)
 	}
 
 	// Send the new message to everybody
@@ -169,8 +175,7 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 	return
 }
 
-// Takes all of the heartbeats and uses them to advance to the
-// next state
+// Takes all of the heartbeats and uses them to advance to the next state
 func (s *State) Compile() {
 	// arrive at a host ordering
 	// create a list representing each host
@@ -184,14 +189,15 @@ func (s *State) Compile() {
 	for i, value := range participantOrdering {
 		newIndex, err := s.RandInt(i, common.QuorumSize)
 		if err != nil {
-			log.Errorln(err)
+			log.Fatalln(err)
 		}
 		tmp := participantOrdering[newIndex]
 		participantOrdering[newIndex] = value
 		participantOrdering[i] = tmp
 	}
 
-	for _, participant := range participantOrdering {
+	var entropyList [common.QuorumSize]common.Entropy
+	for i, participant := range participantOrdering {
 		// process received heartbeats
 		// skip if no host
 		if s.Participants[participant] == nil {
@@ -199,22 +205,38 @@ func (s *State) Compile() {
 		}
 
 		if len(s.Heartbeats[participant]) != 1 {
-			// toss the host from the network
+			// toss the host from the network as absent
 			continue
 		}
 
-		for _, _ = range s.Heartbeats[participant] {
-			// process the heartbeat
+		for _, hb := range s.Heartbeats[participant] {
+			// compare EntropyStage2 to the hash from the previous heartbeat
+			expectedHash, err := crypto.CalculateTruncatedHash(hb.EntropyStage2[:])
+			if err != nil {
+				log.Fatalln(err)
+			}
+			if expectedHash != s.PreviousEntropy[i] {
+				// toss host from the network as absent
+				continue
+			}
+
+			// Add the EntropyStage2
+			entropyList[i] = hb.EntropyStage2
+
+			// update PreviousEntropy
+			s.PreviousEntropy[i] = hb.EntropyStage1
 
 			// clear the heartbeat from s.Heartbeats
 			s.Heartbeats[participant] = make(map[crypto.TruncatedHash]*Heartbeat)
 		}
 	}
 
+	// Call some function to compute next block's starting entropy
+
 	// generate a new heartbeat
 	hb, err := s.NewHeartbeat()
 	if err != nil {
-		log.Errorln(err)
+		log.Fatalln(err)
 	}
 
 	// create a signed heartbeat from new heartbeat
@@ -225,7 +247,7 @@ func (s *State) Compile() {
 	marshalledHeartbeat := hb.Marshal()
 	signedHeartbeat.HeartbeatHash, err = crypto.CalculateTruncatedHash([]byte(marshalledHeartbeat))
 	if err != nil {
-		log.Errorln(err)
+		log.Fatalln(err)
 	}
 
 	// sign hashed heartbeat
@@ -233,7 +255,7 @@ func (s *State) Compile() {
 	signature, err := crypto.Sign(s.SecretKey, string(signedHeartbeat.HeartbeatHash[:]))
 	signedHeartbeat.Signatures[0] = signature.Signature
 	if err != nil {
-		log.Errorln(err)
+		log.Fatalln(err)
 	}
 	signedHeartbeat.Signatories = make([]ParticipantIndex, 1)
 	signedHeartbeat.Signatories[0] = s.ParticipantIndex

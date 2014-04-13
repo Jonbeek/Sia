@@ -25,6 +25,7 @@ type State struct {
 	StoredEntropyStage2 common.Entropy
 
 	// The stage 1 entropies from the last block
+	PreviousEntropy [common.QuorumSize]crypto.TruncatedHash
 	// Entropy seed to be used while compiling next block
 	CurrentEntropy common.Entropy
 
