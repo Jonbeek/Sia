@@ -92,6 +92,12 @@ func (s *State) AddParticipant(pubKey crypto.PublicKey, i ParticipantIndex) (err
 // Use the entropy stored in the state to generate a random
 // integer [low, high)
 func (s *State) RandInt(low int, high int) (randInt int, err error) {
+	// verify there's a gap between the numbers
+	if low == high {
+		err = fmt.Errorf("low and high cannot be the same number")
+		return
+	}
+
 	// Convert CurrentEntropy into an int
 	rollingInt := 0
 	for i := 0; i < 4; i++ {
