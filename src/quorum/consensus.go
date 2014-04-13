@@ -172,15 +172,44 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 // Takes all of the heartbeats and uses them to advance to the
 // next state
 func (s *State) Compile() {
-	// go through all hosts
-	// get some ordering for hosts
-	// go through hosts in that order
-	// throw out any host with multiple heartbeatas
-	// throw out any host with invalid heartbeats
-	// process the valid heartbeats
+	// arrive at a host ordering
+	// create a list representing each host
+	var participantOrdering [common.QuorumSize]int
+	for i := range participantOrdering {
+		participantOrdering[i] = i
+	}
 
-	// clear/nil every value in the map.
-	// set it up for a new round
+	// shuffle the list to produce a random host ordering by
+	// swapping each element with a random element in front of it
+	for i, value := range participantOrdering {
+		newIndex, err := s.RandInt(i, common.QuorumSize)
+		if err != nil {
+			log.Errorln(err)
+		}
+		tmp := participantOrdering[newIndex]
+		participantOrdering[newIndex] = value
+		participantOrdering[i] = tmp
+	}
+
+	for _, participant := range participantOrdering {
+		// process received heartbeats
+		// skip if no host
+		if s.Participants[participant] == nil {
+			continue
+		}
+
+		if len(s.Heartbeats[participant]) != 1 {
+			// toss the host from the network
+			continue
+		}
+
+		for _, _ = range s.Heartbeats[participant] {
+			// process the heartbeat
+
+			// clear the heartbeat from s.Heartbeats
+			s.Heartbeats[participant] = make(map[crypto.TruncatedHash]*Heartbeat)
+		}
+	}
 
 	// generate a new heartbeat for myself
 	// sign it and send it off
