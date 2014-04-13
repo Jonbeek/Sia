@@ -11,7 +11,7 @@
 // using cgo.
 package erasure
 
-// #include "bridge.c"
+// #include "erasure.c"
 import "C"
 
 import (
