@@ -211,13 +211,41 @@ func (s *State) Compile() {
 		}
 	}
 
-	// generate a new heartbeat for myself
-	// sign it and send it off
-	// but first add the heartbeat to our own map
+	// generate a new heartbeat
+	hb, err := s.NewHeartbeat()
+	if err != nil {
+		log.Errorln(err)
+	}
+
+	// create a signed heartbeat from new heartbeat
+	var signedHeartbeat SignedHeartbeat
+	signedHeartbeat.Heartbeat = hb
+
+	// hash heartbeat
+	marshalledHeartbeat := hb.Marshal()
+	signedHeartbeat.HeartbeatHash, err = crypto.CalculateTruncatedHash([]byte(marshalledHeartbeat))
+	if err != nil {
+		log.Errorln(err)
+	}
+
+	// sign hashed heartbeat
+	signedHeartbeat.Signatures = make([]crypto.Signature, 1)
+	signature, err := crypto.Sign(s.SecretKey, string(signedHeartbeat.HeartbeatHash[:]))
+	signedHeartbeat.Signatures[0] = signature.Signature
+	if err != nil {
+		log.Errorln(err)
+	}
+	signedHeartbeat.Signatories = make([]ParticipantIndex, 1)
+	signedHeartbeat.Signatories[0] = s.ParticipantIndex
+
+	// add our heartbeat to our heartbeat map
+	s.Heartbeats[s.ParticipantIndex][signedHeartbeat.HeartbeatHash] = signedHeartbeat.Heartbeat
+
+	// send the signed heartbeat to everyone
 }
 
 // Tick() should only be called once, and should run in its own go thread
-// Every common.SETPLENGTH, it updates the currentStep value.
+// Every common.STEPLENGTH, it updates the currentStep value.
 // When the value flips from common.QuorumSize to 1, Tick() calls
 // 	integrateHeartbeats()
 func (s *State) Tick() {
