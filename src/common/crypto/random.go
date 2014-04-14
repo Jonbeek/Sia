@@ -1,5 +1,8 @@
 package crypto
 
+// #include <sodium.h>
+import "C"
+
 import (
 	"crypto/rand"
 )
@@ -11,4 +14,9 @@ func RandomByteSlice(numBytes int) (randomBytes []byte, err error) {
 	randomBytes = make([]byte, numBytes)
 	rand.Read(randomBytes)
 	return
+}
+
+// This function generates a random int [0, ceiling]
+func RandomInt(ceiling int) int {
+	return int(C.randombytes_uniform(C.uint32_t(ceiling)))
 }

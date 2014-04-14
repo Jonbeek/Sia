@@ -25,7 +25,9 @@ type State struct {
 	StoredEntropyStage2 common.Entropy
 
 	// The stage 1 entropies from the last block
-	// PreviousEntropy [common.QuorumSize]*crypto.TruncatedHash
+	PreviousEntropy [common.QuorumSize]crypto.TruncatedHash
+	// Entropy seed to be used while compiling next block
+	CurrentEntropy common.Entropy
 
 	// Consensus Algorithm Status
 	CurrentStep int
@@ -84,6 +86,30 @@ func (s *State) AddParticipant(pubKey crypto.PublicKey, i ParticipantIndex) (err
 	// add to state
 	s.Participants[i] = &p
 
+	return
+}
+
+// Use the entropy stored in the state to generate a random
+// integer [low, high)
+func (s *State) RandInt(low int, high int) (randInt int, err error) {
+	// verify there's a gap between the numbers
+	if low == high {
+		err = fmt.Errorf("low and high cannot be the same number")
+		return
+	}
+
+	// Convert CurrentEntropy into an int
+	rollingInt := 0
+	for i := 0; i < 4; i++ {
+		rollingInt = rollingInt << 4
+		rollingInt += int(s.CurrentEntropy[0])
+	}
+
+	randInt = (rollingInt % (high - low)) + low
+
+	// Convert random number seed to next value
+	truncatedHash, err := crypto.CalculateTruncatedHash(s.CurrentEntropy[:])
+	s.CurrentEntropy = common.Entropy(truncatedHash)
 	return
 }
 
