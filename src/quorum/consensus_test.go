@@ -7,38 +7,6 @@ import (
 	"time"
 )
 
-// Ensures that Tick() updates CurrentStep
-func TestTick(t *testing.T) {
-	// test takes 30 seconds; skip for short testing
-	if testing.Short() {
-		t.Skip()
-	}
-
-	s, err := CreateState(0)
-	if err != nil {
-		t.Fatal("Failed to create a state!")
-	}
-
-	// verify that tick is updating CurrentStep
-	s.CurrentStep = 1
-	go s.Tick()
-	time.Sleep(common.StepDuration)
-	time.Sleep(time.Second)
-	if s.CurrentStep == 1 {
-		t.Fatal("s.CurrentStep failed to update correctly")
-	}
-
-	// disabling wraparound step because Compile() is apparently broken
-	/* // verify that tick is wrapping around properly
-	s.CurrentStep = common.QuorumSize
-	time.Sleep(common.StepDuration)
-	if s.CurrentStep != 1 {
-		t.Fatal("s.CurrentStep failed to roll over")
-	} */
-
-	// Plus one more test to make sure that a block-generate gets called
-}
-
 // test create heartbeat
 
 // test heartbeat.marshal and heartbeat.unmarshal
@@ -185,4 +153,47 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 // add fuzzing tests for HandleSignedHeartbeat
 // test race conditions on HandleSignedHeartbeat
 
-// Test Compile()
+// Ensures that Tick() updates CurrentStep
+func TestRegularTick(t *testing.T) {
+	// test takes common.StepDuration seconds; skip for short testing
+	if testing.Short() {
+		t.Skip()
+	}
+
+	s, err := CreateState(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// verify that tick is updating CurrentStep
+	s.CurrentStep = 1
+	go s.Tick()
+	time.Sleep(common.StepDuration)
+	time.Sleep(time.Second)
+	if s.CurrentStep != 2 {
+		t.Fatal("s.CurrentStep failed to update correctly: ", s.CurrentStep)
+	}
+}
+
+func TestCompilationTick(t *testing.T) {
+	// test takes common.StepDuration seconds; skip for short testing
+	if testing.Short() {
+		t.Skip()
+	}
+
+	s, err := CreateState(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// verify that tick is wrapping around properly
+	s.CurrentStep = common.QuorumSize
+	go s.Tick()
+	time.Sleep(common.StepDuration)
+	time.Sleep(time.Second)
+	if s.CurrentStep != 1 {
+		t.Fatal("s.CurrentStep failed to roll over: ", s.CurrentStep)
+	}
+
+	// check if s.Compile() got called
+}

@@ -64,6 +64,9 @@ func CreateState(participantIndex ParticipantIndex) (s State, err error) {
 
 	s.CurrentStep = 1
 	s.Wallets = make(map[string]uint64)
+
+	// add ourselves to list of participants
+	s.AddParticipant(s.PublicKey, participantIndex)
 	return
 }
 
