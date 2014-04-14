@@ -25,9 +25,11 @@ type State struct {
 	StoredEntropyStage2 common.Entropy
 
 	// The stage 1 entropies from the last block
-	PreviousEntropy [common.QuorumSize]crypto.TruncatedHash
+	PreviousEntropyStage1 [common.QuorumSize]crypto.TruncatedHash
 	// Entropy seed to be used while compiling next block
 	CurrentEntropy common.Entropy
+	// Entropy that gets built out as the block is compiled
+	UpcomingEntropy common.Entropy
 
 	// Consensus Algorithm Status
 	CurrentStep int

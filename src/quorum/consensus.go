@@ -175,13 +175,37 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 	return
 }
 
+func (s *State) tossParticipant(participantIndex ParticipantIndex) {
+	// toss host from the network as absent
+}
+
+func (s *State) processHeartbeat(hb *Heartbeat, i ParticipantIndex) {
+	// compare EntropyStage2 to the hash from the previous heartbeat
+	expectedHash, err := crypto.CalculateTruncatedHash(hb.EntropyStage2[:])
+	if err != nil {
+		log.Fatalln(err)
+	}
+	if expectedHash != s.PreviousEntropyStage1[i] {
+		s.tossParticipant(i)
+	}
+
+	// Add the EntropyStage2 to UpcomingEntropy
+	th, err := crypto.CalculateTruncatedHash(append(s.UpcomingEntropy[:], hb.EntropyStage2[:]...))
+	s.UpcomingEntropy = common.Entropy(th)
+	// update PreviousEntropy, to compare this EntropyStage1 against the next
+	// EntropyStage1
+	s.PreviousEntropyStage1[i] = hb.EntropyStage1
+
+	return
+}
+
 // Takes all of the heartbeats and uses them to advance to the next state
 func (s *State) Compile() {
 	// arrive at a host ordering
 	// create a list representing each host
-	var participantOrdering [common.QuorumSize]int
+	var participantOrdering [common.QuorumSize]ParticipantIndex
 	for i := range participantOrdering {
-		participantOrdering[i] = i
+		participantOrdering[i] = ParticipantIndex(i)
 	}
 
 	// shuffle the list to produce a random host ordering by
@@ -196,42 +220,28 @@ func (s *State) Compile() {
 		participantOrdering[i] = tmp
 	}
 
-	var entropyList [common.QuorumSize]common.Entropy
-	for i, participant := range participantOrdering {
-		// process received heartbeats
+	for _, participant := range participantOrdering {
+		// process received heartbeats [switch these to processHeartbeat()]
 		// skip if no host
 		if s.Participants[participant] == nil {
 			continue
 		}
 
 		if len(s.Heartbeats[participant]) != 1 {
-			// toss the host from the network as absent
+			s.tossParticipant(participant)
 			continue
 		}
 
 		for _, hb := range s.Heartbeats[participant] {
-			// compare EntropyStage2 to the hash from the previous heartbeat
-			expectedHash, err := crypto.CalculateTruncatedHash(hb.EntropyStage2[:])
-			if err != nil {
-				log.Fatalln(err)
-			}
-			if expectedHash != s.PreviousEntropy[i] {
-				// toss host from the network as absent
-				continue
-			}
-
-			// Add the EntropyStage2
-			entropyList[i] = hb.EntropyStage2
-
-			// update PreviousEntropy
-			s.PreviousEntropy[i] = hb.EntropyStage1
+			s.processHeartbeat(hb, participant)
 
 			// clear the heartbeat from s.Heartbeats
 			s.Heartbeats[participant] = make(map[crypto.TruncatedHash]*Heartbeat)
 		}
 	}
 
-	// Call some function to compute next block's starting entropy
+	// move UpcomingEntropy to CurrentEntropy
+	s.CurrentEntropy = s.UpcomingEntropy
 
 	// generate a new heartbeat
 	hb, err := s.NewHeartbeat()
@@ -270,6 +280,9 @@ func (s *State) Compile() {
 // Every common.STEPLENGTH, it updates the currentStep value.
 // When the value flips from common.QuorumSize to 1, Tick() calls
 // 	integrateHeartbeats()
+//
+// Tick() needs to put a lock in the state, to make sure only one Tick() is
+// acting at a time
 func (s *State) Tick() {
 	// Every common.StepDuration, advance the state stage
 	ticker := time.Tick(common.StepDuration)

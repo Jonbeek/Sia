@@ -153,6 +153,32 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 // add fuzzing tests for HandleSignedHeartbeat
 // test race conditions on HandleSignedHeartbeat
 
+func TestProcessHeartbeat(t *testing.T) {
+	// heh
+}
+
+func TestCompile(t *testing.T) {
+	// confirm the ordering is consistent with the algorithm
+	// this should probably just use a hard-coded example? not sure...
+	//
+	// check all participant stuffs in the for loop
+	// have some empty participants, make sure 'continue' is reached
+	// have participants without heartbeats
+	// have participants with extra heartbeats
+	// have participants  with 1 heartbeat, make sure process() gets called
+	//
+	// check that a new heartbeat is created
+	// check that the SignedHeartbeat is correctly created
+	//
+	// check that heartbeat is properly sent to everybody who remains
+
+	s, err := CreateState(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Compile()
+}
+
 // Ensures that Tick() updates CurrentStep
 func TestRegularTick(t *testing.T) {
 	// test takes common.StepDuration seconds; skip for short testing
