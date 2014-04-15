@@ -2,42 +2,92 @@ package quorum
 
 import (
 	"common"
-	"sync"
-	"time"
+	"common/crypto"
+	"fmt"
 )
 
-//List of states
-// SwarmInformed - Swarm member shave been told to join swarm
-// SwarmConnected - Swarm Members have succesfully formed a block
-// SwarmLive - Swarm has sent a signal to the parent blockchain saying it is
-//             alive and is in the steady state
-// SwarmJoin - We are joining an already alive swarm
-// SwarmDied - The swarm has died, terminate
-type State interface {
-	HandleUpdate(t common.Update)
-	Die()
+type ParticipantIndex uint8
+
+// The state is what provides persistence to the consensus algorithms.
+// The state is updated every block, and every honest host is
+// guaranteed to update their state in the same way.
+type State struct {
+	// Who is participating in the quorum
+	Participants [common.QuorumSize]*Participant
+	// Our own index in the quorum
+	ParticipantIndex ParticipantIndex
+
+	// The cryptographic keys belonging to this host specifically
+	PublicKey crypto.PublicKey
+	SecretKey crypto.SecretKey
+
+	// The hash of this was used in stage 1 for the most recent heartbeat
+	StoredEntropyStage2 common.Entropy
+
+	// The stage 1 entropies from the last block
+	// PreviousEntropy [common.QuorumSize]*crypto.TruncatedHash
+
+	// Consensus Algorithm Status
+	CurrentStep int
+	Heartbeats  [common.QuorumSize]map[crypto.TruncatedHash]*Heartbeat
+
+	// Wallet Data
+	Wallets map[string]uint64
 }
 
-func newBlockchain(Host string, Id string, StorageMapping map[string]interface{}) *Blockchain {
-	b := new(Blockchain)
-	b.Host = Host
-	b.Id = Id
-	b.StorageMapping = StorageMapping
-	b.outgoingUpdates = make(chan common.Update)
-	b.incomingMessages = make(chan common.NetworkMessage)
-	b.SeenTransactions = make(map[string]bool)
-	b.lock = &sync.Mutex{}
-	return b
+// Currently just an address, as the participant is accessed
+// by knowing the public key. It's in its own struct because
+// more fields might be added.
+type Participant struct {
+	PublicKey crypto.PublicKey
 }
 
-func NewBlockchain(Host string, Id string, start time.Time, StorageMapping map[string]interface{}) *Blockchain {
-	b := newBlockchain(Host, Id, StorageMapping)
-	b.state = NewStateSwarmInformed(b, start)
-	return b
+// Create and initialize a state object
+func CreateState(participantIndex ParticipantIndex) (s State, err error) {
+	// check that participantIndex is legal
+	if int(participantIndex) >= common.QuorumSize {
+		err = fmt.Errorf("Invalid participant index!")
+		return
+	}
+
+	// initialize crypto keys
+	pubKey, secKey, err := crypto.CreateKeyPair()
+	if err != nil {
+		return
+	}
+	s.PublicKey = pubKey
+	s.SecretKey = secKey
+
+	s.ParticipantIndex = participantIndex
+
+	s.CurrentStep = 1
+	s.Wallets = make(map[string]uint64)
+	return
 }
 
-func JoinBlockchain(Host string, Id string, start time.Time, StorageMapping map[string]interface{}) *Blockchain {
-	b := newBlockchain(Host, Id, StorageMapping)
-	b.state = NewStateJoin(b, start)
-	return b
+// Populates a state with this participant, initializing variables as needed
+// return codes are arbitraily chosen and are only for the test suite
+func (s *State) AddParticipant(pubKey crypto.PublicKey, i ParticipantIndex) (err error) {
+	// Check that there is not already a participant for the index
+	if s.Participants[i] != nil {
+		err = fmt.Errorf("A participant already exists for the given index!")
+		return
+	}
+
+	// initialize participant object
+	var p Participant
+	p.PublicKey = pubKey
+
+	// initialize the heartbeat map for this participant
+	s.Heartbeats[i] = make(map[crypto.TruncatedHash]*Heartbeat)
+
+	// add to state
+	s.Participants[i] = &p
+
+	return
+}
+
+func HandleMessage(m common.Message) {
+	// take the payload and squeeze out the type bytes
+	// use a switch statement based on type
 }

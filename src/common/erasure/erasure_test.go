@@ -1,10 +1,8 @@
 package erasure
 
 import (
-	"bytes"
 	"common"
-	"crypto/rand"
-	"crypto/sha256"
+	"common/crypto"
 	"testing"
 )
 
@@ -12,16 +10,19 @@ import (
 // will produce the correct results.
 func TestCoding(t *testing.T) {
 	k := 100
-	m := common.QUORUMSIZE - k
+	m := common.QuorumSize - k
 	bytesPerSegment := 1024
 
-	// generate a random original file
-	numRandomBytes := bytesPerSegment * k
-	randomBytes := make([]byte, numRandomBytes)
-	rand.Read(randomBytes)
+	randomBytes, err := crypto.RandomByteSlice(bytesPerSegment * k)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// get hash of original file
-	randomBytesHash := common.Hash(sha256.New(), string(randomBytes))
+	randomBytesHash, err := crypto.CalculateHash(randomBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// encode original file into a data ring
 	ringSegments, err := EncodeRing(k, bytesPerSegment, randomBytes)
@@ -30,15 +31,17 @@ func TestCoding(t *testing.T) {
 	}
 
 	// verify that first k segments are still original data
-	originalDataHash := common.Hash(sha256.New(), string(randomBytes))
-	if !(bytes.Equal([]byte(originalDataHash), []byte(randomBytesHash))) {
+	originalDataHash, err := crypto.CalculateHash(randomBytes)
+	if err != nil {
+		t.Fatal(err)
+	} else if originalDataHash != randomBytesHash {
 		t.Fatal("original data was modified after caling EncodeRing!")
 	}
 
 	// reduce file to a set of k segments and print those segments out
 	remainingSegments := make([]string, k)
 	segmentIndicies := make([]uint8, k)
-	for i := m; i < common.QUORUMSIZE; i++ {
+	for i := m; i < common.QuorumSize; i++ {
 		remainingSegments[i-m] = ringSegments[i]
 		segmentIndicies[i-m] = uint8(i)
 	}
@@ -50,10 +53,16 @@ func TestCoding(t *testing.T) {
 	}
 
 	// compare to hash of data when first generated
-	recoveredDataHash := common.Hash(sha256.New(), string(recoveredData))
-	if !(bytes.Equal([]byte(recoveredDataHash), []byte(randomBytesHash))) {
+	recoveredDataHash, err := crypto.CalculateHash(recoveredData)
+	if err != nil {
+		t.Fatal(err)
+	} else if recoveredDataHash != randomBytesHash {
 		t.Fatal("recovered data is different from original data")
 	}
+
+	// In every test, we check that the hashes equal
+	// every other hash that gets created. This makes
+	// me uneasy.
 }
 
 // At some point, there should be a long test that explores all of the edge cases.
