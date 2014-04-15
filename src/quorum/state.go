@@ -69,6 +69,16 @@ func CreateState(participantIndex ParticipantIndex) (s State, err error) {
 
 	// add ourselves to list of participants
 	s.AddParticipant(s.PublicKey, participantIndex)
+
+	// set the stored EntropyStage1 to be the hash of the zero value
+	emptyHash, err := crypto.CalculateTruncatedHash(s.StoredEntropyStage2[:])
+	if err != nil {
+		return
+	}
+	for i := range s.PreviousEntropyStage1 {
+		s.PreviousEntropyStage1[i] = emptyHash
+	}
+
 	return
 }
 

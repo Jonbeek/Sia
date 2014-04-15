@@ -30,8 +30,8 @@ func TestNewHeartbeat(t *testing.T) {
 
 // test heartbeat.marshal and heartbeat.unmarshal
 
-// An incomplete set of tests: the more complete suite will
-// attack the system as a whole.
+// An incomplete set of tests: the more complete suite will attack the system
+// as a whole.
 func TestHandleSignedHeartbeat(t *testing.T) {
 	// create a state and populate it with the signatories as participants
 	s, err := CreateState(0)
@@ -172,8 +172,44 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 // add fuzzing tests for HandleSignedHeartbeat
 // test race conditions on HandleSignedHeartbeat
 
+func TestTossParticipant(t *testing.T) {
+	// tossParticipant isn't yet implemented
+}
+
 func TestProcessHeartbeat(t *testing.T) {
-	// heh
+	// create states and add them to each other
+	s0, err := CreateState(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s1, err := CreateState(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s0.AddParticipant(s1.PublicKey, 1)
+	s1.AddParticipant(s0.PublicKey, 0)
+
+	// check that a valid heartbeat passes
+	hb0, err := s0.NewHeartbeat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	returnCode := s1.processHeartbeat(hb0, 0)
+	if returnCode != 0 {
+		t.Fatal("processHeartbeat threw out a valid heartbeat")
+	}
+
+	// check that invalid entropy fails
+	hb1, err := s1.NewHeartbeat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// make heartbeat invalid (hb1.EntropyStage2 should be the 0 value)
+	hb1.EntropyStage2[0] = 1
+	returnCode = s0.processHeartbeat(hb1, 1)
+	if returnCode != 1 {
+		t.Fatal("processHeartbeat accepted an invalid heartbeat")
+	}
 }
 
 func TestCompile(t *testing.T) {

@@ -179,7 +179,7 @@ func (s *State) tossParticipant(participantIndex ParticipantIndex) {
 	// toss host from the network as absent
 }
 
-func (s *State) processHeartbeat(hb *Heartbeat, i ParticipantIndex) {
+func (s *State) processHeartbeat(hb *Heartbeat, i ParticipantIndex) int {
 	// compare EntropyStage2 to the hash from the previous heartbeat
 	expectedHash, err := crypto.CalculateTruncatedHash(hb.EntropyStage2[:])
 	if err != nil {
@@ -187,6 +187,7 @@ func (s *State) processHeartbeat(hb *Heartbeat, i ParticipantIndex) {
 	}
 	if expectedHash != s.PreviousEntropyStage1[i] {
 		s.tossParticipant(i)
+		return 1
 	}
 
 	// Add the EntropyStage2 to UpcomingEntropy
@@ -196,7 +197,7 @@ func (s *State) processHeartbeat(hb *Heartbeat, i ParticipantIndex) {
 	// EntropyStage1
 	s.PreviousEntropyStage1[i] = hb.EntropyStage1
 
-	return
+	return 0
 }
 
 // Takes all of the heartbeats and uses them to advance to the next state
