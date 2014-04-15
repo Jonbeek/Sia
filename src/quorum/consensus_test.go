@@ -8,6 +8,25 @@ import (
 )
 
 // test create heartbeat
+func TestNewHeartbeat(t *testing.T) {
+	s, err := CreateState(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hb, err := s.NewHeartbeat()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// make sure that EntropyStage1 matches the hash of what gets stored
+	storedEntropyHash, err := crypto.CalculateTruncatedHash(s.StoredEntropyStage2[:])
+	if err != nil {
+		t.Fatal(err)
+	} else if hb.EntropyStage1 != storedEntropyHash {
+		t.Fatal("NewHeartbeat() incorrectly producing EntropyStage1 from s.StoredEntropyStage2")
+	}
+}
 
 // test heartbeat.marshal and heartbeat.unmarshal
 
