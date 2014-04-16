@@ -75,7 +75,7 @@ func (s *State) SignHeartbeat(hb *Heartbeat) (sh *SignedHeartbeat, err error) {
 
 	// fill out sigantures
 	sh.Signatures = make([]crypto.Signature, 1)
-	signedHb, err := crypto.Sign(s.SecretKey, marshalledHb)
+	signedHb, err := crypto.Sign(s.SecretKey, string(sh.HeartbeatHash[:]))
 	if err != nil {
 		return
 	}
@@ -243,15 +243,15 @@ func (s *State) Compile() {
 		participantOrdering[i] = ParticipantIndex(i)
 	}
 
-	// shuffle the list to produce a random host ordering by
-	// swapping each element with a random element in front of it
-	for i, value := range participantOrdering {
+	// shuffle the list to produce a random host ordering by swapping each
+	// element with a random element in front of it
+	for i := range participantOrdering {
 		newIndex, err := s.RandInt(i, common.QuorumSize)
 		if err != nil {
 			log.Fatalln(err)
 		}
 		tmp := participantOrdering[newIndex]
-		participantOrdering[newIndex] = value
+		participantOrdering[newIndex] = participantOrdering[i]
 		participantOrdering[i] = tmp
 	}
 

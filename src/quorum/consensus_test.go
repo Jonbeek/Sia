@@ -242,48 +242,68 @@ func TestCompile(t *testing.T) {
 	s0.AddParticipant(s2.PublicKey, 2)
 	s0.AddParticipant(s3.PublicKey, 3)
 
-	// create heartbeats for s0
-	hb1, err := s1.NewHeartbeat()
-	if err != nil {
-		t.Fatal(err)
+	// fetch legal heartbeat for s1
+	var hash crypto.TruncatedHash
+	for index := range s1.Heartbeats[1] {
+		hash = index
 	}
-	hb3a, err := s3.NewHeartbeat()
-	if err != nil {
-		t.Fatal(err)
-	}
-	hb3b, err := s3.NewHeartbeat()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// get the signed versions of said heartbeats
+	hb1 := s1.Heartbeats[1][hash]
 	shb1, err := s1.SignHeartbeat(hb1)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// fetch legal heartbeat for s3
+	for index := range s3.Heartbeats[3] {
+		hash = index
+	}
+	hb3a := s3.Heartbeats[3][hash]
 	shb3a, err := s3.SignHeartbeat(hb3a)
 	if err != nil {
 		t.Fatal(err)
 	}
-	shb3b, err := s3.SignHeartbeat(hb3b)
+
+	// create a second illegal heartbeat for s3
+	var hb3b Heartbeat
+	hb3b.EntropyStage1[0] = 0
+	hb3b.EntropyStage2 = hb3a.EntropyStage2
+	shb3b, err := s3.SignHeartbeat(&hb3b)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// send the SignedHeartbeats to s0
-	s0.HandleSignedHeartbeat(shb1)
-	s0.HandleSignedHeartbeat(shb3a)
-	s0.HandleSignedHeartbeat(shb3b)
+	returnCode := s0.HandleSignedHeartbeat(shb1)
+	if returnCode != 0 {
+		t.Fatal("Expecting shb1 to be valid: ", returnCode)
+	}
+	returnCode = s0.HandleSignedHeartbeat(shb3a)
+	if returnCode != 0 {
+		t.Fatal("Expecting shb3a to be valid: ", returnCode)
+	}
+	returnCode = s0.HandleSignedHeartbeat(shb3b)
+	if returnCode != 0 {
+		t.Fatal("Expecting shb3b to be valid: ", returnCode)
+	}
 
 	s0.Compile()
 
 	// verify that participant ordering algorithm is correct and deterministic
 
 	// verify that upon processing, s1 is not thrown from s0, and is processed correctly
+	if s0.Participants[1] == nil {
+		t.Fatal("s1 thrown from s0 despite having a fair heartbeat")
+	}
 
 	// verify that upon processing, s2 is thrown from s0 (doesn't have heartbeat)
+	if s0.Participants[2] != nil {
+		t.Fatal("s2 not thrown from s0 despite having no heartbeats")
+	}
 
 	// verify that upon processing, s3 is thrown from s0 (too many heartbeats)
+	if s0.Participants[3] != nil {
+		t.Fatal("s3 not thrown from s0 despite having multiple heartbeats")
+	}
 
 	// verify that a new heartbeat was made, formatted into a SignedHeartbeat, and sent off
 }
