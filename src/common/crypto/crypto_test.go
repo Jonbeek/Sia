@@ -4,10 +4,21 @@ import (
 	"testing"
 )
 
-// calls createKeyPair and checks the error
-func TestCreateKeyPair(t *testing.T) {
-	_, _, err := createKeyPair()
-	if err != nil {
-		t.Fatal(err)
+// A basic test, checks for the crypto constants
+func TestConstants(t *testing.T) {
+	if VerifyPublicKeySize() != true {
+		t.Fatal("PublicKeySize does not match libsodium crypto_sign_PUBLICKEYBYTES")
+	}
+
+	if VerifySecretKeySize() != true {
+		t.Fatal("SecretKeySize does not match libsodium crypto_sign_SECRETKEYBYTES")
+	}
+
+	if VerifySignatureSize() != true {
+		t.Fatal("SignatureSize does not match libsodium crypto_sign_BYTES")
+	}
+
+	if VerifyHashSize() != true {
+		t.Fatal("HashSize does not match libsodium crpyto_hash_BYTES")
 	}
 }

@@ -1,3 +1,6 @@
+// Common contains structs, data, and interfaces that
+// needs to be referenced by many packages but doesn't
+// necessarily have an obvious place it belongs
 package common
 
 import (
@@ -6,50 +9,33 @@ import (
 
 const (
 	// How many bytes of entropy must be produced each entropy cycle
-	ENTROPYVOLUME int = 32
+	EntropyVolume int = 32
 
 	// How big a single slice of data is for a host, in bytes
-	MINSLICESIZE int = 512
-	MAXSLICESIZE int = 1048576 // 1 MB
+	MinSliceSize int = 512
+	MaxSliceSize int = 1048576 // 1 MB
 
 	// How many hosts participate in each quorum
 	// This number is chosen to minimize the probability of a single quorum
 	// 	becoming more than 80% compromised by an attacker controlling 1/2 of
 	// 	the network.
-	QUORUMSIZE int = 192
+	QuorumSize int = 128
+
+	// How long a single step in the consensus algorithm takes
+	StepDuration time.Duration = 15 * time.Second
 )
 
-type Record interface {
-	Type() string
-	MarshalString() string
+type Entropy [EntropyVolume]byte
+
+// Messages are for sending things over the network.
+// Each message has a single destination, and it is
+// the job of the network package to interpret the
+// destinations.
+type Message struct {
+	Destination []string // may not remain a string
+	Payload     string
 }
 
-type Update interface {
-	SwarmId() string
-	UpdateId() string
-	MarshalString() string
-	Type() string
+type MessageHandler interface {
+	HandleMessage(m Message)
 }
-
-type NetworkMessage struct {
-	SwarmId  string
-	UpdateId string
-	Payload  string
-	Type     string
-}
-
-type NetworkMessageHandler interface {
-	HandleNetworkMessage(m NetworkMessage)
-}
-
-type NetworkMultiplexer interface {
-	AddListener(Swarmid string, c NetworkMessageHandler)
-	SendNetworkMessage(o NetworkMessage)
-	Listen(addr string)
-	Connect(addr string)
-}
-
-// swarmsize is the number of hosts managing each set of files
-var SWARMSIZE int = 192
-
-var STATEINFORMEDDELTA time.Duration = 1 * time.Second

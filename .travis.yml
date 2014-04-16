@@ -8,4 +8,4 @@ install:
   - make race-libs
   - make
 
-script: make test
+script: make test-long-verbose
