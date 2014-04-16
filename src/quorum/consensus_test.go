@@ -9,7 +9,7 @@ import (
 
 // test create heartbeat
 func TestNewHeartbeat(t *testing.T) {
-	s, err := CreateState(0)
+	s, err := CreateState(nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,20 +34,20 @@ func TestNewHeartbeat(t *testing.T) {
 // as a whole.
 func TestHandleSignedHeartbeat(t *testing.T) {
 	// create a state and populate it with the signatories as participants
-	s, err := CreateState(0)
+	s, err := CreateState(nil, 0)
 	if err != nil {
-		t.Fatal("error creating state!")
+		t.Fatal(err)
 	}
 
 	// create some public keys
 	pubKey1, secKey1, err := crypto.CreateKeyPair()
 	if err != nil {
-		t.Fatal("calling CreateKeyPair() failed!")
+		t.Fatal(err)
 	}
 
 	pubKey2, secKey2, err := crypto.CreateKeyPair()
 	if err != nil {
-		t.Fatal("second call to CreateKeyPair() failed!")
+		t.Fatal(err)
 	}
 
 	// Add keys as participants
@@ -178,11 +178,11 @@ func TestTossParticipant(t *testing.T) {
 
 func TestProcessHeartbeat(t *testing.T) {
 	// create states and add them to each other
-	s0, err := CreateState(0)
+	s0, err := CreateState(nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s1, err := CreateState(1)
+	s1, err := CreateState(nil, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,19 +222,19 @@ func TestProcessHeartbeat(t *testing.T) {
 
 func TestCompile(t *testing.T) {
 	// Create states and add them to eachother as participants
-	s0, err := CreateState(0)
+	s0, err := CreateState(nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s1, err := CreateState(1)
+	s1, err := CreateState(nil, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s2, err := CreateState(2)
+	s2, err := CreateState(nil, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s3, err := CreateState(3)
+	s3, err := CreateState(nil, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -320,7 +320,7 @@ func TestRegularTick(t *testing.T) {
 		t.Skip()
 	}
 
-	s, err := CreateState(0)
+	s, err := CreateState(nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,7 +342,7 @@ func TestCompilationTick(t *testing.T) {
 		t.Skip()
 	}
 
-	s, err := CreateState(0)
+	s, err := CreateState(nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

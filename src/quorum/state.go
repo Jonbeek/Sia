@@ -13,6 +13,9 @@ type ParticipantIndex uint8
 // The state is updated every block, and every honest host is
 // guaranteed to update their state in the same way.
 type State struct {
+	// How to get messages to the network
+	MessageSender common.MessageSender
+
 	// Who is participating in the quorum
 	Participants [common.QuorumSize]*Participant
 	// Our own index in the quorum
@@ -50,12 +53,14 @@ type Participant struct {
 }
 
 // Create and initialize a state object
-func CreateState(participantIndex ParticipantIndex) (s State, err error) {
+func CreateState(messageSender common.MessageSender, participantIndex ParticipantIndex) (s State, err error) {
 	// check that participantIndex is legal
 	if int(participantIndex) >= common.QuorumSize {
 		err = fmt.Errorf("Invalid participant index!")
 		return
 	}
+
+	s.MessageSender = messageSender
 
 	// initialize crypto keys
 	pubKey, secKey, err := crypto.CreateKeyPair()

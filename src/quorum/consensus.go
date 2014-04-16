@@ -323,7 +323,7 @@ func (s *State) Tick() {
 		}
 	}
 
-	// if every we add code to stop a swarm from ticking, this will be needed
+	// if every we add code to stop ticking, this will be needed
 	s.TickLock.Lock()
 	s.Ticking = false
 	s.TickLock.Unlock()

@@ -32,8 +32,12 @@ type Entropy [EntropyVolume]byte
 // the job of the network package to interpret the
 // destinations.
 type Message struct {
-	Destination []string // may not remain a string
+	Destination string // may not remain a string
 	Payload     string
+}
+
+type MessageSender interface {
+	SendMessage(m Message)
 }
 
 type MessageHandler interface {

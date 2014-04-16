@@ -9,7 +9,7 @@ import (
 // quick sanity check
 func TestCreateState(t *testing.T) {
 	// create a state
-	s, err := CreateState(0)
+	s, err := CreateState(nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,12 +28,12 @@ func TestCreateState(t *testing.T) {
 
 // verify that one state can add another
 func TestAddParticipant(t *testing.T) {
-	s0, err := CreateState(0)
+	s0, err := CreateState(nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s1, err := CreateState(1)
+	s1, err := CreateState(nil, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestAddParticipant(t *testing.T) {
 
 // check general case, check corner cases, and then do some fuzzing
 func TestRandInt(t *testing.T) {
-	s, err := CreateState(0)
+	s, err := CreateState(nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
