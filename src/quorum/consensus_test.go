@@ -189,8 +189,14 @@ func TestProcessHeartbeat(t *testing.T) {
 	s0.AddParticipant(s1.PublicKey, 1)
 	s1.AddParticipant(s0.PublicKey, 0)
 
+	// get the hash of the first heartbeat in s0
+	var hash crypto.TruncatedHash
+	for index := range s0.Heartbeats[0] {
+		hash = index
+	}
+
 	// check that a valid heartbeat passes
-	hb0, err := s0.NewHeartbeat()
+	hb0 := s0.Heartbeats[0][hash]
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,10 +206,12 @@ func TestProcessHeartbeat(t *testing.T) {
 	}
 
 	// check that invalid entropy fails
-	hb1, err := s1.NewHeartbeat()
-	if err != nil {
-		t.Fatal(err)
+	// get the hash of the first hearbeat in s1
+	for index := range s1.Heartbeats[1] {
+		hash = index
 	}
+	hb1 := s1.Heartbeats[1][hash]
+
 	// make heartbeat invalid (hb1.EntropyStage2 should be the 0 value)
 	hb1.EntropyStage2[0] = 1
 	returnCode = s0.processHeartbeat(hb1, 1)

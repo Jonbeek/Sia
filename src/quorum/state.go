@@ -79,6 +79,16 @@ func CreateState(participantIndex ParticipantIndex) (s State, err error) {
 		s.PreviousEntropyStage1[i] = emptyHash
 	}
 
+	// create our first heartbeat and add it to our heartbeat map
+	hb, err := s.NewHeartbeat()
+	if err != nil {
+		return
+	}
+
+	// get the heartbeats hash
+	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.Marshal()))
+	s.Heartbeats[participantIndex][heartbeatHash] = hb
+
 	return
 }
 

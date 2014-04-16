@@ -197,8 +197,20 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 	return
 }
 
-func (s *State) tossParticipant(participantIndex ParticipantIndex) {
-	// toss host from the network as absent
+func (s *State) tossParticipant(pi ParticipantIndex) {
+	// remove from s.Participants
+	s.Participants[pi] = nil
+
+	// remove from s.PreviousEntropyStage1
+	var emptyEntropy common.Entropy
+	zeroHash, err := crypto.CalculateTruncatedHash(emptyEntropy[:])
+	s.PreviousEntropyStage1[pi] = zeroHash
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// nil map in s.Heartbeats
+	s.Heartbeats[pi] = nil
 }
 
 func (s *State) processHeartbeat(hb *Heartbeat, i ParticipantIndex) int {
@@ -271,27 +283,10 @@ func (s *State) Compile() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	// create a signed heartbeat from new heartbeat
-	var signedHeartbeat SignedHeartbeat
-	signedHeartbeat.Heartbeat = hb
-
-	// hash heartbeat
-	marshalledHeartbeat := hb.Marshal()
-	signedHeartbeat.HeartbeatHash, err = crypto.CalculateTruncatedHash([]byte(marshalledHeartbeat))
+	signedHeartbeat, err := s.SignHeartbeat(hb)
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	// sign hashed heartbeat
-	signedHeartbeat.Signatures = make([]crypto.Signature, 1)
-	signature, err := crypto.Sign(s.SecretKey, string(signedHeartbeat.HeartbeatHash[:]))
-	signedHeartbeat.Signatures[0] = signature.Signature
-	if err != nil {
-		log.Fatalln(err)
-	}
-	signedHeartbeat.Signatories = make([]ParticipantIndex, 1)
-	signedHeartbeat.Signatories[0] = s.ParticipantIndex
 
 	// add our heartbeat to our heartbeat map
 	s.Heartbeats[s.ParticipantIndex][signedHeartbeat.HeartbeatHash] = signedHeartbeat.Heartbeat
