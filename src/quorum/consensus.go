@@ -299,14 +299,19 @@ func (s *State) Compile() {
 	// send the signed heartbeat to everyone
 }
 
-// Tick() should only be called once, and should run in its own go thread
-// Every common.STEPLENGTH, it updates the currentStep value.
-// When the value flips from common.QuorumSize to 1, Tick() calls
-// 	integrateHeartbeats()
-//
-// Tick() needs to put a lock in the state, to make sure only one Tick() is
-// acting at a time
+// Tick() updates s.CurrentStep, and calls Compile() when all steps are complete
+// Tick() runs in its own gothread, only one instance of Tick() runs per state
 func (s *State) Tick() {
+	// check that no other instance of Tick() is running
+	s.TickLock.Lock()
+	if s.Ticking {
+		s.TickLock.Unlock()
+		return
+	} else {
+		s.Ticking = true
+		s.TickLock.Unlock()
+	}
+
 	// Every common.StepDuration, advance the state stage
 	ticker := time.Tick(common.StepDuration)
 	for _ = range ticker {
@@ -317,4 +322,15 @@ func (s *State) Tick() {
 			s.CurrentStep += 1
 		}
 	}
+
+	// if every we add code to stop a swarm from ticking, this will be needed
+	s.TickLock.Lock()
+	s.Ticking = false
+	s.TickLock.Unlock()
+}
+
+func (s *State) Start() {
+	// send empty heartbeat to everybody
+
+	go s.Tick()
 }

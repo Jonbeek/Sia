@@ -4,6 +4,7 @@ import (
 	"common"
 	"common/crypto"
 	"fmt"
+	"sync"
 )
 
 type ParticipantIndex uint8
@@ -33,6 +34,8 @@ type State struct {
 
 	// Consensus Algorithm Status
 	CurrentStep int
+	Ticking     bool
+	TickLock    sync.Mutex
 	Heartbeats  [common.QuorumSize]map[crypto.TruncatedHash]*Heartbeat
 
 	// Wallet Data

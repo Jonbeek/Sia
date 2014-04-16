@@ -358,3 +358,26 @@ func TestCompilationTick(t *testing.T) {
 
 	// check if s.Compile() got called
 }
+
+func TestTickLock(t *testing.T) {
+	// this is a long test
+	if testing.Short() {
+		t.Skip()
+	}
+
+	// create state
+	s, err := CreateState(nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// call tick twice
+	go s.Tick()
+	go s.Tick()
+	time.Sleep(common.StepDuration)
+	time.Sleep(time.Second)
+	// if two instances of Tick() are running, s.CurrentStep will update twice
+	if s.CurrentStep != 2 {
+		t.Fatal("Double tick failed: ", s.CurrentStep)
+	}
+}
