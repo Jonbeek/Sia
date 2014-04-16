@@ -234,11 +234,7 @@ func (s *State) processHeartbeat(hb *Heartbeat, i ParticipantIndex) int {
 	return 0
 }
 
-// Takes all of the heartbeats and uses them to advance to the next state
-func (s *State) Compile() {
-	// arrive at a host ordering
-	// create a list representing each host
-	var participantOrdering [common.QuorumSize]ParticipantIndex
+func (s *State) participantOrdering() (participantOrdering [common.QuorumSize]ParticipantIndex) {
 	for i := range participantOrdering {
 		participantOrdering[i] = ParticipantIndex(i)
 	}
@@ -254,6 +250,15 @@ func (s *State) Compile() {
 		participantOrdering[newIndex] = participantOrdering[i]
 		participantOrdering[i] = tmp
 	}
+
+	return
+}
+
+// Takes all of the heartbeats and uses them to advance to the next state
+func (s *State) Compile() {
+	// arrive at a host ordering
+	// create a list representing each host
+	participantOrdering := s.participantOrdering()
 
 	for _, participant := range participantOrdering {
 		// process received heartbeats [switch these to processHeartbeat()]

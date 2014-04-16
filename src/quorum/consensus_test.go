@@ -288,7 +288,12 @@ func TestCompile(t *testing.T) {
 
 	s0.Compile()
 
-	// verify that participant ordering algorithm is correct and deterministic
+	// check that hosts arrive at the same participantOrdering
+	participantOrdering1 := s1.participantOrdering()
+	participantOrdering2 := s2.participantOrdering()
+	if participantOrdering1 != participantOrdering2 {
+		t.Fatal("partcipantOrderings for s1 and s2 are not identical!")
+	}
 
 	// verify that upon processing, s1 is not thrown from s0, and is processed correctly
 	if s0.Participants[1] == nil {
