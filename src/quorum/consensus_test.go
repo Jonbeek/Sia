@@ -213,25 +213,71 @@ func TestProcessHeartbeat(t *testing.T) {
 }
 
 func TestCompile(t *testing.T) {
-	// confirm the ordering is consistent with the algorithm
-	// this should probably just use a hard-coded example? not sure...
-	//
-	// check all participant stuffs in the for loop
-	// have some empty participants, make sure 'continue' is reached
-	// have participants without heartbeats
-	// have participants with extra heartbeats
-	// have participants  with 1 heartbeat, make sure process() gets called
-	//
-	// check that a new heartbeat is created
-	// check that the SignedHeartbeat is correctly created
-	//
-	// check that heartbeat is properly sent to everybody who remains
-
-	s, err := CreateState(0)
+	// Create states and add them to eachother as participants
+	s0, err := CreateState(0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.Compile()
+	s1, err := CreateState(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2, err := CreateState(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s3, err := CreateState(3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s0.AddParticipant(s1.PublicKey, 1)
+	s0.AddParticipant(s2.PublicKey, 2)
+	s0.AddParticipant(s3.PublicKey, 3)
+
+	// create heartbeats for s0
+	hb1, err := s1.NewHeartbeat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hb3a, err := s3.NewHeartbeat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hb3b, err := s3.NewHeartbeat()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// get the signed versions of said heartbeats
+	shb1, err := s1.SignHeartbeat(hb1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shb3a, err := s3.SignHeartbeat(hb3a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shb3b, err := s3.SignHeartbeat(hb3b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// send the SignedHeartbeats to s0
+	s0.HandleSignedHeartbeat(shb1)
+	s0.HandleSignedHeartbeat(shb3a)
+	s0.HandleSignedHeartbeat(shb3b)
+
+	s0.Compile()
+
+	// verify that participant ordering algorithm is correct and deterministic
+
+	// verify that upon processing, s1 is not thrown from s0, and is processed correctly
+
+	// verify that upon processing, s2 is thrown from s0 (doesn't have heartbeat)
+
+	// verify that upon processing, s3 is thrown from s0 (too many heartbeats)
+
+	// verify that a new heartbeat was made, formatted into a SignedHeartbeat, and sent off
 }
 
 // Ensures that Tick() updates CurrentStep
@@ -256,6 +302,7 @@ func TestRegularTick(t *testing.T) {
 	}
 }
 
+// ensures Tick() calles Compile() and then resets the counter to step 1
 func TestCompilationTick(t *testing.T) {
 	// test takes common.StepDuration seconds; skip for short testing
 	if testing.Short() {

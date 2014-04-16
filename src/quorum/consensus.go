@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+// Heartbeat contains all of the information that a host needs to
+// participate in the quorum. This includes entropy proofs, file
+// proofs, and transactions from hosts.
+type Heartbeat struct {
+	EntropyStage1 crypto.TruncatedHash
+	EntropyStage2 common.Entropy
+}
+
 // Part of the Byzantine Generals Problem
 // SignedHeartbeat contains a heartbeat from a host
 // which has been signed by the host, and then by
@@ -16,14 +24,6 @@ type SignedHeartbeat struct {
 	HeartbeatHash crypto.TruncatedHash
 	Signatures    []crypto.Signature
 	Signatories   []ParticipantIndex
-}
-
-// Heartbeat contains all of the information that a host needs to
-// participate in the quorum. This includes entropy proofs, file
-// proofs, and transactions from hosts.
-type Heartbeat struct {
-	EntropyStage1 crypto.TruncatedHash
-	EntropyStage2 common.Entropy
 }
 
 // Using the current State, NewHeartbeat creates a heartbeat that
@@ -61,6 +61,30 @@ func (hb *Heartbeat) Marshal() (marshalledHeartbeat string) {
 // func UnmarshalHeartbeat(marshalledHeartbeat string) {
 // }
 
+func (s *State) SignHeartbeat(hb *Heartbeat) (sh *SignedHeartbeat, err error) {
+	var signedHeartbeat SignedHeartbeat
+	sh = &signedHeartbeat
+
+	// confirm heartbeat and hash
+	sh.Heartbeat = hb
+	marshalledHb := hb.Marshal()
+	sh.HeartbeatHash, err = crypto.CalculateTruncatedHash([]byte(marshalledHb))
+	if err != nil {
+		return
+	}
+
+	// fill out sigantures
+	sh.Signatures = make([]crypto.Signature, 1)
+	signedHb, err := crypto.Sign(s.SecretKey, marshalledHb)
+	if err != nil {
+		return
+	}
+	sh.Signatures[0] = signedHb.Signature
+	sh.Signatories = make([]ParticipantIndex, 1)
+	sh.Signatories[0] = s.ParticipantIndex
+	return
+}
+
 // HandleSignedHeartbeat takes a heartbeat that has been signed
 // as a part of the concensus algorithm, and follows all the rules
 // that are necessary to ensure that all honest hosts arrive at
@@ -69,8 +93,6 @@ func (hb *Heartbeat) Marshal() (marshalledHeartbeat string) {
 // See the paper 'The Byzantine Generals Problem' for more insight
 // on the algorithms used here. Paper can be found in
 // doc/The Byzantine Generals Problem
-//
-// Some of the logging in HandleSignedHeartbeat may be incomplete
 //
 // This function is called concurrently, mutexes will be needed when
 // accessing or altering the State
