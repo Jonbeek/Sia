@@ -25,11 +25,11 @@ static char *encodeRedundancy(int k, int m, int bytesPerSegment, char *originalB
 	const unsigned char *originalSegments[k];
 	int i;
 	for(i = 0; i < k; i++) {
-		originalSegments[i] = &originalBlock[i * bytesPerSegment];
+		originalSegments[i] = (const unsigned char*)&originalBlock[i * bytesPerSegment];
 	}
 
 	// allocate space for redundant segments
-	unsigned char *redundantSegments = calloc(sizeof(unsigned char), m * bytesPerSegment);
+	char *redundantSegments = calloc(sizeof(unsigned char), m * bytesPerSegment);
 
 	// encode the redundant segments
 	if(cauchy_256_encode(k, m, originalSegments, redundantSegments, bytesPerSegment)) {
