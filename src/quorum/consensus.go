@@ -92,21 +92,34 @@ func (s *State) SignHeartbeat(hb *Heartbeat) (sh *SignedHeartbeat, err error) {
 	return
 }
 
-// takes a signed heartbeat and turns it into a message
-func (sh *SignedHeartbeat) Package(participant *Participant) (m common.Message) {
-	// no destination supported currently by the codebase
-	numBytes := crypto.TruncatedHashSize + 1 + len(sh.Signatories)*(crypto.SignatureSize+1)
-	payload := make([]byte, numBytes)
+func (sh *SignedHeartbeat) Marshal() (msh []byte, err error) {
+	// error check the input
+	if len(sh.Signatures) > common.QuorumSize {
+		err = fmt.Errorf("Too many signatures on heartbeat")
+		return
+	} else if len(sh.Signatures) != len(sh.Signatories) {
+		err = fmt.Errorf("Mismatched set of signatures and signatories")
+		return
+	}
 
-	copy(payload, sh.HeartbeatHash[:])
+	// get all pieces of the marshalledSignedHeartbeat
+	mhb := sh.Heartbeat.Marshal()
+	numSignatures := byte(len(sh.Signatures))
+	numBytes := len(mhb) + 1 + int(numSignatures)*(crypto.SignatureSize+1)
+	msh = make([]byte, numBytes)
 
-	// marshalling format:
-	// 1. a hash of the heartbeat
-	// 2. a count of the participants (1 byte)
-	// 3. for each:
-	//    3a. a single singature
-	//    3b. a number corresponding to the signatory
-	m.Payload = payload
+	index := 0
+	copy(msh, mhb)
+	index += len(mhb)
+	copy(msh[index:], string(numSignatures))
+	index += 1
+	for i := 0; i < int(numSignatures); i++ {
+		copy(msh[index:], sh.Signatures[i][:])
+		index += crypto.SignatureSize
+		copy(msh[index:], string(sh.Signatories[i]))
+		index += 1
+	}
+
 	return
 }
 
@@ -131,19 +144,21 @@ func (s *State) processHeartbeat(hb *Heartbeat, i ParticipantIndex) int {
 	return 0
 }
 
-/* // Takes a heartbeat, signs it, packages into a message and then sends the
-// message to every participant in the quorum
-func (s *State) announceHeartbeat(hb *Heartbeat) {
-	signedHeartbeat, err := s.SignHeartbeat(hb)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
+func (s *State) announceSignedHeartbeat(sh *SignedHeartbeat) {
 	for i := range s.Participants {
-		message := signedHeartbeat.Package(s.Participants[i])
-		s.MessageSender.SendMessage(message)
+		if s.Participants[i] != nil {
+			payload, err := sh.Marshal()
+			if err != nil {
+				log.Fatalln(err)
+			}
+
+			m := new(common.Message)
+			m.Payload = payload
+			m.Destination = s.Participants[i].Address
+			s.MessageSender.SendMessage(m)
+		}
 	}
-} */
+}
 
 // HandleSignedHeartbeat takes a heartbeat that has been signed
 // as a part of the concensus algorithm, and follows all the rules
@@ -330,8 +345,13 @@ func (s *State) Compile() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+
 	s.Heartbeats[s.ParticipantIndex][hash] = hb
-	//s.announceHeartbeat(hb)
+	shb, err := s.SignHeartbeat(hb)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	s.announceSignedHeartbeat(shb)
 }
 
 // Tick() updates s.CurrentStep, and calls Compile() when all steps are complete

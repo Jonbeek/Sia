@@ -210,6 +210,7 @@ func TestTossParticipant(t *testing.T) {
 	// tossParticipant isn't yet implemented
 }
 
+// Check that valid heartbeats are accepted and invalid heartbeats are rejected
 func TestProcessHeartbeat(t *testing.T) {
 	// create states and add them to each other
 	s0, err := CreateState(common.NewZeroNetwork(), 0)
@@ -223,14 +224,8 @@ func TestProcessHeartbeat(t *testing.T) {
 	s0.AddParticipant(s1.Self(), 1)
 	s1.AddParticipant(s0.Self(), 0)
 
-	// get the hash of the first heartbeat in s0
-	var hash crypto.TruncatedHash
-	for index := range s0.Heartbeats[0] {
-		hash = index
-	}
-
 	// check that a valid heartbeat passes
-	hb0 := s0.Heartbeats[0][hash]
+	hb0, err := s0.NewHeartbeat()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -240,13 +235,10 @@ func TestProcessHeartbeat(t *testing.T) {
 	}
 
 	// check that invalid entropy fails
-	// get the hash of the first hearbeat in s1
-	for index := range s1.Heartbeats[1] {
-		hash = index
+	hb1, err := s1.NewHeartbeat()
+	if err != nil {
+		t.Fatal(err)
 	}
-	hb1 := s1.Heartbeats[1][hash]
-
-	// make heartbeat invalid (hb1.EntropyStage2 should be the 0 value)
 	hb1.EntropyStage2[0] = 1
 	returnCode = s0.processHeartbeat(hb1, 1)
 	if returnCode != 1 {
@@ -268,54 +260,47 @@ func TestCompile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s3, err := CreateState(common.NewZeroNetwork(), 3)
-	if err != nil {
-		t.Fatal(err)
-	}
 	s0.AddParticipant(s1.Self(), 1)
 	s0.AddParticipant(s2.Self(), 2)
-	s0.AddParticipant(s3.Self(), 3)
 
-	// fetch legal heartbeat for s1
-	var hash crypto.TruncatedHash
-	for index := range s1.Heartbeats[1] {
-		hash = index
+	// fetch legal heartbeat for s0
+	hb0, err := s0.NewHeartbeat()
+	if err != nil {
+		t.Fatal(err)
 	}
-	hb1 := s1.Heartbeats[1][hash]
-	shb1, err := s1.SignHeartbeat(hb1)
+	shb0, err := s0.SignHeartbeat(hb0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// fetch legal heartbeat for s3
-	for index := range s3.Heartbeats[3] {
-		hash = index
+	// fetch legal heartbeat for s2
+	hb2a, err := s2.NewHeartbeat()
+	if err != nil {
+		t.Fatal(err)
 	}
-	hb3a := s3.Heartbeats[3][hash]
-	shb3a, err := s3.SignHeartbeat(hb3a)
+	shb2a, err := s2.SignHeartbeat(hb2a)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// create a second illegal heartbeat for s3
-	var hb3b Heartbeat
-	hb3b.EntropyStage1[0] = 0
-	hb3b.EntropyStage2 = hb3a.EntropyStage2
-	shb3b, err := s3.SignHeartbeat(&hb3b)
+	// create a second illegal heartbeat for s2
+	var hb2b Heartbeat
+	hb2b.EntropyStage2 = hb2a.EntropyStage2
+	shb2b, err := s2.SignHeartbeat(&hb2b)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// send the SignedHeartbeats to s0
-	returnCode := s0.HandleSignedHeartbeat(shb1)
+	returnCode := s0.HandleSignedHeartbeat(shb0)
 	if returnCode != 0 {
 		t.Fatal("Expecting shb1 to be valid: ", returnCode)
 	}
-	returnCode = s0.HandleSignedHeartbeat(shb3a)
+	returnCode = s0.HandleSignedHeartbeat(shb2a)
 	if returnCode != 0 {
 		t.Fatal("Expecting shb3a to be valid: ", returnCode)
 	}
-	returnCode = s0.HandleSignedHeartbeat(shb3b)
+	returnCode = s0.HandleSignedHeartbeat(shb2b)
 	if returnCode != 0 {
 		t.Fatal("Expecting shb3b to be valid: ", returnCode)
 	}
@@ -329,19 +314,19 @@ func TestCompile(t *testing.T) {
 		t.Fatal("partcipantOrderings for s1 and s2 are not identical!")
 	}
 
-	// verify that upon processing, s1 is not thrown from s0, and is processed correctly
-	if s0.Participants[1] == nil {
-		t.Fatal("s1 thrown from s0 despite having a fair heartbeat")
+	// verify that upon processing, s0 is not thrown from s0, and is processed correctly
+	if s0.Participants[0] == nil {
+		t.Fatal("s0 thrown from s0 despite having a fair heartbeat")
 	}
 
-	// verify that upon processing, s2 is thrown from s0 (doesn't have heartbeat)
-	if s0.Participants[2] != nil {
-		t.Fatal("s2 not thrown from s0 despite having no heartbeats")
+	// verify that upon processing, s1 is thrown from s0 (doesn't have heartbeat)
+	if s0.Participants[1] != nil {
+		t.Fatal("s1 not thrown from s0 despite having no heartbeats")
 	}
 
 	// verify that upon processing, s3 is thrown from s0 (too many heartbeats)
-	if s0.Participants[3] != nil {
-		t.Fatal("s3 not thrown from s0 despite having multiple heartbeats")
+	if s0.Participants[2] != nil {
+		t.Fatal("s2 not thrown from s0 despite having multiple heartbeats")
 	}
 
 	// verify that a new heartbeat was made, formatted into a SignedHeartbeat, and sent off
@@ -380,6 +365,12 @@ func TestCompilationTick(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	hb, err := s.NewHeartbeat()
+	if err != nil {
+		return
+	}
+	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.Marshal()))
+	s.Heartbeats[s.ParticipantIndex][heartbeatHash] = hb
 
 	// verify that tick is wrapping around properly
 	s.CurrentStep = common.QuorumSize

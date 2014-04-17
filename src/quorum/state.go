@@ -77,14 +77,6 @@ func CreateState(messageSender common.MessageSender, participantIndex Participan
 		s.PreviousEntropyStage1[i] = emptyHash
 	}
 
-	// create first heartbeat and add it to heartbeat map
-	hb, err := s.NewHeartbeat()
-	if err != nil {
-		return
-	}
-	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.Marshal()))
-	s.Heartbeats[participantIndex][heartbeatHash] = hb
-
 	return
 }
 
@@ -141,10 +133,16 @@ func (s *State) Start() {
 	// start the ticker to progress the state
 	go s.Tick()
 
-	// fetch our first heartbeat from the heartbeat map and announce it
-	/*var hash crypto.TruncatedHash
-	for i := range s.Heartbeats[s.ParticipantIndex] {
-		hash = i
+	// create first heartbeat and add it to heartbeat map, then announce it
+	hb, err := s.NewHeartbeat()
+	if err != nil {
+		return
 	}
-	s.announceHeartbeat(s.Heartbeats[s.ParticipantIndex][hash]) */
+	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.Marshal()))
+	s.Heartbeats[s.ParticipantIndex][heartbeatHash] = hb
+	shb, err := s.SignHeartbeat(hb)
+	if err != nil {
+		return
+	}
+	s.announceSignedHeartbeat(shb)
 }
