@@ -8,17 +8,17 @@ import (
 )
 
 func TestNewHeartbeat(t *testing.T) {
-	s, err := CreateState(nil, 0)
+	// create a state, and then a heartbeat
+	s, err := CreateState(common.NewZeroNetwork(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	hb, err := s.NewHeartbeat()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// make sure that EntropyStage1 matches the hash of what gets stored
+	// verify that entropy is being properly generated when making the heartbeat
 	storedEntropyHash, err := crypto.CalculateTruncatedHash(s.StoredEntropyStage2[:])
 	if err != nil {
 		t.Fatal(err)
@@ -28,7 +28,7 @@ func TestNewHeartbeat(t *testing.T) {
 }
 
 func TestHeartbeatMarshalling(t *testing.T) {
-	s, err := CreateState(nil, 0)
+	s, err := CreateState(common.NewZeroNetwork(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,25 +65,28 @@ func TestHeartbeatMarshalling(t *testing.T) {
 // as a whole.
 func TestHandleSignedHeartbeat(t *testing.T) {
 	// create a state and populate it with the signatories as participants
-	s, err := CreateState(nil, 0)
+	s, err := CreateState(common.NewZeroNetwork(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// create some public keys
+	// create keypairs
 	pubKey1, secKey1, err := crypto.CreateKeyPair()
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	pubKey2, secKey2, err := crypto.CreateKeyPair()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Add keys as participants
-	s.AddParticipant(pubKey1, 1)
-	s.AddParticipant(pubKey2, 2)
+	// create participants and add them to s
+	p1 := new(Participant)
+	p2 := new(Participant)
+	p1.PublicKey = pubKey1
+	p2.PublicKey = pubKey2
+	s.AddParticipant(p1, 1)
+	s.AddParticipant(p2, 2)
 
 	// create SignedHeartbeat
 	var sh SignedHeartbeat
@@ -209,16 +212,16 @@ func TestTossParticipant(t *testing.T) {
 
 func TestProcessHeartbeat(t *testing.T) {
 	// create states and add them to each other
-	s0, err := CreateState(nil, 0)
+	s0, err := CreateState(common.NewZeroNetwork(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s1, err := CreateState(nil, 1)
+	s1, err := CreateState(common.NewZeroNetwork(), 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s0.AddParticipant(s1.PublicKey, 1)
-	s1.AddParticipant(s0.PublicKey, 0)
+	s0.AddParticipant(s1.Self(), 1)
+	s1.AddParticipant(s0.Self(), 0)
 
 	// get the hash of the first heartbeat in s0
 	var hash crypto.TruncatedHash
@@ -253,25 +256,25 @@ func TestProcessHeartbeat(t *testing.T) {
 
 func TestCompile(t *testing.T) {
 	// Create states and add them to eachother as participants
-	s0, err := CreateState(nil, 0)
+	s0, err := CreateState(common.NewZeroNetwork(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s1, err := CreateState(nil, 1)
+	s1, err := CreateState(common.NewZeroNetwork(), 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s2, err := CreateState(nil, 2)
+	s2, err := CreateState(common.NewZeroNetwork(), 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s3, err := CreateState(nil, 3)
+	s3, err := CreateState(common.NewZeroNetwork(), 3)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s0.AddParticipant(s1.PublicKey, 1)
-	s0.AddParticipant(s2.PublicKey, 2)
-	s0.AddParticipant(s3.PublicKey, 3)
+	s0.AddParticipant(s1.Self(), 1)
+	s0.AddParticipant(s2.Self(), 2)
+	s0.AddParticipant(s3.Self(), 3)
 
 	// fetch legal heartbeat for s1
 	var hash crypto.TruncatedHash
@@ -351,7 +354,7 @@ func TestRegularTick(t *testing.T) {
 		t.Skip()
 	}
 
-	s, err := CreateState(nil, 0)
+	s, err := CreateState(common.NewZeroNetwork(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -373,7 +376,7 @@ func TestCompilationTick(t *testing.T) {
 		t.Skip()
 	}
 
-	s, err := CreateState(nil, 0)
+	s, err := CreateState(common.NewZeroNetwork(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -397,7 +400,7 @@ func TestTickLock(t *testing.T) {
 	}
 
 	// create state
-	s, err := CreateState(nil, 0)
+	s, err := CreateState(common.NewZeroNetwork(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}

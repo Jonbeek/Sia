@@ -88,8 +88,12 @@ func CreateState(messageSender common.MessageSender, participantIndex Participan
 	return
 }
 
-// Populates a state with this participant, initializing variables as needed
-// return codes are arbitraily chosen and are only for the test suite
+// self() fetches the state's participant object
+func (s *State) Self() (p *Participant) {
+	return s.Participants[s.ParticipantIndex]
+}
+
+// add participant to s.Participants, and initialize the heartbeat map
 func (s *State) AddParticipant(p *Participant, i ParticipantIndex) (err error) {
 	// Check that there is not already a participant for the index
 	if s.Participants[i] != nil {
@@ -104,8 +108,7 @@ func (s *State) AddParticipant(p *Participant, i ParticipantIndex) (err error) {
 	return
 }
 
-// Use the entropy stored in the state to generate a random
-// integer [low, high)
+// Use the entropy stored in the state to generate a random integer [low, high)
 func (s *State) RandInt(low int, high int) (randInt int, err error) {
 	// verify there's a gap between the numbers
 	if low == high {
