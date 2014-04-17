@@ -17,8 +17,7 @@ type State struct {
 	Participants  [common.QuorumSize]*Participant // list of participants
 
 	// Our information
-	PublicKey        crypto.PublicKey
-	SecretKey        crypto.SecretKey
+	SecretKey        crypto.SecretKey // public key in our participant index
 	ParticipantIndex ParticipantIndex // our participant index
 
 	// Heartbeat Variables
@@ -39,21 +38,19 @@ type State struct {
 	Wallets map[string]uint64
 }
 
-// Currently just an address, as the participant is accessed
-// by knowing the public key. It's in its own struct because
-// more fields might be added.
 type Participant struct {
+	Address   common.Address
 	PublicKey crypto.PublicKey
 }
 
 // Create and initialize a state object
 func CreateState(messageSender common.MessageSender, participantIndex ParticipantIndex) (s State, err error) {
-	// check that participantIndex is legal
+	// check that participantIndex is legal, then add basic info
 	if int(participantIndex) >= common.QuorumSize {
 		err = fmt.Errorf("Invalid participant index!")
 		return
 	}
-
+	s.ParticipantIndex = participantIndex
 	s.MessageSender = messageSender
 
 	// initialize crypto keys
@@ -61,18 +58,17 @@ func CreateState(messageSender common.MessageSender, participantIndex Participan
 	if err != nil {
 		return
 	}
-	s.PublicKey = pubKey
 	s.SecretKey = secKey
 
-	s.ParticipantIndex = participantIndex
+	// create and fill out participant object, add it to our list of participants
+	self := new(Participant)
+	self.Address = messageSender.Address()
+	self.PublicKey = pubKey
+	s.AddParticipant(self, participantIndex)
 
+	// intialize remaining values to their defaults
 	s.CurrentStep = 1
 	s.Wallets = make(map[string]uint64)
-
-	// add ourselves to list of participants
-	s.AddParticipant(s.PublicKey, participantIndex)
-
-	// set the stored EntropyStage1 to be the hash of the zero value
 	emptyHash, err := crypto.CalculateTruncatedHash(s.StoredEntropyStage2[:])
 	if err != nil {
 		return
@@ -81,13 +77,11 @@ func CreateState(messageSender common.MessageSender, participantIndex Participan
 		s.PreviousEntropyStage1[i] = emptyHash
 	}
 
-	// create our first heartbeat and add it to our heartbeat map
+	// create first heartbeat and add it to heartbeat map
 	hb, err := s.NewHeartbeat()
 	if err != nil {
 		return
 	}
-
-	// get the heartbeats hash
 	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.Marshal()))
 	s.Heartbeats[participantIndex][heartbeatHash] = hb
 
@@ -96,22 +90,16 @@ func CreateState(messageSender common.MessageSender, participantIndex Participan
 
 // Populates a state with this participant, initializing variables as needed
 // return codes are arbitraily chosen and are only for the test suite
-func (s *State) AddParticipant(pubKey crypto.PublicKey, i ParticipantIndex) (err error) {
+func (s *State) AddParticipant(p *Participant, i ParticipantIndex) (err error) {
 	// Check that there is not already a participant for the index
 	if s.Participants[i] != nil {
 		err = fmt.Errorf("A participant already exists for the given index!")
 		return
 	}
-
-	// initialize participant object
-	var p Participant
-	p.PublicKey = pubKey
+	s.Participants[i] = p
 
 	// initialize the heartbeat map for this participant
 	s.Heartbeats[i] = make(map[crypto.TruncatedHash]*Heartbeat)
-
-	// add to state
-	s.Participants[i] = &p
 
 	return
 }
@@ -140,7 +128,7 @@ func (s *State) RandInt(low int, high int) (randInt int, err error) {
 	return
 }
 
-func (s *State) HandleMessage(m common.Message) {
+func (s *State) HandleMessage(m []byte) {
 	// take the payload and squeeze out the type bytes
 	// use a switch statement based on type
 }
