@@ -1,6 +1,5 @@
 // Common contains structs, data, and interfaces that
-// needs to be referenced by many packages but doesn't
-// necessarily have an obvious place it belongs
+// need to be referenced by other packages
 package common
 
 import (
@@ -27,15 +26,27 @@ const (
 
 type Entropy [EntropyVolume]byte
 
+// An Address is used to uniquely identify a message recipient.
+type Address struct {
+	Identifier int
+	Host       string
+	Port       int
+}
+
 // Messages are for sending things over the network.
 // Each message has a single destination, and it is
 // the job of the network package to interpret the
 // destinations.
 type Message struct {
-	Destination []string // may not remain a string
-	Payload     string
+	Destination Address
+	Payload     []byte
 }
 
 type MessageHandler interface {
-	HandleMessage(m Message)
+	HandleMessage(payload []byte)
+}
+
+type MessageSender interface {
+	Address() Address
+	SendMessage(m *Message) error
 }
