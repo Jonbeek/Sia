@@ -123,6 +123,10 @@ func (sh *SignedHeartbeat) Marshal() (msh []byte, err error) {
 	return
 }
 
+func UnmarshalSignedHeartbeat(msh []byte) (err error) {
+
+}
+
 func (s *State) processHeartbeat(hb *Heartbeat, i ParticipantIndex) int {
 	// compare EntropyStage2 to the hash from the previous heartbeat
 	expectedHash, err := crypto.CalculateTruncatedHash(hb.EntropyStage2[:])

@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// Verify that NewHeartbeat() produces valid heartbeats
 func TestNewHeartbeat(t *testing.T) {
 	// create a state, and then a heartbeat
 	s, err := CreateState(common.NewZeroNetwork(), 0)
@@ -27,6 +28,7 @@ func TestNewHeartbeat(t *testing.T) {
 	}
 }
 
+// Marshalling and Unmarshalling should result in equivalent Heartbeats
 func TestHeartbeatMarshalling(t *testing.T) {
 	s, err := CreateState(common.NewZeroNetwork(), 0)
 	if err != nil {
@@ -50,7 +52,7 @@ func TestHeartbeatMarshalling(t *testing.T) {
 		t.Fatal("EntropyStage1 not identical upon umarshalling")
 	}
 
-	// verify that input is being checked
+	// verify that input is being checked for UnmarshalHeartbeat
 	_, err = UnmarshalHeartbeat(hbMarshalled[1:])
 	if err == nil {
 		t.Fatal("Heartbeat unmarshalling succeded with input of incorrect length")
@@ -61,8 +63,43 @@ func TestHeartbeatMarshalling(t *testing.T) {
 	}
 }
 
-// An incomplete set of tests: the more complete suite will attack the system
-// as a whole.
+// a SignedHeartbeat should be the same after marshalling and unmarshalling
+func TestSignedHeartbeatMarshalling(t *testing.T) {
+	s, err := CreateState(common.NewZeroNetwork(), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// create a SignedHeartbeat, marshall and unmarshall it, and test equivalency
+	hb, err := s.NewHeartbeat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalSignedHeartbeat, err := s.SignHeartbeat(hb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	marshalledSH, err := originalSignedHeartbeat.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// unmarshalledSH, err := UnmarshalSignedHeartbeat(marshalledSH)
+
+	// verify that input is being checked for SignedHeartbeat.Marshal()
+	originalSignedHeartbeat.Signatures = make([]crypto.Signature, 2 * common.QuorumSize)
+	msh, err := originalSignedHeartbeat.Marshal()
+	if err != nil {
+		t.Fatal("SignedHeartbeat.Marshal() needs to check the length of msh.Signatures")
+	}
+	originalSignedHeartbeat.Signatures = make([]crypto.Signature, 2)
+	if err != nil {
+		t.Fatal("SignedHeartbeat.Marshal() needs to check that msh.Signatures and msh.Signatories are equal in length")
+	}
+
+	// verify that input is being checked for UnmarshalSignedHeartbeat()
+}
+
+// TestHandleSignedHeartbeat should probably be reviewed and rehashed
 func TestHandleSignedHeartbeat(t *testing.T) {
 	// create a state and populate it with the signatories as participants
 	s, err := CreateState(common.NewZeroNetwork(), 0)
@@ -246,6 +283,7 @@ func TestProcessHeartbeat(t *testing.T) {
 	}
 }
 
+// TestCompile should probably be reviewed and rehashed
 func TestCompile(t *testing.T) {
 	// Create states and add them to eachother as participants
 	s0, err := CreateState(common.NewZeroNetwork(), 0)
@@ -361,6 +399,7 @@ func TestCompilationTick(t *testing.T) {
 		t.Skip()
 	}
 
+	// create state and give it a heartbeat to prevent it from pruning itself
 	s, err := CreateState(common.NewZeroNetwork(), 0)
 	if err != nil {
 		t.Fatal(err)
@@ -372,6 +411,9 @@ func TestCompilationTick(t *testing.T) {
 	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.Marshal()))
 	s.Heartbeats[s.ParticipantIndex][heartbeatHash] = hb
 
+	// remember entropy to verify that compile() gets called
+	currentEntropy := s.CurrentEntropy
+
 	// verify that tick is wrapping around properly
 	s.CurrentStep = common.QuorumSize
 	go s.Tick()
@@ -382,10 +424,14 @@ func TestCompilationTick(t *testing.T) {
 	}
 
 	// check if s.Compile() got called
+	if currentEntropy == s.CurrentEntropy {
+		t.Fatal("Entropy did not change after tick wrapped around")
+	}
 }
 
+// TestTickLock verifies that only one instance of Tick() can run at a time
 func TestTickLock(t *testing.T) {
-	// this is a long test
+	// test takes common.StepDuration seconds; skip for short testing
 	if testing.Short() {
 		t.Skip()
 	}
