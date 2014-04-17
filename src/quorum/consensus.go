@@ -4,21 +4,18 @@ import (
 	"common"
 	"common/crypto"
 	"common/log"
+	"fmt"
 	"time"
 )
 
-// Heartbeat contains all of the information that a host needs to
-// participate in the quorum. This includes entropy proofs, file
-// proofs, and transactions from hosts.
+// All information that needs to be passed between participants each block
 type Heartbeat struct {
 	EntropyStage1 crypto.TruncatedHash
 	EntropyStage2 common.Entropy
 }
 
-// Part of the Byzantine Generals Problem
-// SignedHeartbeat contains a heartbeat from a host
-// which has been signed by the host, and then by
-// each additional host that has seen it
+// Contains a heartbeat that has been signed iteratively, is a key part of the
+// signed solution to the Byzantine Generals Problem
 type SignedHeartbeat struct {
 	Heartbeat     *Heartbeat
 	HeartbeatHash crypto.TruncatedHash
@@ -84,6 +81,59 @@ func (s *State) SignHeartbeat(hb *Heartbeat) (sh *SignedHeartbeat, err error) {
 	sh.Signatories[0] = s.ParticipantIndex
 	return
 }
+
+// takes a signed heartbeat and turns it into a message
+func (sh *SignedHeartbeat) Package(participant *Participant) (m common.Message) {
+	// no destination supported currently by the codebase
+	numBytes := crypto.TruncatedHashSize + 1 + len(sh.Signatories)*(crypto.SignatureSize+1)
+	payload := make([]byte, numBytes)
+
+	copy(payload, sh.HeartbeatHash[:])
+
+	// marshalling format:
+	// 1. a hash of the heartbeat
+	// 2. a count of the participants (1 byte)
+	// 3. for each:
+	//    3a. a single singature
+	//    3b. a number corresponding to the signatory
+	m.Payload = string(payload)
+	return
+}
+
+func (s *State) processHeartbeat(hb *Heartbeat, i ParticipantIndex) int {
+	// compare EntropyStage2 to the hash from the previous heartbeat
+	expectedHash, err := crypto.CalculateTruncatedHash(hb.EntropyStage2[:])
+	if err != nil {
+		log.Fatalln(err)
+	}
+	if expectedHash != s.PreviousEntropyStage1[i] {
+		s.tossParticipant(i)
+		return 1
+	}
+
+	// Add the EntropyStage2 to UpcomingEntropy
+	th, err := crypto.CalculateTruncatedHash(append(s.UpcomingEntropy[:], hb.EntropyStage2[:]...))
+	s.UpcomingEntropy = common.Entropy(th)
+	// update PreviousEntropy, to compare this EntropyStage1 against the next
+	// EntropyStage1
+	s.PreviousEntropyStage1[i] = hb.EntropyStage1
+
+	return 0
+}
+
+/* // Takes a heartbeat, signs it, packages into a message and then sends the
+// message to every participant in the quorum
+func (s *State) announceHeartbeat(hb *Heartbeat) {
+	signedHeartbeat, err := s.SignHeartbeat(hb)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	for i := range s.Participants {
+		message := signedHeartbeat.Package(s.Participants[i])
+		s.MessageSender.SendMessage(message)
+	}
+} */
 
 // HandleSignedHeartbeat takes a heartbeat that has been signed
 // as a part of the concensus algorithm, and follows all the rules
@@ -197,6 +247,29 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 	return
 }
 
+// participants are processed in a random order each block, determied by the
+// entropy for the block
+func (s *State) participantOrdering() (participantOrdering [common.QuorumSize]ParticipantIndex) {
+	// create an in-order list of participants
+	for i := range participantOrdering {
+		participantOrdering[i] = ParticipantIndex(i)
+	}
+
+	// shuffle the list of participants
+	for i := range participantOrdering {
+		newIndex, err := s.RandInt(i, common.QuorumSize)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		tmp := participantOrdering[newIndex]
+		participantOrdering[newIndex] = participantOrdering[i]
+		participantOrdering[i] = tmp
+	}
+
+	return
+}
+
+// Removes all traces of a participant from the State
 func (s *State) tossParticipant(pi ParticipantIndex) {
 	// remove from s.Participants
 	s.Participants[pi] = nil
@@ -213,60 +286,16 @@ func (s *State) tossParticipant(pi ParticipantIndex) {
 	s.Heartbeats[pi] = nil
 }
 
-func (s *State) processHeartbeat(hb *Heartbeat, i ParticipantIndex) int {
-	// compare EntropyStage2 to the hash from the previous heartbeat
-	expectedHash, err := crypto.CalculateTruncatedHash(hb.EntropyStage2[:])
-	if err != nil {
-		log.Fatalln(err)
-	}
-	if expectedHash != s.PreviousEntropyStage1[i] {
-		s.tossParticipant(i)
-		return 1
-	}
-
-	// Add the EntropyStage2 to UpcomingEntropy
-	th, err := crypto.CalculateTruncatedHash(append(s.UpcomingEntropy[:], hb.EntropyStage2[:]...))
-	s.UpcomingEntropy = common.Entropy(th)
-	// update PreviousEntropy, to compare this EntropyStage1 against the next
-	// EntropyStage1
-	s.PreviousEntropyStage1[i] = hb.EntropyStage1
-
-	return 0
-}
-
-func (s *State) participantOrdering() (participantOrdering [common.QuorumSize]ParticipantIndex) {
-	for i := range participantOrdering {
-		participantOrdering[i] = ParticipantIndex(i)
-	}
-
-	// shuffle the list to produce a random host ordering by swapping each
-	// element with a random element in front of it
-	for i := range participantOrdering {
-		newIndex, err := s.RandInt(i, common.QuorumSize)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		tmp := participantOrdering[newIndex]
-		participantOrdering[newIndex] = participantOrdering[i]
-		participantOrdering[i] = tmp
-	}
-
-	return
-}
-
 // Takes all of the heartbeats and uses them to advance to the next state
 func (s *State) Compile() {
-	// arrive at a host ordering
-	// create a list representing each host
 	participantOrdering := s.participantOrdering()
 
 	for _, participant := range participantOrdering {
-		// process received heartbeats [switch these to processHeartbeat()]
-		// skip if no host
 		if s.Participants[participant] == nil {
 			continue
 		}
 
+		// each participant must submit exactly 1 heartbeat
 		if len(s.Heartbeats[participant]) != 1 {
 			s.tossParticipant(participant)
 			continue
@@ -274,29 +303,25 @@ func (s *State) Compile() {
 
 		for _, hb := range s.Heartbeats[participant] {
 			s.processHeartbeat(hb, participant)
-
-			// clear the heartbeat from s.Heartbeats
-			s.Heartbeats[participant] = make(map[crypto.TruncatedHash]*Heartbeat)
 		}
+		// clear map of heartbeats for next block
+		s.Heartbeats[participant] = make(map[crypto.TruncatedHash]*Heartbeat)
 	}
 
 	// move UpcomingEntropy to CurrentEntropy
 	s.CurrentEntropy = s.UpcomingEntropy
 
-	// generate a new heartbeat
+	// generate a new heartbeat, add it to our map, and announce it
 	hb, err := s.NewHeartbeat()
 	if err != nil {
 		log.Fatalln(err)
 	}
-	signedHeartbeat, err := s.SignHeartbeat(hb)
+	hash, err := crypto.CalculateTruncatedHash(hb.Marshal())
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	// add our heartbeat to our heartbeat map
-	s.Heartbeats[s.ParticipantIndex][signedHeartbeat.HeartbeatHash] = signedHeartbeat.Heartbeat
-
-	// send the signed heartbeat to everyone
+	s.Heartbeats[s.ParticipantIndex][hash] = hb
+	//s.announceHeartbeat(hb)
 }
 
 // Tick() updates s.CurrentStep, and calls Compile() when all steps are complete
@@ -327,10 +352,4 @@ func (s *State) Tick() {
 	s.TickLock.Lock()
 	s.Ticking = false
 	s.TickLock.Unlock()
-}
-
-func (s *State) Start() {
-	// send empty heartbeat to everybody
-
-	go s.Tick()
 }

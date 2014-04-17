@@ -9,31 +9,25 @@ import (
 
 type ParticipantIndex uint8
 
-// The state is what provides persistence to the consensus algorithms.
-// The state is updated every block, and every honest host is
-// guaranteed to update their state in the same way.
+// The state provides persistence to the consensus algorithms. Every participant
+// should have an identical state.
 type State struct {
-	// How to get messages to the network
+	// Network Variables
 	MessageSender common.MessageSender
+	Participants  [common.QuorumSize]*Participant // list of participants
 
-	// Who is participating in the quorum
-	Participants [common.QuorumSize]*Participant
-	// Our own index in the quorum
-	ParticipantIndex ParticipantIndex
+	// Our information
+	PublicKey        crypto.PublicKey
+	SecretKey        crypto.SecretKey
+	ParticipantIndex ParticipantIndex // our participant index
 
-	// The cryptographic keys belonging to this host specifically
-	PublicKey crypto.PublicKey
-	SecretKey crypto.SecretKey
+	// Heartbeat Variables
+	StoredEntropyStage2 common.Entropy // hashed to EntropyStage1 for previous heartbeat
 
-	// The hash of this was used in stage 1 for the most recent heartbeat
-	StoredEntropyStage2 common.Entropy
-
-	// The stage 1 entropies from the last block
-	PreviousEntropyStage1 [common.QuorumSize]crypto.TruncatedHash
-	// Entropy seed to be used while compiling next block
-	CurrentEntropy common.Entropy
-	// Entropy that gets built out as the block is compiled
-	UpcomingEntropy common.Entropy
+	// Compile Variables
+	PreviousEntropyStage1 [common.QuorumSize]crypto.TruncatedHash // used to verify the next round of heartbeats
+	CurrentEntropy        common.Entropy                          // Used to generate random numbers during compilation
+	UpcomingEntropy       common.Entropy                          // Used to compute entropy for next block
 
 	// Consensus Algorithm Status
 	CurrentStep int
@@ -146,7 +140,20 @@ func (s *State) RandInt(low int, high int) (randInt int, err error) {
 	return
 }
 
-func HandleMessage(m common.Message) {
+func (s *State) HandleMessage(m common.Message) {
 	// take the payload and squeeze out the type bytes
 	// use a switch statement based on type
+}
+
+// Take an unstarted State and begin the consensus algorithm cycle
+func (s *State) Start() {
+	// start the ticker to progress the state
+	go s.Tick()
+
+	// fetch our first heartbeat from the heartbeat map and announce it
+	/*var hash crypto.TruncatedHash
+	for i := range s.Heartbeats[s.ParticipantIndex] {
+		hash = i
+	}
+	s.announceHeartbeat(s.Heartbeats[s.ParticipantIndex][hash]) */
 }

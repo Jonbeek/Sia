@@ -28,7 +28,7 @@ func TestNewHeartbeat(t *testing.T) {
 	}
 }
 
-// test heartbeat.marshal and heartbeat.unmarshal
+// test heartbeat.marshal
 
 // An incomplete set of tests: the more complete suite will attack the system
 // as a whole.
