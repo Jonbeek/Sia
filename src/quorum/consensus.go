@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+// Heartbeat contains all of the information that a host needs to
+// participate in the quorum. This includes entropy proofs, file
+// proofs, and transactions from hosts.
+type Heartbeat struct {
+	EntropyStage1 crypto.TruncatedHash
+	EntropyStage2 common.Entropy
+}
+
 // Part of the Byzantine Generals Problem
 // SignedHeartbeat contains a heartbeat from a host
 // which has been signed by the host, and then by
@@ -16,14 +24,6 @@ type SignedHeartbeat struct {
 	HeartbeatHash crypto.TruncatedHash
 	Signatures    []crypto.Signature
 	Signatories   []ParticipantIndex
-}
-
-// Heartbeat contains all of the information that a host needs to
-// participate in the quorum. This includes entropy proofs, file
-// proofs, and transactions from hosts.
-type Heartbeat struct {
-	EntropyStage1 crypto.TruncatedHash
-	EntropyStage2 common.Entropy
 }
 
 // Using the current State, NewHeartbeat creates a heartbeat that
@@ -58,6 +58,33 @@ func (hb *Heartbeat) Marshal() (marshalledHeartbeat string) {
 	return
 }
 
+// func UnmarshalHeartbeat(marshalledHeartbeat string) {
+// }
+
+func (s *State) SignHeartbeat(hb *Heartbeat) (sh *SignedHeartbeat, err error) {
+	var signedHeartbeat SignedHeartbeat
+	sh = &signedHeartbeat
+
+	// confirm heartbeat and hash
+	sh.Heartbeat = hb
+	marshalledHb := hb.Marshal()
+	sh.HeartbeatHash, err = crypto.CalculateTruncatedHash([]byte(marshalledHb))
+	if err != nil {
+		return
+	}
+
+	// fill out sigantures
+	sh.Signatures = make([]crypto.Signature, 1)
+	signedHb, err := crypto.Sign(s.SecretKey, string(sh.HeartbeatHash[:]))
+	if err != nil {
+		return
+	}
+	sh.Signatures[0] = signedHb.Signature
+	sh.Signatories = make([]ParticipantIndex, 1)
+	sh.Signatories[0] = s.ParticipantIndex
+	return
+}
+
 // HandleSignedHeartbeat takes a heartbeat that has been signed
 // as a part of the concensus algorithm, and follows all the rules
 // that are necessary to ensure that all honest hosts arrive at
@@ -66,8 +93,6 @@ func (hb *Heartbeat) Marshal() (marshalledHeartbeat string) {
 // See the paper 'The Byzantine Generals Problem' for more insight
 // on the algorithms used here. Paper can be found in
 // doc/The Byzantine Generals Problem
-//
-// Some of the logging in HandleSignedHeartbeat may be incomplete
 //
 // This function is called concurrently, mutexes will be needed when
 // accessing or altering the State
@@ -80,6 +105,9 @@ func (hb *Heartbeat) Marshal() (marshalledHeartbeat string) {
 //
 // The return code is purely for the testing suite. The numbers are chosen
 // arbitrarily
+//
+// Really, the HandleSignedHeartbeat should take a string, and open it up
+// all the way from that point. Which means the test suite needs updating
 func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 	// Check that the slices of signatures and signatories are of the same length
 	if len(sh.Signatures) != len(sh.Signatories) {
@@ -137,7 +165,7 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 		signedMessage.Signature = sh.Signatures[i]
 		verification, err := crypto.Verify(s.Participants[signatory].PublicKey, signedMessage)
 		if err != nil {
-			log.Errorln(err)
+			log.Fatalln(err)
 			return
 		}
 
@@ -160,7 +188,7 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 	// Sign the stack of signatures and send it to all hosts
 	_, err := crypto.Sign(s.SecretKey, signedMessage.Message)
 	if err != nil {
-		log.Errorln(err)
+		log.Fatalln(err)
 	}
 
 	// Send the new message to everybody
@@ -169,28 +197,115 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 	return
 }
 
-// Takes all of the heartbeats and uses them to advance to the
-// next state
+func (s *State) tossParticipant(pi ParticipantIndex) {
+	// remove from s.Participants
+	s.Participants[pi] = nil
+
+	// remove from s.PreviousEntropyStage1
+	var emptyEntropy common.Entropy
+	zeroHash, err := crypto.CalculateTruncatedHash(emptyEntropy[:])
+	s.PreviousEntropyStage1[pi] = zeroHash
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// nil map in s.Heartbeats
+	s.Heartbeats[pi] = nil
+}
+
+func (s *State) processHeartbeat(hb *Heartbeat, i ParticipantIndex) int {
+	// compare EntropyStage2 to the hash from the previous heartbeat
+	expectedHash, err := crypto.CalculateTruncatedHash(hb.EntropyStage2[:])
+	if err != nil {
+		log.Fatalln(err)
+	}
+	if expectedHash != s.PreviousEntropyStage1[i] {
+		s.tossParticipant(i)
+		return 1
+	}
+
+	// Add the EntropyStage2 to UpcomingEntropy
+	th, err := crypto.CalculateTruncatedHash(append(s.UpcomingEntropy[:], hb.EntropyStage2[:]...))
+	s.UpcomingEntropy = common.Entropy(th)
+	// update PreviousEntropy, to compare this EntropyStage1 against the next
+	// EntropyStage1
+	s.PreviousEntropyStage1[i] = hb.EntropyStage1
+
+	return 0
+}
+
+func (s *State) participantOrdering() (participantOrdering [common.QuorumSize]ParticipantIndex) {
+	for i := range participantOrdering {
+		participantOrdering[i] = ParticipantIndex(i)
+	}
+
+	// shuffle the list to produce a random host ordering by swapping each
+	// element with a random element in front of it
+	for i := range participantOrdering {
+		newIndex, err := s.RandInt(i, common.QuorumSize)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		tmp := participantOrdering[newIndex]
+		participantOrdering[newIndex] = participantOrdering[i]
+		participantOrdering[i] = tmp
+	}
+
+	return
+}
+
+// Takes all of the heartbeats and uses them to advance to the next state
 func (s *State) Compile() {
-	// go through all hosts
-	// get some ordering for hosts
-	// go through hosts in that order
-	// throw out any host with multiple heartbeatas
-	// throw out any host with invalid heartbeats
-	// process the valid heartbeats
+	// arrive at a host ordering
+	// create a list representing each host
+	participantOrdering := s.participantOrdering()
 
-	// clear/nil every value in the map.
-	// set it up for a new round
+	for _, participant := range participantOrdering {
+		// process received heartbeats [switch these to processHeartbeat()]
+		// skip if no host
+		if s.Participants[participant] == nil {
+			continue
+		}
 
-	// generate a new heartbeat for myself
-	// sign it and send it off
-	// but first add the heartbeat to our own map
+		if len(s.Heartbeats[participant]) != 1 {
+			s.tossParticipant(participant)
+			continue
+		}
+
+		for _, hb := range s.Heartbeats[participant] {
+			s.processHeartbeat(hb, participant)
+
+			// clear the heartbeat from s.Heartbeats
+			s.Heartbeats[participant] = make(map[crypto.TruncatedHash]*Heartbeat)
+		}
+	}
+
+	// move UpcomingEntropy to CurrentEntropy
+	s.CurrentEntropy = s.UpcomingEntropy
+
+	// generate a new heartbeat
+	hb, err := s.NewHeartbeat()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	signedHeartbeat, err := s.SignHeartbeat(hb)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	// add our heartbeat to our heartbeat map
+	s.Heartbeats[s.ParticipantIndex][signedHeartbeat.HeartbeatHash] = signedHeartbeat.Heartbeat
+
+	// send the signed heartbeat to everyone
 }
 
 // Tick() should only be called once, and should run in its own go thread
-// Every common.SETPLENGTH, it updates the currentStep value.
+// Every common.STEPLENGTH, it updates the currentStep value.
 // When the value flips from common.QuorumSize to 1, Tick() calls
 // 	integrateHeartbeats()
+//
+// Tick() needs to put a lock in the state, to make sure only one Tick() is
+// acting at a time
 func (s *State) Tick() {
 	// Every common.StepDuration, advance the state stage
 	ticker := time.Tick(common.StepDuration)

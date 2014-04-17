@@ -25,7 +25,11 @@ type State struct {
 	StoredEntropyStage2 common.Entropy
 
 	// The stage 1 entropies from the last block
-	// PreviousEntropy [common.QuorumSize]*crypto.TruncatedHash
+	PreviousEntropyStage1 [common.QuorumSize]crypto.TruncatedHash
+	// Entropy seed to be used while compiling next block
+	CurrentEntropy common.Entropy
+	// Entropy that gets built out as the block is compiled
+	UpcomingEntropy common.Entropy
 
 	// Consensus Algorithm Status
 	CurrentStep int
@@ -62,6 +66,29 @@ func CreateState(participantIndex ParticipantIndex) (s State, err error) {
 
 	s.CurrentStep = 1
 	s.Wallets = make(map[string]uint64)
+
+	// add ourselves to list of participants
+	s.AddParticipant(s.PublicKey, participantIndex)
+
+	// set the stored EntropyStage1 to be the hash of the zero value
+	emptyHash, err := crypto.CalculateTruncatedHash(s.StoredEntropyStage2[:])
+	if err != nil {
+		return
+	}
+	for i := range s.PreviousEntropyStage1 {
+		s.PreviousEntropyStage1[i] = emptyHash
+	}
+
+	// create our first heartbeat and add it to our heartbeat map
+	hb, err := s.NewHeartbeat()
+	if err != nil {
+		return
+	}
+
+	// get the heartbeats hash
+	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.Marshal()))
+	s.Heartbeats[participantIndex][heartbeatHash] = hb
+
 	return
 }
 
@@ -84,6 +111,30 @@ func (s *State) AddParticipant(pubKey crypto.PublicKey, i ParticipantIndex) (err
 	// add to state
 	s.Participants[i] = &p
 
+	return
+}
+
+// Use the entropy stored in the state to generate a random
+// integer [low, high)
+func (s *State) RandInt(low int, high int) (randInt int, err error) {
+	// verify there's a gap between the numbers
+	if low == high {
+		err = fmt.Errorf("low and high cannot be the same number")
+		return
+	}
+
+	// Convert CurrentEntropy into an int
+	rollingInt := 0
+	for i := 0; i < 4; i++ {
+		rollingInt = rollingInt << 4
+		rollingInt += int(s.CurrentEntropy[0])
+	}
+
+	randInt = (rollingInt % (high - low)) + low
+
+	// Convert random number seed to next value
+	truncatedHash, err := crypto.CalculateTruncatedHash(s.CurrentEntropy[:])
+	s.CurrentEntropy = common.Entropy(truncatedHash)
 	return
 }
 

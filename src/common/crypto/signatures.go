@@ -105,3 +105,69 @@ func Verify(verificationKey PublicKey, signedMessage SignedMessage) (verified bo
 	verified = success == 0
 	return
 }
+
+// Only used for testing, but testing functions in multiple packages use it
+func CheckKeys(publicKey PublicKey, secretKey SecretKey) (err error) {
+	// create an arbitrary message
+	randomMessage, err := RandomByteSlice(20)
+	if err != nil {
+		return
+	}
+
+	// sign the message
+	signedMessage, err := Sign(secretKey, string(randomMessage))
+	if err != nil {
+		return
+	}
+
+	// verify the message
+	verification, err := Verify(publicKey, signedMessage)
+	if err != nil {
+		return
+	}
+
+	// check that verification succeeded
+	if !verification {
+		err = fmt.Errorf("Unable to verify key!")
+		return
+	}
+
+	// create an imposter verification message
+	var imposterMessage SignedMessage
+	imposterMessage.Message = "a"
+	for i := range imposterMessage.Signature {
+		imposterMessage.Signature[i] = byte(8)
+	}
+
+	// try to verify imposter message
+	verification, err = Verify(publicKey, imposterMessage)
+	if err != nil {
+		return
+	} else if verification {
+		err = fmt.Errorf("Able to verify a fake message!")
+		return
+	}
+
+	// test signing an empty message
+	emptyMessage, err := Sign(secretKey, "")
+	if err != nil {
+		return
+	}
+
+	// test verifiying an empty message
+	verification, err = Verify(publicKey, emptyMessage)
+	if err != nil {
+		return
+	} else if !verification {
+		err = fmt.Errorf("Could not verify empty message")
+		return
+	}
+
+	// test verifying an empty message with fake signature
+	emptyMessage.Signature[0] = 0
+	emptyMessage.Signature[1] = 0
+	verification, err = Verify(publicKey, emptyMessage)
+	// unfinished
+
+	return
+}
