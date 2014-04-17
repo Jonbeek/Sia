@@ -49,6 +49,10 @@ func (s *State) NewHeartbeat() (hb *Heartbeat, err error) {
 	return
 }
 
+func MarshalledHeartbeatLen() int {
+	return crypto.TruncatedHashSize + common.EntropyVolume
+}
+
 // Convert Heartbeat to string
 func (hb *Heartbeat) Marshal() (marshalledHeartbeat []byte) {
 	marshalledHeartbeat = append(hb.EntropyStage1[:], hb.EntropyStage2[:]...)
@@ -57,7 +61,7 @@ func (hb *Heartbeat) Marshal() (marshalledHeartbeat []byte) {
 
 // Convert string to Heartbeat
 func UnmarshalHeartbeat(marshalledHeartbeat []byte) (hb *Heartbeat, err error) {
-	expectedLen := crypto.TruncatedHashSize + common.EntropyVolume
+	expectedLen := MarshalledHeartbeatLen()
 	if len(marshalledHeartbeat) != expectedLen {
 		err = fmt.Errorf("Marshalled heartbeat is the wrong size!")
 		return
@@ -109,7 +113,7 @@ func (sh *SignedHeartbeat) Marshal() (msh []byte, err error) {
 	msh = make([]byte, numBytes)
 
 	index := 0
-	copy(msh, mhb)
+	copy(msh[index:], mhb)
 	index += len(mhb)
 	copy(msh[index:], string(numSignatures))
 	index += 1
@@ -123,8 +127,47 @@ func (sh *SignedHeartbeat) Marshal() (msh []byte, err error) {
 	return
 }
 
-func UnmarshalSignedHeartbeat(msh []byte) (err error) {
+func UnmarshalSignedHeartbeat(msh []byte) (sh *SignedHeartbeat, err error) {
+	// error check the input
+	if len(msh) <= MarshalledHeartbeatLen() {
+		err = fmt.Errorf("input for UnmarshalSignedHeartbeat is too short")
+		return
+	}
+	numSignatures := int(msh[MarshalledHeartbeatLen()])
+	signatureSectionLen := numSignatures * (crypto.SignatureSize + 1)
+	totalLen := MarshalledHeartbeatLen() + 1 + signatureSectionLen
+	if len(msh) != totalLen {
+		err = fmt.Errorf("input for UnmarshalSignedHeartbeat is incorrect length, expecting ", totalLen, " bytes")
+		return
+	}
 
+	// get sh.Heartbeat and sh.HeartbeatHash
+	sh = new(SignedHeartbeat)
+	index := 0
+	heartbeat, err := UnmarshalHeartbeat(msh[index:MarshalledHeartbeatLen()])
+	if err != nil {
+		return
+	}
+	heartbeatHash, err := crypto.CalculateTruncatedHash(msh[index:MarshalledHeartbeatLen()])
+	if err != nil {
+		return
+	}
+	sh.Heartbeat = heartbeat
+	sh.HeartbeatHash = heartbeatHash
+
+	// get sh.Signatures and sh.Signatories
+	index += MarshalledHeartbeatLen()
+	index += 1
+	sh.Signatures = make([]crypto.Signature, numSignatures)
+	sh.Signatories = make([]ParticipantIndex, numSignatures)
+	for i := 0; i < numSignatures; i++ {
+		copy(sh.Signatures[i][:], msh[index:])
+		index += crypto.SignatureSize
+		sh.Signatories[i] = ParticipantIndex(msh[index])
+		index += 1
+	}
+
+	return
 }
 
 func (s *State) processHeartbeat(hb *Heartbeat, i ParticipantIndex) int {
