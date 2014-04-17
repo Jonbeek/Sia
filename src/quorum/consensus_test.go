@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-// test create heartbeat
 func TestNewHeartbeat(t *testing.T) {
 	s, err := CreateState(nil, 0)
 	if err != nil {
@@ -28,7 +27,39 @@ func TestNewHeartbeat(t *testing.T) {
 	}
 }
 
-// test heartbeat.marshal
+func TestHeartbeatMarshalling(t *testing.T) {
+	s, err := CreateState(nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// verify that a heartbeat, once unmarshalled, is identical to the original
+	hbOriginal, err := s.NewHeartbeat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hbMarshalled := hbOriginal.Marshal()
+	hbUnmarshalled, err := UnmarshalHeartbeat(hbMarshalled)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hbOriginal.EntropyStage1 != hbUnmarshalled.EntropyStage1 {
+		t.Fatal("EntropyStage1 not identical upon umarshalling")
+	}
+	if hbOriginal.EntropyStage2 != hbUnmarshalled.EntropyStage2 {
+		t.Fatal("EntropyStage1 not identical upon umarshalling")
+	}
+
+	// verify that input is being checked
+	_, err = UnmarshalHeartbeat(hbMarshalled[1:])
+	if err == nil {
+		t.Fatal("Heartbeat unmarshalling succeded with input of incorrect length")
+	}
+	_, err = UnmarshalHeartbeat(append(hbMarshalled, hbMarshalled...))
+	if err == nil {
+		t.Fatal("Heartbeat unmarshalling succeded with input of incorrect length")
+	}
+}
 
 // An incomplete set of tests: the more complete suite will attack the system
 // as a whole.

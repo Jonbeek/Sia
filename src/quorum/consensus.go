@@ -23,11 +23,11 @@ type SignedHeartbeat struct {
 	Signatories   []ParticipantIndex
 }
 
-// Using the current State, NewHeartbeat creates a heartbeat that
-// fulfills all of the requirements of the quorum.
+// Using the current State, NewHeartbeat creates a heartbeat that fulfills all
+// of the requirements of the quorum.
 func (s *State) NewHeartbeat() (hb *Heartbeat, err error) {
-	var heartbeat Heartbeat
-	hb = &heartbeat
+	hb = new(Heartbeat)
+
 	// Fetch value used to produce EntropyStage1 in prev. heartbeat
 	hb.EntropyStage2 = s.StoredEntropyStage2
 
@@ -50,17 +50,27 @@ func (s *State) NewHeartbeat() (hb *Heartbeat, err error) {
 }
 
 // Convert Heartbeat to string
-func (hb *Heartbeat) Marshal() (marshalledHeartbeat string) {
-	marshalledHeartbeat = string(append(hb.EntropyStage1[:], hb.EntropyStage2[:]...))
+func (hb *Heartbeat) Marshal() (marshalledHeartbeat []byte) {
+	marshalledHeartbeat = append(hb.EntropyStage1[:], hb.EntropyStage2[:]...)
 	return
 }
 
-// func UnmarshalHeartbeat(marshalledHeartbeat string) {
-// }
+// Convert string to Heartbeat
+func UnmarshalHeartbeat(marshalledHeartbeat []byte) (hb *Heartbeat, err error) {
+	expectedLen := crypto.TruncatedHashSize + common.EntropyVolume
+	if len(marshalledHeartbeat) != expectedLen {
+		err = fmt.Errorf("Marshalled heartbeat is the wrong size!")
+		return
+	}
+
+	hb = new(Heartbeat)
+	copy(hb.EntropyStage1[:], marshalledHeartbeat)
+	copy(hb.EntropyStage2[:], marshalledHeartbeat[crypto.TruncatedHashSize:])
+	return
+}
 
 func (s *State) SignHeartbeat(hb *Heartbeat) (sh *SignedHeartbeat, err error) {
-	var signedHeartbeat SignedHeartbeat
-	sh = &signedHeartbeat
+	sh = new(SignedHeartbeat)
 
 	// confirm heartbeat and hash
 	sh.Heartbeat = hb
@@ -96,7 +106,7 @@ func (sh *SignedHeartbeat) Package(participant *Participant) (m common.Message) 
 	// 3. for each:
 	//    3a. a single singature
 	//    3b. a number corresponding to the signatory
-	m.Payload = string(payload)
+	m.Payload = payload
 	return
 }
 

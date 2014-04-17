@@ -42,10 +42,6 @@ type Message struct {
 	Payload     []byte
 }
 
-type MessageSender interface {
-	SendMessage(m Message)
-}
-
 type MessageHandler interface {
 	HandleMessage(payload []byte)
 }
