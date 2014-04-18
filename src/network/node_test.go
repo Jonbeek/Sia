@@ -25,8 +25,7 @@ func (t *TestMsgHandler) HandleMessage(payload []byte) {
 // SendMessage must succesfully deliver a message.
 func TestTCPServer(t *testing.T) {
 	// create TCPServer and add a message handler
-	tcp := new(TCPServer)
-	err := tcp.InitServer(9988)
+	tcp, err := NewTCPServer(9988)
 	if err != nil {
 		t.Fatal("Failed to initialize TCPServer:", err)
 	}

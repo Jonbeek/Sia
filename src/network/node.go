@@ -42,10 +42,11 @@ func (tcp *TCPServer) AddMessageHandler(mh common.MessageHandler) {
 	tcp.MessageHandlers[mh.Identifier()] = mh
 }
 
-// InitServer initializes a server that listens for TCP connections on a specified port.
+// NewTCPServer creates and initializes a server that listens for TCP connections on a specified port.
 // It then spawns a serverHandler with a specified message.
 // It is the serverHandler's responsibility to close the TCP connection.
-func (tcp *TCPServer) InitServer(port int) (err error) {
+func NewTCPServer(port int) (tcp *TCPServer, err error) {
+	tcp = new(TCPServer)
 	tcpServ, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
 		return
