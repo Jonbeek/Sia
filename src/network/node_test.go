@@ -8,7 +8,12 @@ import (
 
 // a simple message handler
 type TestMsgHandler struct {
+	id     common.Identifier
 	result string
+}
+
+func (t *TestMsgHandler) Identifier() common.Identifier {
+	return t.id
 }
 
 func (t *TestMsgHandler) HandleMessage(payload []byte) {
@@ -21,16 +26,18 @@ func (t *TestMsgHandler) HandleMessage(payload []byte) {
 func TestTCPServer(t *testing.T) {
 	// create TCPServer and add a message handler
 	tcp := new(TCPServer)
-	tmh := new(TestMsgHandler)
-	tcp.MessageHandlers = make(map[byte]common.MessageHandler)
-	tcp.MessageHandlers[1] = tmh
 	err := tcp.InitServer(9988)
 	if err != nil {
 		t.Fatal("Failed to initialize TCPServer:", err)
 	}
 
+	// create message handler and add it to the TCPServer
+	tmh := new(TestMsgHandler)
+	tmh.id = 1
+	tcp.AddMessageHandler(tmh)
+
 	// send a message to be echoed
-	m := common.Message{common.Address{0, "localhost", 9988}, []byte("\x01hello, world!")}
+	m := common.Message{common.Address{1, "localhost", 9988}, []byte("hello, world!")}
 	err = tcp.SendMessage(&m)
 	if err != nil {
 		t.Fatal("Failed to send message:", err)
@@ -47,7 +54,7 @@ func TestTCPServer(t *testing.T) {
 
 	// send a message that should not trigger a MessageHandler
 	tmh.result = ""
-	m = common.Message{common.Address{0, "localhost", 9988}, []byte("\xFFwon't be seen")}
+	m = common.Message{common.Address{2, "localhost", 9988}, []byte("won't be seen")}
 	err = tcp.SendMessage(&m)
 	if err != nil {
 		t.Fatal("Failed to send message:", err)
