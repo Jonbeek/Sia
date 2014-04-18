@@ -9,13 +9,13 @@ import (
 // quick sanity check
 func TestCreateState(t *testing.T) {
 	// create a state
-	s, err := CreateState(0)
+	s, err := CreateState(common.NewZeroNetwork(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// verify that the keys can sign and be verified
-	err = crypto.CheckKeys(s.PublicKey, s.SecretKey)
+	err = crypto.CheckKeys(s.Participants[s.ParticipantIndex].PublicKey, s.SecretKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,30 +28,30 @@ func TestCreateState(t *testing.T) {
 
 // verify that one state can add another
 func TestAddParticipant(t *testing.T) {
-	s0, err := CreateState(0)
+	s0, err := CreateState(common.NewZeroNetwork(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s1, err := CreateState(1)
+	s1, err := CreateState(common.NewZeroNetwork(), 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = s0.AddParticipant(s1.PublicKey, 1)
+	err = s0.AddParticipant(s1.Self(), 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// check that participant 1 was added to state 0
-	if s1.PublicKey != s0.Participants[1].PublicKey {
+	if s1.Participants[s1.ParticipantIndex].PublicKey != s0.Participants[1].PublicKey {
 		t.Fatal("AddParticipant failed!")
 	}
 }
 
 // check general case, check corner cases, and then do some fuzzing
 func TestRandInt(t *testing.T) {
-	s, err := CreateState(0)
+	s, err := CreateState(common.NewZeroNetwork(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
