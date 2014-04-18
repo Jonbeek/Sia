@@ -38,11 +38,7 @@ func (tcp *TCPServer) SendMessage(m *common.Message) (err error) {
 
 // AddMessageHandler adds a MessageHandler to the MessageHandlers map
 // If the key already has a MessageHandler associated with it, it is overwritten.
-// If the MessageHandlers map has not been created, it is created here.
 func (tcp *TCPServer) AddMessageHandler(mh common.MessageHandler) {
-	if tcp.MessageHandlers == nil {
-		tcp.MessageHandlers = make(map[common.Identifier]common.MessageHandler)
-	}
 	tcp.MessageHandlers[mh.Identifier()] = mh
 }
 
@@ -55,7 +51,9 @@ func (tcp *TCPServer) InitServer(port int) (err error) {
 		return
 	}
 
+	// initialize struct fields
 	tcp.Addr = common.Address{0, "localhost", port}
+	tcp.MessageHandlers = make(map[common.Identifier]common.MessageHandler)
 
 	go tcp.serverHandler(tcpServ)
 	return
