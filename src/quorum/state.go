@@ -63,6 +63,7 @@ func CreateState(messageSender common.MessageSender, participantIndex Participan
 	// create and fill out participant object, add it to our list of participants
 	self := new(Participant)
 	self.Address = messageSender.Address()
+	self.Address.Id = common.Identifier(participantIndex)
 	self.PublicKey = pubKey
 	s.AddParticipant(self, participantIndex)
 
@@ -132,6 +133,10 @@ func (s *State) HandleMessage(m []byte) {
 	default:
 		println("got dud message")
 	}
+}
+
+func (s *State) Identifier() common.Identifier {
+	return s.Participants[s.ParticipantIndex].Address.Id
 }
 
 // Take an unstarted State and begin the consensus algorithm cycle

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"common"
+	//"common"
 	"network"
 	"quorum"
 	"time"
@@ -11,9 +11,11 @@ func main() {
 	println("starting")
 
 	// create a networking server that can pass messages between hosts
-	tcp := new(network.TCPServer)
-	tcp.MessageHandlers = make(map[byte]common.MessageHandler)
-	tcp.InitServer(9988)
+	tcp, err := network.NewTCPServer(9988)
+	if err != nil {
+		println(err)
+		return
+	}
 
 	// create states that communicate over the tcp server
 	s0, _ := quorum.CreateState(tcp, 0)
