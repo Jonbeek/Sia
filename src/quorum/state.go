@@ -124,8 +124,12 @@ func (s *State) RandInt(low int, high int) (randInt int, err error) {
 }
 
 func (s *State) HandleMessage(m []byte) {
-	// take the payload and squeeze out the type bytes
-	// use a switch statement based on type
+	// figure out what type of message it is
+	// this will be stored in the first byte
+	switch m[0] {
+	case 0:
+		s.HandleSignedHeartbeat(m[1:])
+	}
 }
 
 // Take an unstarted State and begin the consensus algorithm cycle

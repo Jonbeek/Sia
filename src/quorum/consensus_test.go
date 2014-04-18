@@ -188,13 +188,21 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	sh.Signatories[1] = 2
 
 	// handle the signed heartbeat, expecting code 0
-	returnCode := s.HandleSignedHeartbeat(&sh)
+	msh, err := sh.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	returnCode := s.HandleSignedHeartbeat(msh)
 	if returnCode != 0 {
 		t.Fatal("expected heartbeat to succeed:", returnCode)
 	}
 
 	// verify that a repeat heartbeat gets ignored
-	returnCode = s.HandleSignedHeartbeat(&sh)
+	msh, err = sh.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	returnCode = s.HandleSignedHeartbeat(msh)
 	if returnCode != 8 {
 		t.Fatal("expected heartbeat to get ignored as a duplicate:", returnCode)
 	}
@@ -210,7 +218,11 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	}
 
 	// verify a heartbeat with bad signatures is rejected
-	returnCode = s.HandleSignedHeartbeat(&sh)
+	msh, err = sh.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	returnCode = s.HandleSignedHeartbeat(msh)
 	if returnCode != 6 {
 		t.Fatal("expected heartbeat to get ignored as having invalid signatures: ", returnCode)
 	}
@@ -233,7 +245,11 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	sh.Signatories[1] = 1
 
 	// verify repeated signatures are rejected
-	returnCode = s.HandleSignedHeartbeat(&sh)
+	msh, err = sh.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	returnCode = s.HandleSignedHeartbeat(msh)
 	if returnCode != 5 {
 		t.Fatal("expected heartbeat to be rejected for duplicate signatures: ", returnCode)
 	}
@@ -244,7 +260,11 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 
 	// handle heartbeat when tick is larger than num signatures
 	s.CurrentStep = 2
-	returnCode = s.HandleSignedHeartbeat(&sh)
+	msh, err = sh.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	returnCode = s.HandleSignedHeartbeat(msh)
 	if returnCode != 2 {
 		t.Fatal("expected heartbeat to be rejected as out-of-sync: ", returnCode)
 	}
@@ -260,7 +280,11 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 
 	// submit heartbeat in separate thread
 	go func() {
-		returnCode = s.HandleSignedHeartbeat(&sh)
+		msh, err = sh.Marshal()
+		if err != nil {
+			t.Fatal(err)
+		}
+		returnCode = s.HandleSignedHeartbeat(msh)
 		if returnCode != 0 {
 			t.Fatal("expected heartbeat to succeed!: ", returnCode)
 		}
@@ -362,17 +386,29 @@ func TestCompile(t *testing.T) {
 	}
 
 	// send the SignedHeartbeats to s0
-	returnCode := s0.HandleSignedHeartbeat(shb0)
-	if returnCode != 0 {
-		t.Fatal("Expecting shb1 to be valid: ", returnCode)
+	mshb0, err := shb0.Marshal()
+	if err != nil {
+		t.Fatal(err)
 	}
-	returnCode = s0.HandleSignedHeartbeat(shb2a)
+	returnCode := s0.HandleSignedHeartbeat(mshb0)
 	if returnCode != 0 {
-		t.Fatal("Expecting shb3a to be valid: ", returnCode)
+		t.Fatal("Expecting shb0 to be valid: ", returnCode)
 	}
-	returnCode = s0.HandleSignedHeartbeat(shb2b)
+	mshb2a, err := shb2a.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	returnCode = s0.HandleSignedHeartbeat(mshb2a)
 	if returnCode != 0 {
-		t.Fatal("Expecting shb3b to be valid: ", returnCode)
+		t.Fatal("Expecting shb2a to be valid: ", returnCode)
+	}
+	mshb2b, err := shb2b.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	returnCode = s0.HandleSignedHeartbeat(mshb2b)
+	if returnCode != 0 {
+		t.Fatal("Expecting shb2b to be valid: ", returnCode)
 	}
 
 	s0.Compile()

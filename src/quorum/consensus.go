@@ -227,10 +227,14 @@ func (s *State) announceSignedHeartbeat(sh *SignedHeartbeat) {
 //
 // The return code is purely for the testing suite. The numbers are chosen
 // arbitrarily
-//
-// Really, the HandleSignedHeartbeat should take a string, and open it up
-// all the way from that point. Which means the test suite needs updating
-func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
+func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
+	// covert message to SignedHeartbeat
+	sh, err := UnmarshalSignedHeartbeat(message)
+	if err != nil {
+		log.Infoln("Received bad message SignedHeartbeat: ", err)
+		return
+	}
+
 	// Check that the slices of signatures and signatories are of the same length
 	if len(sh.Signatures) != len(sh.Signatories) {
 		log.Infoln("SignedHeartbeat has mismatched signatures")
@@ -308,7 +312,7 @@ func (s *State) HandleSignedHeartbeat(sh *SignedHeartbeat) (returnCode int) {
 	s.Heartbeats[sh.Signatories[0]][sh.HeartbeatHash] = sh.Heartbeat
 
 	// Sign the stack of signatures and send it to all hosts
-	_, err := crypto.Sign(s.SecretKey, signedMessage.Message)
+	_, err = crypto.Sign(s.SecretKey, signedMessage.Message)
 	if err != nil {
 		log.Fatalln(err)
 	}
