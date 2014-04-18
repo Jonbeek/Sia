@@ -200,9 +200,12 @@ func (s *State) announceSignedHeartbeat(sh *SignedHeartbeat) {
 			}
 
 			m := new(common.Message)
-			m.Payload = payload
+			m.Payload = append([]byte{byte(1)}, payload...)
 			m.Destination = s.Participants[i].Address
-			s.MessageSender.SendMessage(m)
+			err = s.MessageSender.SendMessage(m)
+			if err != nil {
+				log.Fatalln("Error while sending message")
+			}
 		}
 	}
 }
@@ -228,6 +231,8 @@ func (s *State) announceSignedHeartbeat(sh *SignedHeartbeat) {
 // The return code is purely for the testing suite. The numbers are chosen
 // arbitrarily
 func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
+	print(s.ParticipantIndex)
+	println(" received message: ")
 	// covert message to SignedHeartbeat
 	sh, err := UnmarshalSignedHeartbeat(message)
 	if err != nil {

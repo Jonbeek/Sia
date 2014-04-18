@@ -124,11 +124,13 @@ func (s *State) RandInt(low int, high int) (randInt int, err error) {
 }
 
 func (s *State) HandleMessage(m []byte) {
-	// figure out what type of message it is
-	// this will be stored in the first byte
+	// message type is stored in the first byte, switch on this type
+	println(s.ParticipantIndex, ": got a message: ", m[0])
 	switch m[0] {
-	case 0:
+	case 1:
 		s.HandleSignedHeartbeat(m[1:])
+	default:
+		println("got dud message")
 	}
 }
 
