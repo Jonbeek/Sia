@@ -33,6 +33,6 @@ Most interestingly, the Siacoin has an inheret use. There is an explicit reason 
 Where Can I Learn More?
 =======================
 
-Primary Contact: David Vorick, david.vorick@gmail.com
-Secondary Contact: Luke Champine, luke.champine@gmail.com
+Primary Contact: David Vorick, david.vorick@gmail.com  
+Secondary Contact: Luke Champine, luke.champine@gmail.com  
 Mailing List: sia-dev@googlegroups.com  
