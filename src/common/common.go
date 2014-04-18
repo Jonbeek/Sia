@@ -26,11 +26,16 @@ const (
 
 type Entropy [EntropyVolume]byte
 
-// An Address is used to uniquely identify a message recipient.
+// An Identifier uniquely identifies a host.
+// A byte is used for now, but a more sophisticated data structure will be
+// used eventually -- probably a path through a tree.
+type Identifier byte
+
+// An Address couples an Identifier with its network address.
 type Address struct {
-	Identifier int
-	Host       string
-	Port       int
+	Id   Identifier
+	Host string
+	Port int
 }
 
 // Messages are for sending things over the network.
@@ -43,7 +48,8 @@ type Message struct {
 }
 
 type MessageHandler interface {
-	HandleMessage(payload []byte)
+	Identifier() Identifier
+	HandleMessage([]byte)
 }
 
 type MessageSender interface {
