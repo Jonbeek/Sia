@@ -30,6 +30,15 @@ If there is a sudden explosion in the amount of cheap storage available (perhaps
 
 Most interestingly, the Siacoin has an inheret use. There is an explicit reason to use Siacoins, which is to rent storage from Sia. This is a resource that can only be accessed using Siacoins, and this makes Siacoin unique to every other cryptocurrency. It puts a minimum on the value of the siacoin - a siacoin will never be worth less than the storage that you can buy using the siacoin. Additionally, if the value of the siacoin skyrockets, new hosts will be incentivized to join the network, which increases the minimum value of the siacoin.
 
+The Sia Company
+===============
+
+There is no corporation yet, however there is going to be a startup behind Sia. We've explored many options for revenue, and for now we've settled on a 1.9% fee on all transactions using Siacoins. These fees will be distributed among the owners of Siastock, a secondary currency that will be built into Sia. Siastock will be fully premined and initially owned by Luke and David, the cofounders of the startup behind Sia. The Siastock will be treated somewhat like equity, and initially will be traded away in return for investments. Siastock is fully speculative, and derives its value from the value and trade volume of siacoin.
+
+This reveue will be initially for feeding and housing the developers. As Sia grows, the money will be used for security audits, used to fund support teams, and overall used to build a powerful decentralized ecosystem around Sia. As revenue grows, it will be used to pay open source developers to integrate increasingly large parts of our lives with Sia and cryptocurrencies in general.
+
+If 1.9% seems extreme, I would like to remind you that Sia should be used to buy storage. A 1.9% premium for a market-maker is very small, especially when compared to AirBnb, Uber, and Kickstarter.
+
 Where Can I Learn More?
 =======================
 
