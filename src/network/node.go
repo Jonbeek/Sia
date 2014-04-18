@@ -36,6 +36,16 @@ func (tcp *TCPServer) SendMessage(m *common.Message) (err error) {
 	return
 }
 
+// AddMessageHandler adds a MessageHandler to the MessageHandlers map
+// If the key already has a MessageHandler associated with it, it is overwritten.
+// If the MessageHandlers map has not been created, it is created here.
+func (tcp *TCPServer) AddMessageHandler(mh common.MessageHandler) {
+	if tcp.MessageHandlers == nil {
+		tcp.MessageHandlers = make(map[common.Identifier]common.MessageHandler)
+	}
+	tcp.MessageHandlers[mh.Identifier()] = mh
+}
+
 // InitServer initializes a server that listens for TCP connections on a specified port.
 // It then spawns a serverHandler with a specified message.
 // It is the serverHandler's responsibility to close the TCP connection.
