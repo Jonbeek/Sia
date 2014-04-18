@@ -7,10 +7,10 @@ import (
 )
 
 // TCPServer is a MessageSender that communicates over TCP.
-// MessageHandlers is a map of bytecodes to MessageHandler interfaces.
+// MessageHandlers is a map of Identifiers to MessageHandler interfaces.
 type TCPServer struct {
 	Addr            common.Address
-	MessageHandlers map[byte]common.MessageHandler
+	MessageHandlers map[common.Identifier]common.MessageHandler
 }
 
 // Address returns the address of the server
@@ -26,7 +26,10 @@ func (tcp *TCPServer) SendMessage(m *common.Message) (err error) {
 		return
 	}
 	defer conn.Close()
-	_, err = conn.Write(m.Payload)
+
+	// append identifier to front of payload
+	payload := append([]byte{byte(m.Destination.Id)}, m.Payload...)
+	_, err = conn.Write(payload)
 	if err != nil {
 		return
 	}
@@ -70,8 +73,10 @@ func (tcp *TCPServer) clientHandler(conn net.Conn) {
 		return
 	}
 	// look up message handler and call it
-	handler, exists := tcp.MessageHandlers[buffer[0]]
+	// eventually this will use an unmarshalling function
+	handler, exists := tcp.MessageHandlers[common.Identifier(buffer[0])]
 	if exists {
 		handler.HandleMessage(buffer[1:b])
 	}
+	// todo: decide on behavior when encountering uninitialized Identifier
 }
