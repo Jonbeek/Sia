@@ -3,6 +3,7 @@ package quorum
 import (
 	"common"
 	"common/crypto"
+	"common/log"
 	"fmt"
 	"sync"
 )
@@ -126,12 +127,11 @@ func (s *State) RandInt(low int, high int) (randInt int, err error) {
 
 func (s *State) HandleMessage(m []byte) {
 	// message type is stored in the first byte, switch on this type
-	println(s.ParticipantIndex, ": got a message: ", m[0])
 	switch m[0] {
 	case 1:
 		s.HandleSignedHeartbeat(m[1:])
 	default:
-		println("got dud message")
+		log.Infoln("Got message of unrecognized type")
 	}
 }
 

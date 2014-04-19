@@ -231,8 +231,6 @@ func (s *State) announceSignedHeartbeat(sh *SignedHeartbeat) {
 // The return code is purely for the testing suite. The numbers are chosen
 // arbitrarily
 func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
-	print(s.ParticipantIndex)
-	println(" received message: ")
 	// covert message to SignedHeartbeat
 	sh, err := UnmarshalSignedHeartbeat(message)
 	if err != nil {
