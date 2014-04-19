@@ -75,7 +75,7 @@ func TestSignedHeartbeatMarshalling(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	originalSignedHeartbeat, err := s.SignHeartbeat(hb)
+	originalSignedHeartbeat, err := s.signHeartbeat(hb)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -362,7 +362,7 @@ func TestCompile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shb0, err := s0.SignHeartbeat(hb0)
+	shb0, err := s0.signHeartbeat(hb0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -372,7 +372,7 @@ func TestCompile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shb2a, err := s2.SignHeartbeat(hb2a)
+	shb2a, err := s2.signHeartbeat(hb2a)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -380,7 +380,7 @@ func TestCompile(t *testing.T) {
 	// create a second illegal heartbeat for s2
 	var hb2b Heartbeat
 	hb2b.EntropyStage2 = hb2a.EntropyStage2
-	shb2b, err := s2.SignHeartbeat(&hb2b)
+	shb2b, err := s2.signHeartbeat(&hb2b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -411,7 +411,7 @@ func TestCompile(t *testing.T) {
 		t.Fatal("Expecting shb2b to be valid: ", returnCode)
 	}
 
-	s0.Compile()
+	s0.compile()
 
 	// check that hosts arrive at the same participantOrdering
 	participantOrdering1 := s1.participantOrdering()
@@ -460,7 +460,7 @@ func TestRegularTick(t *testing.T) {
 	}
 }
 
-// ensures Tick() calles Compile() and then resets the counter to step 1
+// ensures Tick() calles compile() and then resets the counter to step 1
 func TestCompilationTick(t *testing.T) {
 	// test takes common.StepDuration seconds; skip for short testing
 	if testing.Short() {
@@ -491,7 +491,7 @@ func TestCompilationTick(t *testing.T) {
 		t.Fatal("s.CurrentStep failed to roll over: ", s.CurrentStep)
 	}
 
-	// check if s.Compile() got called
+	// check if s.compile() got called
 	if currentEntropy == s.CurrentEntropy {
 		t.Fatal("Entropy did not change after tick wrapped around")
 	}

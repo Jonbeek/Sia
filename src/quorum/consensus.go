@@ -73,7 +73,7 @@ func UnmarshalHeartbeat(marshalledHeartbeat []byte) (hb *Heartbeat, err error) {
 	return
 }
 
-func (s *State) SignHeartbeat(hb *Heartbeat) (sh *SignedHeartbeat, err error) {
+func (s *State) signHeartbeat(hb *Heartbeat) (sh *SignedHeartbeat, err error) {
 	sh = new(SignedHeartbeat)
 
 	// confirm heartbeat and hash
@@ -311,7 +311,7 @@ func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
 	}
 
 	// Add heartbeat to list of seen heartbeats
-	// Don't check if heartbeat is valid, that's for Compile()
+	// Don't check if heartbeat is valid, that's for compile()
 	s.Heartbeats[sh.Signatories[0]][sh.HeartbeatHash] = sh.Heartbeat
 
 	// Sign the stack of signatures and send it to all hosts
@@ -327,7 +327,8 @@ func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
 }
 
 // participants are processed in a random order each block, determied by the
-// entropy for the block
+// entropy for the block. participantOrdering() deterministically picks that
+// order, using entropy from the state.
 func (s *State) participantOrdering() (participantOrdering [common.QuorumSize]ParticipantIndex) {
 	// create an in-order list of participants
 	for i := range participantOrdering {
@@ -336,7 +337,7 @@ func (s *State) participantOrdering() (participantOrdering [common.QuorumSize]Pa
 
 	// shuffle the list of participants
 	for i := range participantOrdering {
-		newIndex, err := s.RandInt(i, common.QuorumSize)
+		newIndex, err := s.randInt(i, common.QuorumSize)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -365,10 +366,13 @@ func (s *State) tossParticipant(pi ParticipantIndex) {
 	s.Heartbeats[pi] = nil
 }
 
-// Takes all of the heartbeats and uses them to advance to the next state
-func (s *State) Compile() {
+// compile() takes the list of heartbeats and uses them to advance the state.
+func (s *State) compile() {
 	participantOrdering := s.participantOrdering()
 
+	// Read read heartbeats, process them, then archive them. Other functions
+	// concurrently access the heartbeats, so mutexes are needed.
+	s.HeartbeatsLock.Lock()
 	for _, participant := range participantOrdering {
 		if s.Participants[participant] == nil {
 			continue
@@ -383,14 +387,16 @@ func (s *State) Compile() {
 		for _, hb := range s.Heartbeats[participant] {
 			s.processHeartbeat(hb, participant)
 		}
-		// clear map of heartbeats for next block
+
+		// archive heartbeats
+		// currently, archives are sent to /dev/null
 		s.Heartbeats[participant] = make(map[crypto.TruncatedHash]*Heartbeat)
 	}
 
 	// move UpcomingEntropy to CurrentEntropy
 	s.CurrentEntropy = s.UpcomingEntropy
 
-	// generate a new heartbeat, add it to our map, and announce it
+	// generate a new heartbeat and add it to s.Heartbeats
 	hb, err := s.NewHeartbeat()
 	if err != nil {
 		log.Fatalln(err)
@@ -399,16 +405,18 @@ func (s *State) Compile() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-
 	s.Heartbeats[s.ParticipantIndex][hash] = hb
-	shb, err := s.SignHeartbeat(hb)
+	s.HeartbeatsLock.Unlock() // s.Heartbeats is no longer being accessed
+
+	// sign and annouce the heartbeat
+	shb, err := s.signHeartbeat(hb)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	s.announceSignedHeartbeat(shb)
 }
 
-// Tick() updates s.CurrentStep, and calls Compile() when all steps are complete
+// Tick() updates s.CurrentStep, and calls compile() when all steps are complete
 // Tick() runs in its own gothread, only one instance of Tick() runs per state
 func (s *State) Tick() {
 	// check that no other instance of Tick() is running
@@ -425,7 +433,7 @@ func (s *State) Tick() {
 	ticker := time.Tick(common.StepDuration)
 	for _ = range ticker {
 		if s.CurrentStep == common.QuorumSize {
-			s.Compile()
+			s.compile()
 			s.CurrentStep = 1
 		} else {
 			s.CurrentStep += 1

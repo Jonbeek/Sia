@@ -30,10 +30,11 @@ type State struct {
 	UpcomingEntropy       common.Entropy                          // Used to compute entropy for next block
 
 	// Consensus Algorithm Status
-	CurrentStep int
-	Ticking     bool
-	TickLock    sync.Mutex
-	Heartbeats  [common.QuorumSize]map[crypto.TruncatedHash]*Heartbeat
+	CurrentStep    int
+	Ticking        bool
+	TickLock       sync.Mutex
+	Heartbeats     [common.QuorumSize]map[crypto.TruncatedHash]*Heartbeat
+	HeartbeatsLock sync.Mutex
 
 	// Wallet Data
 	Wallets map[string]uint64
@@ -103,7 +104,7 @@ func (s *State) AddParticipant(p *Participant, i ParticipantIndex) (err error) {
 }
 
 // Use the entropy stored in the state to generate a random integer [low, high)
-func (s *State) RandInt(low int, high int) (randInt int, err error) {
+func (s *State) randInt(low int, high int) (randInt int, err error) {
 	// verify there's a gap between the numbers
 	if low == high {
 		err = fmt.Errorf("low and high cannot be the same number")
@@ -151,7 +152,7 @@ func (s *State) Start() {
 	}
 	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.Marshal()))
 	s.Heartbeats[s.ParticipantIndex][heartbeatHash] = hb
-	shb, err := s.SignHeartbeat(hb)
+	shb, err := s.signHeartbeat(hb)
 	if err != nil {
 		return
 	}
