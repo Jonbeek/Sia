@@ -39,6 +39,33 @@ This reveue will be initially for feeding and housing the developers. As Sia gro
 
 If 1.9% seems extreme, I would like to remind you that Sia should be used to buy storage. A 1.9% premium for a market-maker is very small, especially when compared to AirBnb, Uber, and Kickstarter.
 
+The Sia Technology
+==================
+
+Sia works quite a bit differently than existing cryptocurrencies. Instead of being proof of work, Sia is proof of storage. We enforce storage proofs by breaking hosts into sets of 128, each member of the set hosting exactly 16GB. If your machine is offering more than 16GB, you participate in multiple of these sets, called 'quorums'.
+
+The quorums individually follow a solution to the byzantine generals problem presented in section 4 of the paper 'The Byzantine Generals Problem'. This provides a solution that guarantees all honest participants in a quorum will revieve the information. Though the solution is complex, we've optimized the networking such that each block only takes a few minutes, comparable to bitcoin's block rate. It's possible that a financial set of blocks could operate at a much faster rate.
+
+Quorums communicate through a tree. Quorums use a verification algorithm to confirm with high probability (99.999999999%) that all blocks they receive are honest. The big advantage is that each quorum can operate knowing mostly about what happens only within that quorum (along with some aggregate information about the branches of the tree they are in - but this is much more lightweight). With existing cryptocurrencies, every miner must know about every transaction, which is expensive and limits the types and volume of transactions that can occur. The exact algorithms for the tree will be discussed at greater length in the yet-incomplete whitepaper.
+
+Finally, Sia will support a scripting system that is much lighter and more powerful than the scripting in existing cryptocurrencies. It will enable much more powerful scripts, and potentially even enable fully decentralized dynamic web hosting. Though the scripting is much more powerful than other cryptocurrencies, it will still be weak and expensive compared to centralized cloud computing.
+
+There is a general assumption that on the network, less than 50% of the hosts will be dishonest, and that no quorum will have more than 80% dishonest hosts. If part 1 is true, part 2 can be achieved by randomly placing hosts around the network. Sia's method of random number generation is a complex topic that will be covered at-length in the whitepaper.
+
+Cryptography and Erasure Coding
+===============================
+
+For cryptography, Sia uses libsodium. This includes local random number generation, hashing, and signatures using ECC Curve 25519. As far as we can tell, this is a secure library that follows the best practices. We are not experts in this area however. We want Sia to employ the absolute best practicies when using cryptography, so if you see something that is amiss, please let us know.
+
+For erasure coding, Sia uses a Cauchy Reed Solomon coding library called longhair.
+
+Project Progress
+================
+
+Currently, we have most parts of the basic quorum implemented. We have no part of the tree implemented, nor any part of the Byzantine-tolerant DHT that will allow quorums to communicate. We have the erasure coding libraries established and most of the crypto libraries in place (no encryption yet).
+
+We expect to have a basic demo complete by April 25th, but only of the quorums. We expect to have a beta with financial trading, the quorum tree, and some scriping in place by the end of June. We expect to be launching the full system sometime in August.
+
 Where Can I Learn More?
 =======================
 
