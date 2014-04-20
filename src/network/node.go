@@ -3,7 +3,10 @@ package network
 import (
 	"common"
 	"encoding/binary"
+	"errors"
+	"io"
 	"net"
+	"os"
 	"strconv"
 )
 
@@ -41,6 +44,36 @@ func (tcp *TCPServer) SendMessage(m *common.Message) (err error) {
 
 	// transmit stream
 	_, err = conn.Write(stream)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+// SendFile transmits a file to its intended recipient.
+// It is a simple wrapper around SendMessage.
+func (tcp *TCPServer) SendFile(file *os.File, dest *common.Address) (err error) {
+	// check file
+	fi, err := file.Stat()
+	if err != nil {
+		return
+	}
+	if fi.Size() > int64(common.MaxSliceSize) {
+		err = errors.New("File exceeds maximum slice size")
+		return
+	}
+
+	// create message
+	payload := make([]byte, fi.Size())
+	_, err = io.ReadFull(file, payload)
+	if err != nil {
+		return
+	}
+	m := common.Message{*dest, payload}
+
+	// transmit
+	err = tcp.SendMessage(&m)
 	if err != nil {
 		return
 	}
