@@ -8,7 +8,7 @@ import (
 func TestAddingWallets(t *testing.T) {
 
 	s := new(State)
-	s.Wallets = make(map[string]uint64)
+	s.wallets = make(map[string]uint64)
 
 	//testing adding wallets to the wallet mapping
 	s.AddWallet("1", 5)
@@ -30,7 +30,7 @@ func TestAddingWallets(t *testing.T) {
 	}
 
 	//testing if everything is there
-	fmt.Println(s.Wallets)
+	fmt.Println(s.wallets)
 
 	//Testing MoveBal
 	s.MoveBal("1", "2", 5)

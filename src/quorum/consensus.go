@@ -9,37 +9,37 @@ import (
 )
 
 // All information that needs to be passed between participants each block
-type Heartbeat struct {
-	EntropyStage1 crypto.TruncatedHash
-	EntropyStage2 common.Entropy
+type heartbeat struct {
+	entropyStage1 crypto.TruncatedHash
+	entropyStage2 common.Entropy
 }
 
 // Contains a heartbeat that has been signed iteratively, is a key part of the
 // signed solution to the Byzantine Generals Problem
-type SignedHeartbeat struct {
-	Heartbeat     *Heartbeat
-	HeartbeatHash crypto.TruncatedHash
-	Signatures    []crypto.Signature
-	Signatories   []ParticipantIndex
+type signedHeartbeat struct {
+	heartbeat     *heartbeat
+	heartbeatHash crypto.TruncatedHash
+	signatures    []crypto.Signature
+	signatories   []participantIndex
 }
 
-// Using the current State, NewHeartbeat creates a heartbeat that fulfills all
+// Using the current State, newHeartbeat() creates a heartbeat that fulfills all
 // of the requirements of the quorum.
-func (s *State) NewHeartbeat() (hb *Heartbeat, err error) {
-	hb = new(Heartbeat)
+func (s *State) newHeartbeat() (hb *heartbeat, err error) {
+	hb = new(heartbeat)
 
 	// Fetch value used to produce EntropyStage1 in prev. heartbeat
-	hb.EntropyStage2 = s.StoredEntropyStage2
+	hb.entropyStage2 = s.storedEntropyStage2
 
 	// Generate EntropyStage2 for next heartbeat
 	rawEntropy, err := crypto.RandomByteSlice(common.EntropyVolume)
 	if err != nil {
 		return
 	}
-	copy(s.StoredEntropyStage2[:], rawEntropy)
+	copy(s.storedEntropyStage2[:], rawEntropy)
 
 	// Use EntropyStage2 to generate EntropyStage1 for this heartbeat
-	hb.EntropyStage1, err = crypto.CalculateTruncatedHash(s.StoredEntropyStage2[:])
+	hb.entropyStage1, err = crypto.CalculateTruncatedHash(s.storedEntropyStage2[:])
 	if err != nil {
 		return
 	}
@@ -49,66 +49,66 @@ func (s *State) NewHeartbeat() (hb *Heartbeat, err error) {
 	return
 }
 
-func MarshalledHeartbeatLen() int {
+func marshalledHeartbeatLen() int {
 	return crypto.TruncatedHashSize + common.EntropyVolume
 }
 
 // Convert Heartbeat to string
-func (hb *Heartbeat) Marshal() (marshalledHeartbeat []byte) {
-	marshalledHeartbeat = append(hb.EntropyStage1[:], hb.EntropyStage2[:]...)
+func (hb *heartbeat) marshal() (marshalledHeartbeat []byte) {
+	marshalledHeartbeat = append(hb.entropyStage1[:], hb.entropyStage2[:]...)
 	return
 }
 
 // Convert string to Heartbeat
-func UnmarshalHeartbeat(marshalledHeartbeat []byte) (hb *Heartbeat, err error) {
-	expectedLen := MarshalledHeartbeatLen()
+func unmarshalHeartbeat(marshalledHeartbeat []byte) (hb *heartbeat, err error) {
+	expectedLen := marshalledHeartbeatLen()
 	if len(marshalledHeartbeat) != expectedLen {
 		err = fmt.Errorf("Marshalled heartbeat is the wrong size!")
 		return
 	}
 
-	hb = new(Heartbeat)
-	copy(hb.EntropyStage1[:], marshalledHeartbeat)
-	copy(hb.EntropyStage2[:], marshalledHeartbeat[crypto.TruncatedHashSize:])
+	hb = new(heartbeat)
+	copy(hb.entropyStage1[:], marshalledHeartbeat)
+	copy(hb.entropyStage2[:], marshalledHeartbeat[crypto.TruncatedHashSize:])
 	return
 }
 
-func (s *State) SignHeartbeat(hb *Heartbeat) (sh *SignedHeartbeat, err error) {
-	sh = new(SignedHeartbeat)
+func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
+	sh = new(signedHeartbeat)
 
 	// confirm heartbeat and hash
-	sh.Heartbeat = hb
-	marshalledHb := hb.Marshal()
-	sh.HeartbeatHash, err = crypto.CalculateTruncatedHash([]byte(marshalledHb))
+	sh.heartbeat = hb
+	marshalledHb := hb.marshal()
+	sh.heartbeatHash, err = crypto.CalculateTruncatedHash([]byte(marshalledHb))
 	if err != nil {
 		return
 	}
 
 	// fill out sigantures
-	sh.Signatures = make([]crypto.Signature, 1)
-	signedHb, err := crypto.Sign(s.SecretKey, string(sh.HeartbeatHash[:]))
+	sh.signatures = make([]crypto.Signature, 1)
+	signedHb, err := crypto.Sign(s.secretKey, string(sh.heartbeatHash[:]))
 	if err != nil {
 		return
 	}
-	sh.Signatures[0] = signedHb.Signature
-	sh.Signatories = make([]ParticipantIndex, 1)
-	sh.Signatories[0] = s.ParticipantIndex
+	sh.signatures[0] = signedHb.Signature
+	sh.signatories = make([]participantIndex, 1)
+	sh.signatories[0] = s.participantIndex
 	return
 }
 
-func (sh *SignedHeartbeat) Marshal() (msh []byte, err error) {
+func (sh *signedHeartbeat) marshal() (msh []byte, err error) {
 	// error check the input
-	if len(sh.Signatures) > common.QuorumSize {
+	if len(sh.signatures) > common.QuorumSize {
 		err = fmt.Errorf("Too many signatures on heartbeat")
 		return
-	} else if len(sh.Signatures) != len(sh.Signatories) {
+	} else if len(sh.signatures) != len(sh.signatories) {
 		err = fmt.Errorf("Mismatched set of signatures and signatories")
 		return
 	}
 
 	// get all pieces of the marshalledSignedHeartbeat
-	mhb := sh.Heartbeat.Marshal()
-	numSignatures := byte(len(sh.Signatures))
+	mhb := sh.heartbeat.marshal()
+	numSignatures := byte(len(sh.signatures))
 	numBytes := len(mhb) + 1 + int(numSignatures)*(crypto.SignatureSize+1)
 	msh = make([]byte, numBytes)
 
@@ -118,91 +118,92 @@ func (sh *SignedHeartbeat) Marshal() (msh []byte, err error) {
 	copy(msh[index:], string(numSignatures))
 	index += 1
 	for i := 0; i < int(numSignatures); i++ {
-		copy(msh[index:], sh.Signatures[i][:])
+		copy(msh[index:], sh.signatures[i][:])
 		index += crypto.SignatureSize
-		copy(msh[index:], string(sh.Signatories[i]))
+		copy(msh[index:], string(sh.signatories[i]))
 		index += 1
 	}
 
 	return
 }
 
-func UnmarshalSignedHeartbeat(msh []byte) (sh *SignedHeartbeat, err error) {
+func unmarshalSignedHeartbeat(msh []byte) (sh *signedHeartbeat, err error) {
 	// error check the input
-	if len(msh) <= MarshalledHeartbeatLen() {
-		err = fmt.Errorf("input for UnmarshalSignedHeartbeat is too short")
+	if len(msh) <= marshalledHeartbeatLen() {
+		err = fmt.Errorf("input for unmarshalSignedHeartbeat is too short")
 		return
 	}
-	numSignatures := int(msh[MarshalledHeartbeatLen()])
+	numSignatures := int(msh[marshalledHeartbeatLen()])
 	signatureSectionLen := numSignatures * (crypto.SignatureSize + 1)
-	totalLen := MarshalledHeartbeatLen() + 1 + signatureSectionLen
+	totalLen := marshalledHeartbeatLen() + 1 + signatureSectionLen
 	if len(msh) != totalLen {
 		err = fmt.Errorf("input for UnmarshalSignedHeartbeat is incorrect length, expecting ", totalLen, " bytes")
 		return
 	}
 
 	// get sh.Heartbeat and sh.HeartbeatHash
-	sh = new(SignedHeartbeat)
+	sh = new(signedHeartbeat)
 	index := 0
-	heartbeat, err := UnmarshalHeartbeat(msh[index:MarshalledHeartbeatLen()])
+	heartbeat, err := unmarshalHeartbeat(msh[index:marshalledHeartbeatLen()])
 	if err != nil {
 		return
 	}
-	heartbeatHash, err := crypto.CalculateTruncatedHash(msh[index:MarshalledHeartbeatLen()])
+	heartbeatHash, err := crypto.CalculateTruncatedHash(msh[index:marshalledHeartbeatLen()])
 	if err != nil {
 		return
 	}
-	sh.Heartbeat = heartbeat
-	sh.HeartbeatHash = heartbeatHash
+	sh.heartbeat = heartbeat
+	sh.heartbeatHash = heartbeatHash
 
 	// get sh.Signatures and sh.Signatories
-	index += MarshalledHeartbeatLen()
+	index += marshalledHeartbeatLen()
 	index += 1
-	sh.Signatures = make([]crypto.Signature, numSignatures)
-	sh.Signatories = make([]ParticipantIndex, numSignatures)
+	sh.signatures = make([]crypto.Signature, numSignatures)
+	sh.signatories = make([]participantIndex, numSignatures)
 	for i := 0; i < numSignatures; i++ {
-		copy(sh.Signatures[i][:], msh[index:])
+		copy(sh.signatures[i][:], msh[index:])
 		index += crypto.SignatureSize
-		sh.Signatories[i] = ParticipantIndex(msh[index])
+		sh.signatories[i] = participantIndex(msh[index])
 		index += 1
 	}
 
 	return
 }
 
-func (s *State) processHeartbeat(hb *Heartbeat, i ParticipantIndex) int {
+func (s *State) processHeartbeat(hb *heartbeat, i participantIndex) int {
 	// compare EntropyStage2 to the hash from the previous heartbeat
-	expectedHash, err := crypto.CalculateTruncatedHash(hb.EntropyStage2[:])
+	expectedHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
 	if err != nil {
 		log.Fatalln(err)
 	}
-	if expectedHash != s.PreviousEntropyStage1[i] {
+	if expectedHash != s.previousEntropyStage1[i] {
 		s.tossParticipant(i)
 		return 1
 	}
 
 	// Add the EntropyStage2 to UpcomingEntropy
-	th, err := crypto.CalculateTruncatedHash(append(s.UpcomingEntropy[:], hb.EntropyStage2[:]...))
-	s.UpcomingEntropy = common.Entropy(th)
+	th, err := crypto.CalculateTruncatedHash(append(s.upcomingEntropy[:], hb.entropyStage2[:]...))
+	s.upcomingEntropy = common.Entropy(th)
 	// update PreviousEntropy, to compare this EntropyStage1 against the next
 	// EntropyStage1
-	s.PreviousEntropyStage1[i] = hb.EntropyStage1
+	s.previousEntropyStage1[i] = hb.entropyStage1
 
 	return 0
 }
 
-func (s *State) announceSignedHeartbeat(sh *SignedHeartbeat) {
-	for i := range s.Participants {
-		if s.Participants[i] != nil {
-			payload, err := sh.Marshal()
+func (s *State) announceSignedHeartbeat(sh *signedHeartbeat) {
+	for i := range s.participants {
+		if s.participants[i] != nil {
+			payload, err := sh.marshal()
 			if err != nil {
 				log.Fatalln(err)
 			}
 
 			m := new(common.Message)
 			m.Payload = append([]byte{byte(1)}, payload...)
-			m.Destination = s.Participants[i].Address
-			err = s.MessageSender.SendMessage(m)
+			m.Destination = s.participants[i].Address
+			//time.Sleep(time.Millisecond) // prevents panics. No idea where original source of bug is.
+			err = s.messageSender.SendMessage(m)
 			if err != nil {
 				log.Fatalln("Error while sending message")
 			}
@@ -230,18 +231,16 @@ func (s *State) announceSignedHeartbeat(sh *SignedHeartbeat) {
 //
 // The return code is purely for the testing suite. The numbers are chosen
 // arbitrarily
-func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
-	print(s.ParticipantIndex)
-	println(" received message: ")
+func (s *State) handleSignedHeartbeat(message []byte) (returnCode int) {
 	// covert message to SignedHeartbeat
-	sh, err := UnmarshalSignedHeartbeat(message)
+	sh, err := unmarshalSignedHeartbeat(message)
 	if err != nil {
 		log.Infoln("Received bad message SignedHeartbeat: ", err)
 		return
 	}
 
 	// Check that the slices of signatures and signatories are of the same length
-	if len(sh.Signatures) != len(sh.Signatories) {
+	if len(sh.signatures) != len(sh.signatories) {
 		log.Infoln("SignedHeartbeat has mismatched signatures")
 		returnCode = 1
 		return
@@ -249,8 +248,8 @@ func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
 
 	// s.CurrentStep must be less than or equal to len(sh.Signatories), unless the
 	// current step is common.QuorumSize and len(sh.Signatories) == 1
-	if s.CurrentStep > len(sh.Signatories) {
-		if s.CurrentStep == common.QuorumSize && len(sh.Signatories) == 1 {
+	if s.currentStep > len(sh.signatories) {
+		if s.currentStep == common.QuorumSize && len(sh.signatories) == 1 {
 			// sleep long enough to pass the first requirement
 			time.Sleep(common.StepDuration)
 			// now continue to rest of function
@@ -261,8 +260,22 @@ func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
 		}
 	}
 
+	// Check bounds on first signatory
+	if int(sh.signatories[0]) >= common.QuorumSize {
+		log.Infoln("Received an out of bounds index")
+		returnCode = 9
+		return
+	}
+
+	// Check existence of first signatory
+	if s.participants[sh.signatories[0]] == nil {
+		log.Infoln("Received heartbeat from non-participant")
+		returnCode = 10
+		return
+	}
+
 	// Check if we have already received this heartbeat
-	_, exists := s.Heartbeats[sh.Signatories[0]][sh.HeartbeatHash]
+	_, exists := s.heartbeats[sh.signatories[0]][sh.heartbeatHash]
 	if exists {
 		returnCode = 8
 		return
@@ -270,13 +283,20 @@ func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
 
 	// while processing signatures, signedMessage will keep growing
 	var signedMessage crypto.SignedMessage
-	signedMessage.Message = string(sh.HeartbeatHash[:])
+	signedMessage.Message = string(sh.heartbeatHash[:])
 	// keep a map of which signatories have already been confirmed
-	previousSignatories := make(map[ParticipantIndex]bool)
+	previousSignatories := make(map[participantIndex]bool)
 
-	for i, signatory := range sh.Signatories {
+	for i, signatory := range sh.signatories {
+		// Check bounds on the signatory
+		if int(signatory) >= common.QuorumSize {
+			log.Infoln("Received an out of bounds index")
+			returnCode = 9
+			return
+		}
+
 		// Verify that the signatory is a participant in the quorum
-		if s.Participants[signatory] == nil {
+		if s.participants[signatory] == nil {
 			log.Infoln("Received a heartbeat signed by an invalid signatory")
 			returnCode = 4
 			return
@@ -293,8 +313,8 @@ func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
 		previousSignatories[signatory] = true
 
 		// verify the signature
-		signedMessage.Signature = sh.Signatures[i]
-		verification, err := crypto.Verify(s.Participants[signatory].PublicKey, signedMessage)
+		signedMessage.Signature = sh.signatures[i]
+		verification, err := crypto.Verify(s.participants[signatory].PublicKey, signedMessage)
 		if err != nil {
 			log.Fatalln(err)
 			return
@@ -313,11 +333,11 @@ func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
 	}
 
 	// Add heartbeat to list of seen heartbeats
-	// Don't check if heartbeat is valid, that's for Compile()
-	s.Heartbeats[sh.Signatories[0]][sh.HeartbeatHash] = sh.Heartbeat
+	// Don't check if heartbeat is valid, that's for compile()
+	s.heartbeats[sh.signatories[0]][sh.heartbeatHash] = sh.heartbeat
 
 	// Sign the stack of signatures and send it to all hosts
-	_, err = crypto.Sign(s.SecretKey, signedMessage.Message)
+	_, err = crypto.Sign(s.secretKey, signedMessage.Message)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -329,16 +349,17 @@ func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
 }
 
 // participants are processed in a random order each block, determied by the
-// entropy for the block
-func (s *State) participantOrdering() (participantOrdering [common.QuorumSize]ParticipantIndex) {
+// entropy for the block. participantOrdering() deterministically picks that
+// order, using entropy from the state.
+func (s *State) participantOrdering() (participantOrdering [common.QuorumSize]participantIndex) {
 	// create an in-order list of participants
 	for i := range participantOrdering {
-		participantOrdering[i] = ParticipantIndex(i)
+		participantOrdering[i] = participantIndex(i)
 	}
 
 	// shuffle the list of participants
 	for i := range participantOrdering {
-		newIndex, err := s.RandInt(i, common.QuorumSize)
+		newIndex, err := s.randInt(i, common.QuorumSize)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -351,91 +372,98 @@ func (s *State) participantOrdering() (participantOrdering [common.QuorumSize]Pa
 }
 
 // Removes all traces of a participant from the State
-func (s *State) tossParticipant(pi ParticipantIndex) {
+func (s *State) tossParticipant(pi participantIndex) {
 	// remove from s.Participants
-	s.Participants[pi] = nil
+	s.participants[pi] = nil
 
 	// remove from s.PreviousEntropyStage1
 	var emptyEntropy common.Entropy
 	zeroHash, err := crypto.CalculateTruncatedHash(emptyEntropy[:])
-	s.PreviousEntropyStage1[pi] = zeroHash
+	s.previousEntropyStage1[pi] = zeroHash
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// nil map in s.Heartbeats
-	s.Heartbeats[pi] = nil
+	s.heartbeats[pi] = nil
 }
 
-// Takes all of the heartbeats and uses them to advance to the next state
-func (s *State) Compile() {
+// compile() takes the list of heartbeats and uses them to advance the state.
+func (s *State) compile() {
 	participantOrdering := s.participantOrdering()
 
+	// Read read heartbeats, process them, then archive them. Other functions
+	// concurrently access the heartbeats, so mutexes are needed.
 	for _, participant := range participantOrdering {
-		if s.Participants[participant] == nil {
+		if s.participants[participant] == nil {
 			continue
 		}
 
 		// each participant must submit exactly 1 heartbeat
-		if len(s.Heartbeats[participant]) != 1 {
+		if len(s.heartbeats[participant]) != 1 {
 			s.tossParticipant(participant)
 			continue
 		}
 
-		for _, hb := range s.Heartbeats[participant] {
+		for _, hb := range s.heartbeats[participant] {
 			s.processHeartbeat(hb, participant)
 		}
-		// clear map of heartbeats for next block
-		s.Heartbeats[participant] = make(map[crypto.TruncatedHash]*Heartbeat)
+
+		// archive heartbeats
+		// currently, archives are sent to /dev/null
+		s.heartbeats[participant] = make(map[crypto.TruncatedHash]*heartbeat)
 	}
 
 	// move UpcomingEntropy to CurrentEntropy
-	s.CurrentEntropy = s.UpcomingEntropy
+	s.currentEntropy = s.upcomingEntropy
 
-	// generate a new heartbeat, add it to our map, and announce it
-	hb, err := s.NewHeartbeat()
+	// generate a new heartbeat and add it to s.Heartbeats
+	hb, err := s.newHeartbeat()
 	if err != nil {
 		log.Fatalln(err)
 	}
-	hash, err := crypto.CalculateTruncatedHash(hb.Marshal())
+	hash, err := crypto.CalculateTruncatedHash(hb.marshal())
 	if err != nil {
 		log.Fatalln(err)
 	}
+	s.heartbeats[s.participantIndex][hash] = hb
 
-	s.Heartbeats[s.ParticipantIndex][hash] = hb
-	shb, err := s.SignHeartbeat(hb)
+	// sign and annouce the heartbeat
+	shb, err := s.signHeartbeat(hb)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	s.announceSignedHeartbeat(shb)
 }
 
-// Tick() updates s.CurrentStep, and calls Compile() when all steps are complete
+// Tick() updates s.CurrentStep, and calls compile() when all steps are complete
 // Tick() runs in its own gothread, only one instance of Tick() runs per state
-func (s *State) Tick() {
+func (s *State) tick() {
 	// check that no other instance of Tick() is running
-	s.TickLock.Lock()
-	if s.Ticking {
-		s.TickLock.Unlock()
+	s.tickLock.Lock()
+	if s.ticking {
+		s.tickLock.Unlock()
 		return
 	} else {
-		s.Ticking = true
-		s.TickLock.Unlock()
+		s.ticking = true
+		s.tickLock.Unlock()
 	}
 
 	// Every common.StepDuration, advance the state stage
 	ticker := time.Tick(common.StepDuration)
 	for _ = range ticker {
-		if s.CurrentStep == common.QuorumSize {
-			s.Compile()
-			s.CurrentStep = 1
+		s.lock.Lock()
+		if s.currentStep == common.QuorumSize {
+			s.compile()
+			s.currentStep = 1
 		} else {
-			s.CurrentStep += 1
+			s.currentStep += 1
 		}
+		s.lock.Unlock()
 	}
 
 	// if every we add code to stop ticking, this will be needed
-	s.TickLock.Lock()
-	s.Ticking = false
-	s.TickLock.Unlock()
+	s.tickLock.Lock()
+	s.ticking = false
+	s.tickLock.Unlock()
 }

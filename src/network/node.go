@@ -2,6 +2,7 @@ package network
 
 import (
 	"common"
+	"encoding/binary"
 	"net"
 	"strconv"
 )
@@ -11,6 +12,7 @@ import (
 type TCPServer struct {
 	Addr            common.Address
 	MessageHandlers map[common.Identifier]common.MessageHandler
+	Listener        net.Listener
 }
 
 // Address returns the address of the server
@@ -19,20 +21,30 @@ func (tcp *TCPServer) Address() common.Address {
 }
 
 // SendMessage transmits the payload of a message to its intended recipient.
-// It returns without waiting for a response.
+// It marshalls the Message struct using a length-prefix scheme.
+// It does not wait for a response.
 func (tcp *TCPServer) SendMessage(m *common.Message) (err error) {
-	conn, err := net.Dial("tcp", m.Destination.Host+":"+strconv.Itoa(m.Destination.Port))
+	conn, err := net.Dial("tcp", net.JoinHostPort(m.Destination.Host, strconv.Itoa(m.Destination.Port)))
 	if err != nil {
 		return
 	}
 	defer conn.Close()
 
-	// append identifier to front of payload
-	payload := append([]byte{byte(m.Destination.Id)}, m.Payload...)
-	_, err = conn.Write(payload)
+	// construct stream to be transmitted
+	// bytes 0:3 are the payload length
+	// byte 4 is the destination identifier
+	// the remainder is the payload
+	payloadLength := make([]byte, 4)
+	binary.PutUvarint(payloadLength, uint64(len(m.Payload)))
+	stream := append(payloadLength, byte(m.Destination.Id))
+	stream = append(stream, m.Payload...)
+
+	// transmit stream
+	_, err = conn.Write(stream)
 	if err != nil {
 		return
 	}
+
 	return
 }
 
@@ -55,37 +67,63 @@ func NewTCPServer(port int) (tcp *TCPServer, err error) {
 	// initialize struct fields
 	tcp.Addr = common.Address{0, "localhost", port}
 	tcp.MessageHandlers = make(map[common.Identifier]common.MessageHandler)
+	tcp.Listener = tcpServ
 
-	go tcp.serverHandler(tcpServ)
+	go tcp.serverHandler()
 	return
 }
 
-// serverHandler accepts incoming connections and spawns a clientHandler for each.
-func (tcp *TCPServer) serverHandler(tcpServ net.Listener) {
-	defer tcpServ.Close()
+// Close closes the connection associated with the TCP server.
+// This causes tcpServ.Accept() to return an err, ending the serverHandler process
+func (tcp *TCPServer) Close() {
+	tcp.Listener.Close()
+}
 
+// serverHandler accepts incoming connections and spawns a clientHandler for each.
+func (tcp *TCPServer) serverHandler() {
 	for {
-		conn, err := tcpServ.Accept()
+		conn, err := tcp.Listener.Accept()
 		if err != nil {
 			return
 		} else {
 			tcp.clientHandler(conn)
+			conn.Close()
 		}
 	}
 }
 
 // clientHandler reads data sent by a client and processes it.
 func (tcp *TCPServer) clientHandler(conn net.Conn) {
+	// read first 1024 bytes
 	buffer := make([]byte, 1024)
+
+	// read first 1024 bytes
 	b, err := conn.Read(buffer)
 	if err != nil {
 		return
 	}
+
+	// split message into payload length, identifier, and payload
+	payloadLength, _ := binary.Uvarint(buffer[:4])
+	id := common.Identifier(buffer[4])
+	payload := buffer[5:b]
+
+	// read rest of payload, 1024 bytes at a time
+	// TODO: add a timeout
+	bytesRead := len(payload)
+	for uint64(bytesRead) != payloadLength {
+		b, err = conn.Read(buffer)
+		if err != nil {
+			return
+		}
+		payload = append(payload, buffer[:b]...)
+		bytesRead += b
+	}
+
 	// look up message handler and call it
-	// eventually this will use an unmarshalling function
-	handler, exists := tcp.MessageHandlers[common.Identifier(buffer[0])]
+	handler, exists := tcp.MessageHandlers[id]
 	if exists {
-		handler.HandleMessage(buffer[1:b])
+		handler.HandleMessage(payload)
 	}
 	// todo: decide on behavior when encountering uninitialized Identifier
 }
