@@ -15,13 +15,13 @@ func TestCreateState(t *testing.T) {
 	}
 
 	// verify that the keys can sign and be verified
-	err = crypto.CheckKeys(s.Participants[s.ParticipantIndex].PublicKey, s.SecretKey)
+	err = crypto.CheckKeys(s.participants[s.participantIndex].PublicKey, s.secretKey)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// sanity check CurrentStep
-	if s.CurrentStep != 1 {
+	if s.currentStep != 1 {
 		t.Fatal("Current step should be initialized to 1!")
 	}
 }
@@ -44,7 +44,7 @@ func TestAddParticipant(t *testing.T) {
 	}
 
 	// check that participant 1 was added to state 0
-	if s1.Participants[s1.ParticipantIndex].PublicKey != s0.Participants[1].PublicKey {
+	if s1.participants[s1.participantIndex].PublicKey != s0.participants[1].PublicKey {
 		t.Fatal("AddParticipant failed!")
 	}
 }
@@ -57,7 +57,7 @@ func TestrandInt(t *testing.T) {
 	}
 
 	// check that it works in the vanilla case
-	previousEntropy := s.CurrentEntropy
+	previousEntropy := s.currentEntropy
 	randInt, err := s.randInt(0, 5)
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +67,7 @@ func TestrandInt(t *testing.T) {
 	}
 
 	// check that s.CurrentEntropy flipped to next value
-	if previousEntropy == s.CurrentEntropy {
+	if previousEntropy == s.currentEntropy {
 		t.Fatal("When calling randInt, s.CurrentEntropy was not changed")
 	}
 

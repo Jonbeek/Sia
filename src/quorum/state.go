@@ -8,37 +8,37 @@ import (
 	"sync"
 )
 
-type ParticipantIndex uint8
+type participantIndex int
 
 // The state provides persistence to the consensus algorithms. Every participant
 // should have an identical state.
 type State struct {
+	lock sync.Mutex
+
 	// Network Variables
-	MessageSender common.MessageSender
+	messageSender common.MessageSender
+	participants  [common.QuorumSize]*Participant // list of participants
 
 	// Our information
-	SecretKey        crypto.SecretKey // public key in our participant index
-	ParticipantIndex ParticipantIndex // our participant index
+	secretKey        crypto.SecretKey // public key in our participant index
+	participantIndex participantIndex // our participant index
 
 	// Heartbeat Variables
-	StoredEntropyStage2 common.Entropy // hashed to EntropyStage1 for previous heartbeat
+	storedEntropyStage2 common.Entropy // hashed to EntropyStage1 for previous heartbeat
 
 	// Compile Variables
-	PreviousEntropyStage1 [common.QuorumSize]crypto.TruncatedHash // used to verify the next round of heartbeats
-	CurrentEntropy        common.Entropy                          // Used to generate random numbers during compilation
-	UpcomingEntropy       common.Entropy                          // Used to compute entropy for next block
+	previousEntropyStage1 [common.QuorumSize]crypto.TruncatedHash // used to verify the next round of heartbeats
+	currentEntropy        common.Entropy                          // Used to generate random numbers during compilation
+	upcomingEntropy       common.Entropy                          // Used to compute entropy for next block
 
 	// Consensus Algorithm Status
-	CurrentStep    int
-	Ticking        bool
-	TickLock       sync.Mutex
-	Participants   [common.QuorumSize]*Participant // list of participants
-	Heartbeats     [common.QuorumSize]map[crypto.TruncatedHash]*Heartbeat
-	HeartbeatsLock sync.Mutex
-	ConsensusLock  sync.Mutex
+	currentStep int
+	ticking     bool
+	tickLock    sync.Mutex
+	heartbeats  [common.QuorumSize]map[crypto.TruncatedHash]*heartbeat
 
 	// Wallet Data
-	Wallets map[string]uint64
+	wallets map[string]uint64
 }
 
 type Participant struct {
@@ -47,21 +47,21 @@ type Participant struct {
 }
 
 // Create and initialize a state object
-func CreateState(messageSender common.MessageSender, participantIndex ParticipantIndex) (s State, err error) {
+func CreateState(messageSender common.MessageSender, participantIndex participantIndex) (s State, err error) {
 	// check that participantIndex is legal, then add basic info
 	if int(participantIndex) >= common.QuorumSize {
 		err = fmt.Errorf("Invalid participant index!")
 		return
 	}
-	s.ParticipantIndex = participantIndex
-	s.MessageSender = messageSender
+	s.participantIndex = participantIndex
+	s.messageSender = messageSender
 
 	// initialize crypto keys
 	pubKey, secKey, err := crypto.CreateKeyPair()
 	if err != nil {
 		return
 	}
-	s.SecretKey = secKey
+	s.secretKey = secKey
 
 	// create and fill out participant object, add it to our list of participants
 	self := new(Participant)
@@ -71,14 +71,14 @@ func CreateState(messageSender common.MessageSender, participantIndex Participan
 	s.AddParticipant(self, participantIndex)
 
 	// intialize remaining values to their defaults
-	s.CurrentStep = 1
-	s.Wallets = make(map[string]uint64)
-	emptyHash, err := crypto.CalculateTruncatedHash(s.StoredEntropyStage2[:])
+	s.currentStep = 1
+	s.wallets = make(map[string]uint64)
+	emptyHash, err := crypto.CalculateTruncatedHash(s.storedEntropyStage2[:])
 	if err != nil {
 		return
 	}
-	for i := range s.PreviousEntropyStage1 {
-		s.PreviousEntropyStage1[i] = emptyHash
+	for i := range s.previousEntropyStage1 {
+		s.previousEntropyStage1[i] = emptyHash
 	}
 
 	return
@@ -86,20 +86,24 @@ func CreateState(messageSender common.MessageSender, participantIndex Participan
 
 // self() fetches the state's participant object
 func (s *State) Self() (p *Participant) {
-	return s.Participants[s.ParticipantIndex]
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.participants[s.participantIndex]
 }
 
 // add participant to s.Participants, and initialize the heartbeat map
-func (s *State) AddParticipant(p *Participant, i ParticipantIndex) (err error) {
+func (s *State) AddParticipant(p *Participant, i participantIndex) (err error) {
+	s.lock.Lock()
 	// Check that there is not already a participant for the index
-	if s.Participants[i] != nil {
+	if s.participants[i] != nil {
 		err = fmt.Errorf("A participant already exists for the given index!")
 		return
 	}
-	s.Participants[i] = p
+	s.participants[i] = p
 
 	// initialize the heartbeat map for this participant
-	s.Heartbeats[i] = make(map[crypto.TruncatedHash]*Heartbeat)
+	s.heartbeats[i] = make(map[crypto.TruncatedHash]*heartbeat)
+	s.lock.Unlock()
 
 	return
 }
@@ -116,14 +120,14 @@ func (s *State) randInt(low int, high int) (randInt int, err error) {
 	rollingInt := 0
 	for i := 0; i < 4; i++ {
 		rollingInt = rollingInt << 4
-		rollingInt += int(s.CurrentEntropy[0])
+		rollingInt += int(s.currentEntropy[0])
 	}
 
 	randInt = (rollingInt % (high - low)) + low
 
 	// Convert random number seed to next value
-	truncatedHash, err := crypto.CalculateTruncatedHash(s.CurrentEntropy[:])
-	s.CurrentEntropy = common.Entropy(truncatedHash)
+	truncatedHash, err := crypto.CalculateTruncatedHash(s.currentEntropy[:])
+	s.currentEntropy = common.Entropy(truncatedHash)
 	return
 }
 
@@ -131,31 +135,37 @@ func (s *State) HandleMessage(m []byte) {
 	// message type is stored in the first byte, switch on this type
 	switch m[0] {
 	case 1:
-		s.HandleSignedHeartbeat(m[1:])
+		s.lock.Lock()
+		s.handleSignedHeartbeat(m[1:])
+		s.lock.Unlock()
 	default:
 		log.Infoln("Got message of unrecognized type")
 	}
 }
 
 func (s *State) Identifier() common.Identifier {
-	return s.Participants[s.ParticipantIndex].Address.Id
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.participants[s.participantIndex].Address.Id
 }
 
 // Take an unstarted State and begin the consensus algorithm cycle
 func (s *State) Start() {
 	// start the ticker to progress the state
-	go s.Tick()
+	go s.tick()
 
+	s.lock.Lock()
 	// create first heartbeat and add it to heartbeat map, then announce it
-	hb, err := s.NewHeartbeat()
+	hb, err := s.newHeartbeat()
 	if err != nil {
 		return
 	}
-	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.Marshal()))
-	s.Heartbeats[s.ParticipantIndex][heartbeatHash] = hb
+	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.marshal()))
+	s.heartbeats[s.participantIndex][heartbeatHash] = hb
 	shb, err := s.signHeartbeat(hb)
 	if err != nil {
 		return
 	}
 	s.announceSignedHeartbeat(shb)
+	s.lock.Unlock()
 }

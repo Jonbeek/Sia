@@ -18,20 +18,20 @@ func main() {
 	}
 
 	// create states that communicate over the tcp server
-	s0, _ := quorum.CreateState(tcp, 0)
-	s1, _ := quorum.CreateState(tcp, 1)
+	s4, _ := quorum.CreateState(tcp, 4)
+	s3, _ := quorum.CreateState(tcp, 3)
 
 	// add states to networking server
-	tcp.MessageHandlers[0] = &s0
-	tcp.MessageHandlers[1] = &s1
+	tcp.MessageHandlers[4] = &s4
+	tcp.MessageHandlers[3] = &s3
 
 	// add states to each other
-	s0.AddParticipant(s1.Self(), 1)
-	s1.AddParticipant(s0.Self(), 0)
+	s4.AddParticipant(s3.Self(), 3)
+	s3.AddParticipant(s4.Self(), 4)
 
 	// start the algorithms for each state
-	s0.Start()
-	s1.Start()
+	s4.Start()
+	//s3.Start()
 
 	time.Sleep(time.Second)
 

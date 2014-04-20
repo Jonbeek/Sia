@@ -36,7 +36,7 @@ func (tcp *TCPServer) SendMessage(m *common.Message) (err error) {
 		[]byte(strconv.Itoa(len(m.Payload))), // length of payload
 		[]byte{byte(m.Destination.Id)},       // identifier
 		m.Payload,                            // payload
-	}, []byte{0x00})
+	}, []byte{0xFF})
 
 	// transmit stream
 	_, err = conn.Write(stream)
@@ -102,7 +102,7 @@ func (tcp *TCPServer) clientHandler(conn net.Conn) {
 	}
 
 	// split message into payload length, identifier, and payload
-	splitMessage := bytes.SplitN(buffer[:b], []byte{0x00}, 3)
+	splitMessage := bytes.SplitN(buffer[:b], []byte{0xFF}, 3)
 	payloadLength, _ := strconv.Atoi(string(splitMessage[0]))
 	id := common.Identifier(splitMessage[1][0])
 	payload = splitMessage[2]
@@ -110,7 +110,7 @@ func (tcp *TCPServer) clientHandler(conn net.Conn) {
 	// read rest of payload, 1024 bytes at a time
 	// TODO: add a timeout
 	bytesRead := len(payload)
-	for bytesRead < payloadLength {
+	for bytesRead != payloadLength {
 		b, err = conn.Read(buffer)
 		if err != nil {
 			return
