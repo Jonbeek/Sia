@@ -111,10 +111,10 @@ func (tfh *TestFileHandler) HandleMessage(payload []byte) {
 	tfh.done <- true
 }
 
-// TestTCPSendFile tests the NewTCPServer and SendFile functions.
+// TestTCPSendSegment tests the NewTCPServer and SendSegment functions.
 // NewTCPServer must properly initialize a TCP server.
-// SendFile must succesfully transfer a file.
-func TestTCPSendFile(t *testing.T) {
+// SendSegment must succesfully transfer a segment.
+func TestTCPSendSegment(t *testing.T) {
 	// create TCPServer and add a message handler
 	tcp, err := NewTCPServer(9988)
 	if err != nil {
@@ -148,9 +148,9 @@ func TestTCPSendFile(t *testing.T) {
 
 	// send file
 	dest := common.Address{1, "localhost", 9988}
-	err = tcp.SendFile(file, &dest)
+	err = tcp.SendSegment(file, &dest)
 	if err != nil {
-		t.Fatal("Failed to send message:", err)
+		t.Fatal("Failed to send file:", err)
 	}
 
 	// wait for handler to be triggered

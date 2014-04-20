@@ -10,9 +10,9 @@ const (
 	// How many bytes of entropy must be produced each entropy cycle
 	EntropyVolume int = 32
 
-	// How big a single slice of data is for a host, in bytes
-	MinSliceSize int = 512
-	MaxSliceSize int = 1048576 // 1 MB
+	// How big a single segment of data is for a host, in bytes
+	MinSegmentSize int = 512
+	MaxSegmentSize int = 1048576 // 1 MB
 
 	// How many hosts participate in each quorum
 	// This number is chosen to minimize the probability of a single quorum

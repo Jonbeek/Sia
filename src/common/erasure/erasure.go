@@ -36,8 +36,8 @@ func EncodeRing(k int, bytesPerSegment int, originalData []byte) (segmentdData [
 	}
 
 	// check that bytesPerSegment is not too big or small
-	if bytesPerSegment < common.MinSliceSize || bytesPerSegment > common.MaxSliceSize {
-		err = fmt.Errorf("bytesPerSegment must be greater than %v and smaller than %v", common.MinSliceSize, common.MaxSliceSize)
+	if bytesPerSegment < common.MinSegmentSize || bytesPerSegment > common.MaxSegmentSize {
+		err = fmt.Errorf("bytesPerSegment must be greater than %v and smaller than %v", common.MinSegmentSize, common.MaxSegmentSize)
 		return
 	}
 
@@ -94,8 +94,8 @@ func RebuildSector(k int, bytesPerSegment int, untaintedSegments []string, segme
 	}
 
 	// check for legal size of bytesPerSegment
-	if bytesPerSegment < common.MinSliceSize || bytesPerSegment > common.MaxSliceSize {
-		err = fmt.Errorf("bytesPerSegment must be greater than %v and smaller than %v", common.MinSliceSize, common.MaxSliceSize)
+	if bytesPerSegment < common.MinSegmentSize || bytesPerSegment > common.MaxSegmentSize {
+		err = fmt.Errorf("bytesPerSegment must be greater than %v and smaller than %v", common.MinSegmentSize, common.MaxSegmentSize)
 		return
 	}
 
