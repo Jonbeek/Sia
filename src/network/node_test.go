@@ -8,17 +8,21 @@ import (
 )
 
 // a simple message handler
+// stores the received message in the result field
+// uses a simple channel to signal when handler has been called
 type TestMsgHandler struct {
 	id     common.Identifier
 	result string
+	done   chan bool
 }
 
-func (t *TestMsgHandler) Identifier() common.Identifier {
-	return t.id
+func (tmh *TestMsgHandler) Identifier() common.Identifier {
+	return tmh.id
 }
 
-func (t *TestMsgHandler) HandleMessage(payload []byte) {
-	t.result = string(payload)
+func (tmh *TestMsgHandler) HandleMessage(payload []byte) {
+	tmh.result = string(payload)
+	tmh.done <- true
 }
 
 // TestTCPSendMessage tests the NewTCPServer and SendMessage functions.
@@ -35,6 +39,7 @@ func TestTCPSendMessage(t *testing.T) {
 	// create message handler and add it to the TCPServer
 	tmh := new(TestMsgHandler)
 	tmh.id = 1
+	tmh.done = make(chan bool, 1)
 	tcp.AddMessageHandler(tmh)
 
 	// send a message to be echoed
@@ -43,10 +48,9 @@ func TestTCPSendMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to send message:", err)
 	}
-	// allow time for message to be processed
-	time.Sleep(10 * time.Millisecond)
-	resp := tmh.result
-	if resp == "" {
+	// wait for handler to be triggered
+	<-tmh.done
+	if tmh.result == "" {
 		t.Fatal("Bad response: expected \"hello, world!\", got \"\"")
 	}
 	if tmh.result != "hello, world!" {
@@ -60,7 +64,7 @@ func TestTCPSendMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to send message:", err)
 	}
-	// allow time for message to be processed
+	// arbitrary wait, because <-tmh.done will block
 	time.Sleep(10 * time.Millisecond)
 	if tmh.result != "" {
 		t.Fatal("Bad response: expected \"\", got \"" + tmh.result + "\"")
