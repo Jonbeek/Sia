@@ -259,9 +259,29 @@ func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
 		}
 	}
 
+	// lock state while modifying maps
+	s.ConsensusLock.Lock()
+
+	// Check bounds on first signatory
+	if int(sh.Signatories[0]) >= common.QuorumSize {
+		s.ConsensusLock.Unlock()
+		log.Infoln("Received an out of bounds index")
+		returnCode = 9
+		return
+	}
+
+	// Check existence of first signatory
+	if s.Participants[sh.Signatories[0]] == nil {
+		s.ConsensusLock.Unlock()
+		log.Infoln("Received heartbeat from non-participant")
+		returnCode = 10
+		return
+	}
+
 	// Check if we have already received this heartbeat
 	_, exists := s.Heartbeats[sh.Signatories[0]][sh.HeartbeatHash]
 	if exists {
+		s.ConsensusLock.Unlock()
 		returnCode = 8
 		return
 	}
@@ -273,8 +293,17 @@ func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
 	previousSignatories := make(map[ParticipantIndex]bool)
 
 	for i, signatory := range sh.Signatories {
+		// Check bounds on the signatory
+		if int(signatory) >= common.QuorumSize {
+			s.ConsensusLock.Unlock()
+			log.Infoln("Received an out of bounds index")
+			returnCode = 9
+			return
+		}
+
 		// Verify that the signatory is a participant in the quorum
 		if s.Participants[signatory] == nil {
+			s.ConsensusLock.Unlock()
 			log.Infoln("Received a heartbeat signed by an invalid signatory")
 			returnCode = 4
 			return
@@ -282,6 +311,7 @@ func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
 
 		// Verify that the signatory has only been seen once in the current SignedHeartbeat
 		if previousSignatories[signatory] {
+			s.ConsensusLock.Unlock()
 			log.Infoln("Received a double-signed heartbeat")
 			returnCode = 5
 			return
@@ -294,12 +324,14 @@ func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
 		signedMessage.Signature = sh.Signatures[i]
 		verification, err := crypto.Verify(s.Participants[signatory].PublicKey, signedMessage)
 		if err != nil {
+			s.ConsensusLock.Unlock()
 			log.Fatalln(err)
 			return
 		}
 
 		// check status of verification
 		if !verification {
+			s.ConsensusLock.Unlock()
 			log.Infoln("Received invalid signature in SignedHeartbeat")
 			returnCode = 6
 			return
@@ -313,6 +345,9 @@ func (s *State) HandleSignedHeartbeat(message []byte) (returnCode int) {
 	// Add heartbeat to list of seen heartbeats
 	// Don't check if heartbeat is valid, that's for compile()
 	s.Heartbeats[sh.Signatories[0]][sh.HeartbeatHash] = sh.Heartbeat
+
+	// finished checking and modifying consensus maps
+	s.ConsensusLock.Unlock()
 
 	// Sign the stack of signatures and send it to all hosts
 	_, err = crypto.Sign(s.SecretKey, signedMessage.Message)

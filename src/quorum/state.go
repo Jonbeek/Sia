@@ -15,7 +15,6 @@ type ParticipantIndex uint8
 type State struct {
 	// Network Variables
 	MessageSender common.MessageSender
-	Participants  [common.QuorumSize]*Participant // list of participants
 
 	// Our information
 	SecretKey        crypto.SecretKey // public key in our participant index
@@ -33,8 +32,10 @@ type State struct {
 	CurrentStep    int
 	Ticking        bool
 	TickLock       sync.Mutex
+	Participants   [common.QuorumSize]*Participant // list of participants
 	Heartbeats     [common.QuorumSize]map[crypto.TruncatedHash]*Heartbeat
 	HeartbeatsLock sync.Mutex
+	ConsensusLock  sync.Mutex
 
 	// Wallet Data
 	Wallets map[string]uint64
