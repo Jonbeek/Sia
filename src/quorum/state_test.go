@@ -15,13 +15,13 @@ func TestCreateState(t *testing.T) {
 	}
 
 	// verify that the keys can sign and be verified
-	err = crypto.CheckKeys(s.Participants[s.ParticipantIndex].PublicKey, s.SecretKey)
+	err = crypto.CheckKeys(s.participants[s.participantIndex].PublicKey, s.secretKey)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// sanity check CurrentStep
-	if s.CurrentStep != 1 {
+	if s.currentStep != 1 {
 		t.Fatal("Current step should be initialized to 1!")
 	}
 }
@@ -44,21 +44,21 @@ func TestAddParticipant(t *testing.T) {
 	}
 
 	// check that participant 1 was added to state 0
-	if s1.Participants[s1.ParticipantIndex].PublicKey != s0.Participants[1].PublicKey {
+	if s1.participants[s1.participantIndex].PublicKey != s0.participants[1].PublicKey {
 		t.Fatal("AddParticipant failed!")
 	}
 }
 
 // check general case, check corner cases, and then do some fuzzing
-func TestRandInt(t *testing.T) {
+func TestrandInt(t *testing.T) {
 	s, err := CreateState(common.NewZeroNetwork(), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// check that it works in the vanilla case
-	previousEntropy := s.CurrentEntropy
-	randInt, err := s.RandInt(0, 5)
+	previousEntropy := s.currentEntropy
+	randInt, err := s.randInt(0, 5)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,12 +67,12 @@ func TestRandInt(t *testing.T) {
 	}
 
 	// check that s.CurrentEntropy flipped to next value
-	if previousEntropy == s.CurrentEntropy {
-		t.Fatal("When calling RandInt, s.CurrentEntropy was not changed")
+	if previousEntropy == s.currentEntropy {
+		t.Fatal("When calling randInt, s.CurrentEntropy was not changed")
 	}
 
 	// check the zero value
-	randInt, err = s.RandInt(0, 0)
+	randInt, err = s.randInt(0, 0)
 	if err == nil {
 		t.Fatal("Randint(0,0) should return a bounds error")
 	}
@@ -85,13 +85,13 @@ func TestRandInt(t *testing.T) {
 	low := 0
 	high := common.QuorumSize
 	for i := 0; i < 10000; i++ {
-		randInt, err = s.RandInt(low, high)
+		randInt, err = s.randInt(low, high)
 		if err != nil {
-			t.Fatal("RandInt fuzzing error: ", err)
+			t.Fatal("randInt fuzzing error: ", err)
 		}
 
 		if randInt < low || randInt >= high {
-			t.Fatal("RandInt fuzzing: ", randInt, " produced, expected number between ", low, " and ", high)
+			t.Fatal("randInt fuzzing: ", randInt, " produced, expected number between ", low, " and ", high)
 		}
 	}
 }
