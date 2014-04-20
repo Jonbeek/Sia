@@ -77,7 +77,7 @@ static void recoverData(int k, int m, int bytesPerSegment, unsigned char *remain
 	char tempData[bytesPerSegment];
 	char tempIndex;
 
-	// insertion sort (kinda)
+	// selection sort (kinda)
 	i = 0;
 	while(i < k) {
 		while(segmentInfo[i].row == i && i < k) {
