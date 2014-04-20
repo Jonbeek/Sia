@@ -30,6 +30,7 @@ func TestTCPSendMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to initialize TCPServer:", err)
 	}
+	defer tcp.Close()
 
 	// create message handler and add it to the TCPServer
 	tmh := new(TestMsgHandler)
