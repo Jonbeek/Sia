@@ -12,6 +12,7 @@ import (
 type TCPServer struct {
 	Addr            common.Address
 	MessageHandlers map[common.Identifier]common.MessageHandler
+	Listener        net.Listener
 }
 
 // Address returns the address of the server
@@ -65,17 +66,22 @@ func NewTCPServer(port int) (tcp *TCPServer, err error) {
 	// initialize struct fields
 	tcp.Addr = common.Address{0, "localhost", port}
 	tcp.MessageHandlers = make(map[common.Identifier]common.MessageHandler)
+	tcp.Listener = tcpServ
 
-	go tcp.serverHandler(tcpServ)
+	go tcp.serverHandler()
 	return
 }
 
-// serverHandler accepts incoming connections and spawns a clientHandler for each.
-func (tcp *TCPServer) serverHandler(tcpServ net.Listener) {
-	defer tcpServ.Close()
+// Close closes the connection associated with the TCP server.
+// This causes tcpServ.Accept to return an err, ending the serverHandler process
+func (tcp *TCPServer) Close() {
+	tcp.Listener.Close()
+}
 
+// serverHandler accepts incoming connections and spawns a clientHandler for each.
+func (tcp *TCPServer) serverHandler() {
 	for {
-		conn, err := tcpServ.Accept()
+		conn, err := tcp.Listener.Accept()
 		if err != nil {
 			return
 		} else {
@@ -97,7 +103,7 @@ func (tcp *TCPServer) clientHandler(conn net.Conn) {
 
 	// split message into payload length, identifier, and payload
 	splitMessage := bytes.SplitN(buffer[:b], []byte{0x00}, 3)
-	payloadLength, err := strconv.Atoi(string(splitMessage[0]))
+	payloadLength, _ := strconv.Atoi(string(splitMessage[0]))
 	id := common.Identifier(splitMessage[1][0])
 	payload = splitMessage[2]
 

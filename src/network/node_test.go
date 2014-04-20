@@ -21,15 +21,16 @@ func (t *TestMsgHandler) HandleMessage(payload []byte) {
 	t.result = string(payload)
 }
 
-// TestNetworkNode tests the InitServer and SendMessage functions.
-// InitServer must properly initialize a TCP server.
+// TestTCPSendMessage tests the NewTCPServer and SendMessage functions.
+// NewTCPServer must properly initialize a TCP server.
 // SendMessage must succesfully deliver a message.
-func TestTCPServer(t *testing.T) {
+func TestTCPSendMessage(t *testing.T) {
 	// create TCPServer and add a message handler
 	tcp, err := NewTCPServer(9988)
 	if err != nil {
 		t.Fatal("Failed to initialize TCPServer:", err)
 	}
+	defer tcp.Close()
 
 	// create message handler and add it to the TCPServer
 	tmh := new(TestMsgHandler)
