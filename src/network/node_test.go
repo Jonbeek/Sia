@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bytes"
 	"common"
 	"testing"
 	"time"
@@ -43,12 +44,11 @@ func TestTCPServer(t *testing.T) {
 	}
 	// allow time for message to be processed
 	time.Sleep(10 * time.Millisecond)
-	resp := tmh.result
-	if resp == "" {
+	if tmh.result == "" {
 		t.Fatal("Bad response: expected \"hello, world!\", got \"\"")
 	}
-	if string(resp) != "hello, world!" {
-		t.Fatal("Bad response: expected \"hello, world!\", got \"" + string(resp) + "\"")
+	if tmh.result != "hello, world!" {
+		t.Fatal("Bad response: expected \"hello, world!\", got \"" + tmh.result + "\"")
 	}
 
 	// send a message that should not trigger a MessageHandler
@@ -60,8 +60,20 @@ func TestTCPServer(t *testing.T) {
 	}
 	// allow time for message to be processed
 	time.Sleep(10 * time.Millisecond)
-	resp = tmh.result
-	if resp != "" {
-		t.Fatal("Bad response: expected \"\", got \"" + string(resp) + "\"")
+	if tmh.result != "" {
+		t.Fatal("Bad response: expected \"\", got \"" + tmh.result + "\"")
+	}
+
+	// send a message longer than 1024 bytes
+	tmh.result = ""
+	m = common.Message{common.Address{1, "localhost", 9988}, bytes.Repeat([]byte("b"), 9001)}
+	err = tcp.SendMessage(&m)
+	if err != nil {
+		t.Fatal("Failed to send message:", err)
+	}
+	// allow time for message to be processed
+	time.Sleep(10 * time.Millisecond)
+	if len(tmh.result) != 9001 {
+		t.Fatal("Bad response: expected 9001 bytes, got", len(tmh.result))
 	}
 }

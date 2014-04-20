@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bytes"
 	"common"
 	"net"
 	"strconv"
@@ -19,20 +20,29 @@ func (tcp *TCPServer) Address() common.Address {
 }
 
 // SendMessage transmits the payload of a message to its intended recipient.
-// It returns without waiting for a response.
+// It marshalls the Message struct using a length-prefix scheme.
+// It does not wait for a response.
 func (tcp *TCPServer) SendMessage(m *common.Message) (err error) {
-	conn, err := net.Dial("tcp", m.Destination.Host+":"+strconv.Itoa(m.Destination.Port))
+	conn, err := net.Dial("tcp", net.JoinHostPort(m.Destination.Host, strconv.Itoa(m.Destination.Port)))
 	if err != nil {
 		return
 	}
 	defer conn.Close()
 
-	// append identifier to front of payload
-	payload := append([]byte{byte(m.Destination.Id)}, m.Payload...)
-	_, err = conn.Write(payload)
+	// construct stream to be transmitted
+	// 0x00 is used as a delimiter
+	stream := bytes.Join([][]byte{
+		[]byte(strconv.Itoa(len(m.Payload))), // length of payload
+		[]byte{byte(m.Destination.Id)},       // identifier
+		m.Payload,                            // payload
+	}, []byte{0x00})
+
+	// transmit stream
+	_, err = conn.Write(stream)
 	if err != nil {
 		return
 	}
+
 	return
 }
 
@@ -76,16 +86,37 @@ func (tcp *TCPServer) serverHandler(tcpServ net.Listener) {
 
 // clientHandler reads data sent by a client and processes it.
 func (tcp *TCPServer) clientHandler(conn net.Conn) {
+	var payload []byte
 	buffer := make([]byte, 1024)
+
+	// read first 1024 bytes
 	b, err := conn.Read(buffer)
 	if err != nil {
 		return
 	}
+
+	// split message into payload length, identifier, and payload
+	splitMessage := bytes.SplitN(buffer[:b], []byte{0x00}, 3)
+	payloadLength, err := strconv.Atoi(string(splitMessage[0]))
+	id := common.Identifier(splitMessage[1][0])
+	payload = splitMessage[2]
+
+	// read rest of payload, 1024 bytes at a time
+	// TODO: add a timeout
+	bytesRead := len(payload)
+	for bytesRead < payloadLength {
+		b, err = conn.Read(buffer)
+		if err != nil {
+			return
+		}
+		payload = append(payload, buffer[:b]...)
+		bytesRead += b
+	}
+
 	// look up message handler and call it
-	// eventually this will use an unmarshalling function
-	handler, exists := tcp.MessageHandlers[common.Identifier(buffer[0])]
+	handler, exists := tcp.MessageHandlers[id]
 	if exists {
-		handler.HandleMessage(buffer[1:b])
+		handler.HandleMessage(payload)
 	}
 	// todo: decide on behavior when encountering uninitialized Identifier
 }
