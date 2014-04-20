@@ -51,22 +51,22 @@ func (tcp *TCPServer) SendMessage(m *common.Message) (err error) {
 	return
 }
 
-// SendFile transmits a file to its intended recipient.
+// SendSegment transmits a segment to its intended recipient.
 // It is a simple wrapper around SendMessage.
-func (tcp *TCPServer) SendFile(file *os.File, dest *common.Address) (err error) {
-	// check file
-	fi, err := file.Stat()
+func (tcp *TCPServer) SendSegment(seg *os.File, dest *common.Address) (err error) {
+	// check segment
+	fileInfo, err := seg.Stat()
 	if err != nil {
 		return
 	}
-	if fi.Size() > int64(common.MaxSliceSize) {
-		err = errors.New("File exceeds maximum slice size")
+	if fileInfo.Size() > int64(common.MaxSegmentSize) {
+		err = errors.New("File exceeds maximum segment size")
 		return
 	}
 
 	// create message
-	payload := make([]byte, fi.Size())
-	_, err = io.ReadFull(file, payload)
+	payload := make([]byte, fileInfo.Size())
+	_, err = io.ReadFull(seg, payload)
 	if err != nil {
 		return
 	}
