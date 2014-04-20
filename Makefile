@@ -20,13 +20,19 @@ test: libraries
 test-verbose: libraries
 	$(govars) go test -short -v $(packages)
 
+test-race: libraries
+	$(govars) go test -short -race $(packages)
+
+test-race-verbose: libraries
+	$(govars) go test -short -race -v $(packages)
+
 test-long: libraries
-	$(govars) go test $(packages)
+	$(govars) go test -race $(packages)
 
 test-long-verbose: libraries
-	$(govars) go test -v $(packages)
+	$(govars) go test -v -race $(packages)
 
-dependencies: submodule-update
+dependencies: submodule-update race-libs
 	cd src/common/crypto/libsodium && ./autogen.sh && ./configure && make check && sudo make install && sudo ldconfig
 
 race-libs:
