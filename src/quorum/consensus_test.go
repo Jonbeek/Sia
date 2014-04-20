@@ -291,9 +291,6 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	}()
 
 	time.Sleep(time.Second)
-	s.currentStep = 1
-
-	// verify that new heartbeats get properly sent out with valid signatures
 }
 
 // add fuzzing tests for HandleSignedHeartbeat
@@ -455,9 +452,11 @@ func TestRegularTick(t *testing.T) {
 	go s.tick()
 	time.Sleep(common.StepDuration)
 	time.Sleep(time.Second)
+	s.lock.Lock()
 	if s.currentStep != 2 {
 		t.Fatal("s.currentStep failed to update correctly: ", s.currentStep)
 	}
+	s.lock.Unlock()
 }
 
 // ensures Tick() calles compile() and then resets the counter to step 1
@@ -487,6 +486,8 @@ func TestCompilationTick(t *testing.T) {
 	go s.tick()
 	time.Sleep(common.StepDuration)
 	time.Sleep(time.Second)
+
+	s.lock.Lock()
 	if s.currentStep != 1 {
 		t.Fatal("s.currentStep failed to roll over: ", s.currentStep)
 	}
@@ -495,6 +496,7 @@ func TestCompilationTick(t *testing.T) {
 	if currentEntropy == s.currentEntropy {
 		t.Fatal("Entropy did not change after tick wrapped around")
 	}
+	s.lock.Unlock()
 }
 
 // TestTickLock verifies that only one instance of Tick() can run at a time
@@ -516,7 +518,9 @@ func TestTickLock(t *testing.T) {
 	time.Sleep(common.StepDuration)
 	time.Sleep(time.Second)
 	// if two instances of Tick() are running, s.CurrentStep will update twice
+	s.lock.Lock()
 	if s.currentStep != 2 {
 		t.Fatal("Double tick failed: ", s.currentStep)
 	}
+	s.lock.Unlock()
 }

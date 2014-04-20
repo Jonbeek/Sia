@@ -13,15 +13,14 @@ type participantIndex int
 // The state provides persistence to the consensus algorithms. Every participant
 // should have an identical state.
 type State struct {
+	// a temporary overall lock, will eventually be replaced with component locks
 	lock sync.Mutex
 
 	// Network Variables
-	messageSender common.MessageSender
-	participants  [common.QuorumSize]*Participant // list of participants
-
-	// Our information
-	secretKey        crypto.SecretKey // public key in our participant index
-	participantIndex participantIndex // our participant index
+	messageSender    common.MessageSender
+	participants     [common.QuorumSize]*Participant // list of participants
+	participantIndex participantIndex                // our participant index
+	secretKey        crypto.SecretKey                // public key in our participant index
 
 	// Heartbeat Variables
 	storedEntropyStage2 common.Entropy // hashed to EntropyStage1 for previous heartbeat
@@ -41,6 +40,8 @@ type State struct {
 	wallets map[string]uint64
 }
 
+// Only temporarily a public object, will eventually be 'type participant struct'
+// makes building easier since we don't have a 'join swarm' function yet
 type Participant struct {
 	Address   common.Address
 	PublicKey crypto.PublicKey
@@ -48,38 +49,46 @@ type Participant struct {
 
 // Create and initialize a state object
 func CreateState(messageSender common.MessageSender, participantIndex participantIndex) (s State, err error) {
-	// check that participantIndex is legal, then add basic info
+	// check that we have a non-nil messageSender
+	if messageSender == nil {
+		err = fmt.Errorf("Cannot initialize with a nil messageSender")
+		return
+	}
+
+	// check that participantIndex is legal
 	if int(participantIndex) >= common.QuorumSize {
 		err = fmt.Errorf("Invalid participant index!")
 		return
 	}
-	s.participantIndex = participantIndex
-	s.messageSender = messageSender
 
 	// initialize crypto keys
 	pubKey, secKey, err := crypto.CreateKeyPair()
 	if err != nil {
 		return
 	}
-	s.secretKey = secKey
 
-	// create and fill out participant object, add it to our list of participants
+	// create and fill out the participant object
 	self := new(Participant)
 	self.Address = messageSender.Address()
 	self.Address.Id = common.Identifier(participantIndex)
 	self.PublicKey = pubKey
-	s.AddParticipant(self, participantIndex)
 
-	// intialize remaining values to their defaults
-	s.currentStep = 1
-	s.wallets = make(map[string]uint64)
+	// calculate the value of an empty hash (default for storedEntropyStage2 on all hosts is a blank array)
 	emptyHash, err := crypto.CalculateTruncatedHash(s.storedEntropyStage2[:])
 	if err != nil {
 		return
 	}
+
+	// set state variables to their defaults
+	s.messageSender = messageSender
+	s.AddParticipant(self, participantIndex)
+	s.secretKey = secKey
 	for i := range s.previousEntropyStage1 {
 		s.previousEntropyStage1[i] = emptyHash
 	}
+	s.participantIndex = participantIndex
+	s.currentStep = 1
+	s.wallets = make(map[string]uint64)
 
 	return
 }
