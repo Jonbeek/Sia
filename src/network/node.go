@@ -1,8 +1,8 @@
 package network
 
 import (
-	"bytes"
 	"common"
+	"encoding/binary"
 	"net"
 	"strconv"
 )
@@ -31,12 +31,13 @@ func (tcp *TCPServer) SendMessage(m *common.Message) (err error) {
 	defer conn.Close()
 
 	// construct stream to be transmitted
-	// 0x00 is used as a delimiter
-	stream := bytes.Join([][]byte{
-		[]byte(strconv.Itoa(len(m.Payload))), // length of payload
-		[]byte{byte(m.Destination.Id)},       // identifier
-		m.Payload,                            // payload
-	}, []byte{0xFF})
+	// bytes 0:3 are the payload length
+	// byte 4 is the destination identifier
+	// the remainder is the payload
+	payloadLength := make([]byte, 4)
+	binary.PutUvarint(payloadLength, uint64(len(m.Payload)))
+	stream := append(payloadLength, byte(m.Destination.Id))
+	stream = append(stream, m.Payload...)
 
 	// transmit stream
 	_, err = conn.Write(stream)
@@ -73,7 +74,7 @@ func NewTCPServer(port int) (tcp *TCPServer, err error) {
 }
 
 // Close closes the connection associated with the TCP server.
-// This causes tcpServ.Accept to return an err, ending the serverHandler process
+// This causes tcpServ.Accept() to return an err, ending the serverHandler process
 func (tcp *TCPServer) Close() {
 	tcp.Listener.Close()
 }
@@ -86,13 +87,14 @@ func (tcp *TCPServer) serverHandler() {
 			return
 		} else {
 			tcp.clientHandler(conn)
+			conn.Close()
 		}
 	}
 }
 
 // clientHandler reads data sent by a client and processes it.
 func (tcp *TCPServer) clientHandler(conn net.Conn) {
-	var payload []byte
+	// read first 1024 bytes
 	buffer := make([]byte, 1024)
 
 	// read first 1024 bytes
@@ -102,15 +104,14 @@ func (tcp *TCPServer) clientHandler(conn net.Conn) {
 	}
 
 	// split message into payload length, identifier, and payload
-	splitMessage := bytes.SplitN(buffer[:b], []byte{0xFF}, 3)
-	payloadLength, _ := strconv.Atoi(string(splitMessage[0]))
-	id := common.Identifier(splitMessage[1][0])
-	payload = splitMessage[2]
+	payloadLength, _ := binary.Uvarint(buffer[:4])
+	id := common.Identifier(buffer[4])
+	payload := buffer[5:b]
 
 	// read rest of payload, 1024 bytes at a time
 	// TODO: add a timeout
 	bytesRead := len(payload)
-	for bytesRead != payloadLength {
+	for uint64(bytesRead) != payloadLength {
 		b, err = conn.Read(buffer)
 		if err != nil {
 			return
