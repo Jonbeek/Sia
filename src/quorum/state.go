@@ -8,6 +8,11 @@ import (
 	"sync"
 )
 
+const (
+	joinQuorumRequest       = 2
+	incomingSignedHeartbeat = 1
+)
+
 type participantIndex int
 
 // The state provides persistence to the consensus algorithms. Every participant
@@ -143,10 +148,13 @@ func (s *State) randInt(low int, high int) (randInt int, err error) {
 func (s *State) HandleMessage(m []byte) {
 	// message type is stored in the first byte, switch on this type
 	switch m[0] {
-	case 1:
+	case incomingSignedHeartbeat:
 		s.lock.Lock()
 		s.handleSignedHeartbeat(m[1:])
 		s.lock.Unlock()
+	case joinQuorumRequest:
+		// the message is going to contain connection information
+		// will need to return a marshalled state
 	default:
 		log.Infoln("Got message of unrecognized type")
 	}
