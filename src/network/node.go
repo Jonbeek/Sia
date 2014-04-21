@@ -3,7 +3,10 @@ package network
 import (
 	"common"
 	"encoding/binary"
+	"errors"
+	"io"
 	"net"
+	"os"
 	"strconv"
 )
 
@@ -41,6 +44,36 @@ func (tcp *TCPServer) SendMessage(m *common.Message) (err error) {
 
 	// transmit stream
 	_, err = conn.Write(stream)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+// SendSegment transmits a segment to its intended recipient.
+// It is a simple wrapper around SendMessage.
+func (tcp *TCPServer) SendSegment(seg *os.File, dest *common.Address) (err error) {
+	// check segment
+	fileInfo, err := seg.Stat()
+	if err != nil {
+		return
+	}
+	if fileInfo.Size() > int64(common.MaxSegmentSize) {
+		err = errors.New("File exceeds maximum segment size")
+		return
+	}
+
+	// create message
+	payload := make([]byte, fileInfo.Size())
+	_, err = io.ReadFull(seg, payload)
+	if err != nil {
+		return
+	}
+	m := common.Message{*dest, payload}
+
+	// transmit
+	err = tcp.SendMessage(&m)
 	if err != nil {
 		return
 	}
