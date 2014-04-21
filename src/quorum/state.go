@@ -43,8 +43,9 @@ type State struct {
 
 	// Consensus Algorithm Status
 	currentStep    int
+	stepLock       sync.RWMutex // prevents a benign race condition
 	ticking        bool
-	tickLock       sync.Mutex
+	tickingLock    sync.Mutex
 	heartbeats     [common.QuorumSize]map[crypto.TruncatedHash]*heartbeat
 	heartbeatsLock sync.Mutex
 
@@ -97,7 +98,7 @@ func CreateState(messageSender common.MessageSender) (s State, err error) {
 	}
 
 	// initialize crypto keys
-	pubKey, secKey, err := crypto.CreateKeyPair()
+	_, secKey, err := crypto.CreateKeyPair()
 	if err != nil {
 		return
 	}
@@ -124,8 +125,8 @@ func CreateState(messageSender common.MessageSender) (s State, err error) {
 // Take an unstarted State and begin the consensus algorithm cycle
 func (s *State) Start() (err error) {
 	// state cannot call Start() if it has already started
-	s.tickLock.Lock()
-	defer s.tickLock.Unlock()
+	s.tickingLock.Lock()
+	defer s.tickingLock.Unlock()
 
 	// if s.ticking == true, then Start() was called but _ (end()?) was not
 	if s.ticking {
@@ -153,15 +154,11 @@ func (s *State) Start() (err error) {
 	if err != nil {
 		return
 	}
-	payload, err := sh.marshal()
-	if err != nil {
-		return
-	}
+	s.announceSignedHeartbeat(sh)
 
 	// start ticking
 	s.ticking = true
 	go s.tick()
-	s.broadcast(payload)
 	return
 }
 

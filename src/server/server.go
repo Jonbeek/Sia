@@ -12,7 +12,7 @@ func establishQuorum() {
 		println(err)
 		return
 	}
-	participant, err := quorum.CreateState(networkServer, 0)
+	participant, err := quorum.CreateState(networkServer)
 	if err != nil {
 		println(err)
 		return

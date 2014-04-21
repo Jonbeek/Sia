@@ -164,7 +164,7 @@ func unmarshalSignedHeartbeat(msh []byte) (sh *signedHeartbeat, err error) {
 	// get sh.Signatures and sh.Signatories
 	index += marshalledHeartbeatLen()
 	index += 1
-	sh.signatures = make([]crypto.Signature, numSignatures)
+	sh.signatures = make([]crypto.Signature, numSignatures, numSignatures)
 	sh.signatories = make([]participantIndex, numSignatures)
 	for i := 0; i < numSignatures; i++ {
 		copy(sh.signatures[i][:], msh[index:])
@@ -176,31 +176,28 @@ func unmarshalSignedHeartbeat(msh []byte) (sh *signedHeartbeat, err error) {
 	return
 }
 
-// HandleSignedHeartbeat takes a heartbeat that has been signed
-// as a part of the concensus algorithm, and follows all the rules
-// that are necessary to ensure that all honest hosts arrive at
-// the same conclusions about the actions of their peers.
+func (s *State) announceSignedHeartbeat(sh *signedHeartbeat) (err error) {
+	msh, err := sh.marshal()
+	if err != nil {
+		return
+	}
+	payload := append([]byte(string(incomingSignedHeartbeat)), msh...)
+	s.broadcast(payload)
+	return
+}
+
+// handleSignedHeartbeat takes the payload of an incoming message of type
+// 'incomingSignedHeartbeat' and verifies it according to rules established by
+// the specification.
 //
-// See the paper 'The Byzantine Generals Problem' for more insight
-// on the algorithms used here. Paper can be found in
-// doc/The Byzantine Generals Problem
-//
-// This function is called concurrently, mutexes will be needed when
-// accessing or altering the State
-//
-// It is assumed that when this function is called, the Heartbeat in
-// question will already be in memory, and was correctly signed by the
-// first signatory, the the first signatory is a participant, and that
-// it matches its hash. And that the first signatory is used to store
-// the heartbeat
-//
-// The return code is purely for the testing suite. The numbers are chosen
-// arbitrarily
-func (s *State) handleSignedHeartbeat(message []byte) (returnCode int) {
-	// covert message to SignedHeartbeat
-	sh, err := unmarshalSignedHeartbeat(message)
+// The return code is currently purely for the testing suite, the numbers
+// have been chosen arbitrarily
+func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
+	// covert payload to SignedHeartbeat
+	sh, err := unmarshalSignedHeartbeat(payload)
 	if err != nil {
 		log.Infoln("Received bad message SignedHeartbeat: ", err)
+		returnCode = 11
 		return
 	}
 
@@ -211,11 +208,19 @@ func (s *State) handleSignedHeartbeat(message []byte) (returnCode int) {
 		return
 	}
 
-	// s.CurrentStep must be less than or equal to len(sh.Signatories), unless the
-	// current step is common.QuorumSize and len(sh.Signatories) == 1
+	// check that there are not too many signatures and signatories
+	if len(sh.signatories) > common.QuorumSize {
+		log.Infoln("Received an over-signed signedHeartbeat")
+		returnCode = 12
+		return
+	}
+
+	s.stepLock.Lock() // prevents a benign race condition; is here to follow best practices
+	// s.CurrentStep must be less than or equal to len(sh.Signatories), unless
+	// there is a new block and s.CurrentStep is common.QuorumSize
 	if s.currentStep > len(sh.signatories) {
 		if s.currentStep == common.QuorumSize && len(sh.signatories) == 1 {
-			// sleep long enough to pass the first requirement
+			// by waiting common.StepDuration, the new block will be compiled
 			time.Sleep(common.StepDuration)
 			// now continue to rest of function
 		} else {
@@ -224,6 +229,7 @@ func (s *State) handleSignedHeartbeat(message []byte) (returnCode int) {
 			return
 		}
 	}
+	s.stepLock.Unlock()
 
 	// Check bounds on first signatory
 	if int(sh.signatories[0]) >= common.QuorumSize {
@@ -232,7 +238,11 @@ func (s *State) handleSignedHeartbeat(message []byte) (returnCode int) {
 		return
 	}
 
-	// Check existence of first signatory
+	// we are starting to read from memory, initiate locks
+	s.participantsLock.RLock()
+	s.heartbeatsLock.Lock()
+
+	// check that first sigatory is a participant
 	if s.participants[sh.signatories[0]] == nil {
 		log.Infoln("Received heartbeat from non-participant")
 		returnCode = 10
@@ -246,12 +256,17 @@ func (s *State) handleSignedHeartbeat(message []byte) (returnCode int) {
 		return
 	}
 
-	// while processing signatures, signedMessage will keep growing
-	var signedMessage crypto.SignedMessage
-	signedMessage.Message = string(sh.heartbeatHash[:])
-	// keep a map of which signatories have already been confirmed
-	previousSignatories := make(map[participantIndex]bool)
+	// Check if we already have two heartbeats from this host
+	if len(s.heartbeats[sh.signatories[0]]) >= 2 {
+		log.Infoln("Received many invalid heartbeats from one host")
+		returnCode = 13
+		return
+	}
 
+	// iterate through the signatures and make sure each is legal
+	var signedMessage crypto.SignedMessage // grows each iteration
+	signedMessage.Message = string(sh.heartbeatHash[:])
+	previousSignatories := make(map[participantIndex]bool) // which signatories have already signed
 	for i, signatory := range sh.signatories {
 		// Check bounds on the signatory
 		if int(signatory) >= common.QuorumSize {
@@ -298,16 +313,23 @@ func (s *State) handleSignedHeartbeat(message []byte) (returnCode int) {
 	}
 
 	// Add heartbeat to list of seen heartbeats
-	// Don't check if heartbeat is valid, that's for compile()
 	s.heartbeats[sh.signatories[0]][sh.heartbeatHash] = sh.heartbeat
 
 	// Sign the stack of signatures and send it to all hosts
-	_, err = crypto.Sign(s.secretKey, signedMessage.Message)
+	signedMessage, err = crypto.Sign(s.secretKey, signedMessage.Message)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
+	// add our signature to the signedHeartbeat
+	sh.signatures = append(sh.signatures, signedMessage.Signature)
+	sh.signatories = append(sh.signatories, s.participantIndex)
+
 	// Send the new message to everybody
+	err = s.announceSignedHeartbeat(sh)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	returnCode = 0
 	return
@@ -419,7 +441,10 @@ func (s *State) compile() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	s.announceSignedHeartbeat(shb)
+	err = s.announceSignedHeartbeat(shb)
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
 
 // Tick() updates s.CurrentStep, and calls compile() when all steps are complete
