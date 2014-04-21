@@ -436,33 +436,15 @@ func (s *State) compile() {
 }
 
 // Tick() updates s.CurrentStep, and calls compile() when all steps are complete
-// Tick() runs in its own gothread, only one instance of Tick() runs per state
 func (s *State) tick() {
-	// check that no other instance of Tick() is running
-	s.tickLock.Lock()
-	if s.ticking {
-		s.tickLock.Unlock()
-		return
-	} else {
-		s.ticking = true
-		s.tickLock.Unlock()
-	}
-
 	// Every common.StepDuration, advance the state stage
 	ticker := time.Tick(common.StepDuration)
 	for _ = range ticker {
-		s.lock.Lock()
 		if s.currentStep == common.QuorumSize {
 			s.compile()
 			s.currentStep = 1
 		} else {
 			s.currentStep += 1
 		}
-		s.lock.Unlock()
 	}
-
-	// if every we add code to stop ticking, this will be needed
-	s.tickLock.Lock()
-	s.ticking = false
-	s.tickLock.Unlock()
 }

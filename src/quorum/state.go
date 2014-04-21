@@ -152,6 +152,16 @@ func (s *State) Identifier() (i common.Identifier) {
 
 // Take an unstarted State and begin the consensus algorithm cycle
 func (s *State) Start() {
+	// state cannot call Start() if it has already started
+	s.tickLock.Lock()
+	if s.ticking {
+		s.tickLock.Unlock()
+		return
+	} else {
+		s.ticking = true
+	}
+	s.tickLock.Unlock()
+
 	// start the ticker to progress the state
 	go s.tick()
 
