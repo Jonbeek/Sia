@@ -19,8 +19,8 @@ type heartbeat struct {
 type signedHeartbeat struct {
 	heartbeat     *heartbeat
 	heartbeatHash crypto.TruncatedHash
-	signatures    []crypto.Signature
-	signatories   []participantIndex
+	signatories   []participantIndex // a list of everyone who's seen the heartbeat
+	signatures    []crypto.Signature // their corresponding signatures
 }
 
 // Using the current State, newHeartbeat() creates a heartbeat that fulfills all
@@ -32,11 +32,11 @@ func (s *State) newHeartbeat() (hb *heartbeat, err error) {
 	hb.entropyStage2 = s.storedEntropyStage2
 
 	// Generate EntropyStage2 for next heartbeat
-	rawEntropy, err := crypto.RandomByteSlice(common.EntropyVolume)
+	entropy, err := crypto.RandomByteSlice(common.EntropyVolume)
 	if err != nil {
 		return
 	}
-	copy(s.storedEntropyStage2[:], rawEntropy)
+	copy(s.storedEntropyStage2[:], entropy) // convert entropy from slice to byte array
 
 	// Use EntropyStage2 to generate EntropyStage1 for this heartbeat
 	hb.entropyStage1, err = crypto.CalculateTruncatedHash(s.storedEntropyStage2[:])
@@ -53,16 +53,16 @@ func marshalledHeartbeatLen() int {
 	return crypto.TruncatedHashSize + common.EntropyVolume
 }
 
-// Convert Heartbeat to string
+// Convert heartbeat to string
 func (hb *heartbeat) marshal() (marshalledHeartbeat []byte) {
 	marshalledHeartbeat = append(hb.entropyStage1[:], hb.entropyStage2[:]...)
 	return
 }
 
-// Convert string to Heartbeat
+// Convert string to heartbeat
 func unmarshalHeartbeat(marshalledHeartbeat []byte) (hb *heartbeat, err error) {
-	expectedLen := marshalledHeartbeatLen()
-	if len(marshalledHeartbeat) != expectedLen {
+	// check length of input
+	if len(marshalledHeartbeat) != marshalledHeartbeatLen() {
 		err = fmt.Errorf("Marshalled heartbeat is the wrong size!")
 		return
 	}
@@ -73,6 +73,7 @@ func unmarshalHeartbeat(marshalledHeartbeat []byte) (hb *heartbeat, err error) {
 	return
 }
 
+// take new heartbeat (our own), sign it, and package it into a signedHearteat
 func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 	sh = new(signedHeartbeat)
 
@@ -96,6 +97,7 @@ func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 	return
 }
 
+// convert signedHeartbeat to string
 func (sh *signedHeartbeat) marshal() (msh []byte, err error) {
 	// error check the input
 	if len(sh.signatures) > common.QuorumSize {
@@ -112,6 +114,7 @@ func (sh *signedHeartbeat) marshal() (msh []byte, err error) {
 	numBytes := len(mhb) + 1 + int(numSignatures)*(crypto.SignatureSize+1)
 	msh = make([]byte, numBytes)
 
+	// take the pieces and copy them into the byte slice
 	index := 0
 	copy(msh[index:], mhb)
 	index += len(mhb)
@@ -127,13 +130,16 @@ func (sh *signedHeartbeat) marshal() (msh []byte, err error) {
 	return
 }
 
+// convert string to signedHeartbeat
 func unmarshalSignedHeartbeat(msh []byte) (sh *signedHeartbeat, err error) {
-	// error check the input
+	// we reference the nth element in the []byte, make sure there is an nth element
 	if len(msh) <= marshalledHeartbeatLen() {
 		err = fmt.Errorf("input for unmarshalSignedHeartbeat is too short")
 		return
 	}
-	numSignatures := int(msh[marshalledHeartbeatLen()])
+	numSignatures := int(msh[marshalledHeartbeatLen()]) // the nth element
+
+	// verify that the total length of msh is what is expected
 	signatureSectionLen := numSignatures * (crypto.SignatureSize + 1)
 	totalLen := marshalledHeartbeatLen() + 1 + signatureSectionLen
 	if len(msh) != totalLen {
@@ -168,46 +174,6 @@ func unmarshalSignedHeartbeat(msh []byte) (sh *signedHeartbeat, err error) {
 	}
 
 	return
-}
-
-func (s *State) processHeartbeat(hb *heartbeat, i participantIndex) int {
-	// compare EntropyStage2 to the hash from the previous heartbeat
-	expectedHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
-	if err != nil {
-		log.Fatalln(err)
-	}
-	if expectedHash != s.previousEntropyStage1[i] {
-		s.tossParticipant(i)
-		return 1
-	}
-
-	// Add the EntropyStage2 to UpcomingEntropy
-	th, err := crypto.CalculateTruncatedHash(append(s.upcomingEntropy[:], hb.entropyStage2[:]...))
-	s.upcomingEntropy = common.Entropy(th)
-	// update PreviousEntropy, to compare this EntropyStage1 against the next
-	// EntropyStage1
-	s.previousEntropyStage1[i] = hb.entropyStage1
-
-	return 0
-}
-
-func (s *State) announceSignedHeartbeat(sh *signedHeartbeat) {
-	for i := range s.participants {
-		if s.participants[i] != nil {
-			payload, err := sh.marshal()
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			m := new(common.Message)
-			m.Payload = append([]byte{byte(incomingSignedHeartbeat)}, payload...)
-			m.Destination = s.participants[i].address
-			err = s.messageSender.SendMessage(m)
-			if err != nil {
-				log.Fatalln("Error while sending message")
-			}
-		}
-	}
 }
 
 // HandleSignedHeartbeat takes a heartbeat that has been signed
@@ -385,6 +351,27 @@ func (s *State) tossParticipant(pi participantIndex) {
 
 	// nil map in s.Heartbeats
 	s.heartbeats[pi] = nil
+}
+
+func (s *State) processHeartbeat(hb *heartbeat, i participantIndex) int {
+	// compare EntropyStage2 to the hash from the previous heartbeat
+	expectedHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
+	if err != nil {
+		log.Fatalln(err)
+	}
+	if expectedHash != s.previousEntropyStage1[i] {
+		s.tossParticipant(i)
+		return 1
+	}
+
+	// Add the EntropyStage2 to UpcomingEntropy
+	th, err := crypto.CalculateTruncatedHash(append(s.upcomingEntropy[:], hb.entropyStage2[:]...))
+	s.upcomingEntropy = common.Entropy(th)
+	// update PreviousEntropy, to compare this EntropyStage1 against the next
+	// EntropyStage1
+	s.previousEntropyStage1[i] = hb.entropyStage1
+
+	return 0
 }
 
 // compile() takes the list of heartbeats and uses them to advance the state.

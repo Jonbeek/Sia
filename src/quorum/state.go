@@ -15,6 +15,11 @@ const (
 
 type participantIndex int
 
+type participant struct {
+	address   common.Address
+	publicKey crypto.PublicKey
+}
+
 // The state provides persistence to the consensus algorithms. Every participant
 // should have an identical state.
 type State struct {
@@ -44,11 +49,40 @@ type State struct {
 	wallets map[string]uint64
 }
 
-// Only temporarily a public object, will eventually be 'type participant struct'
-// makes building easier since we don't have a 'join swarm' function yet
-type participant struct {
-	address   common.Address
-	publicKey crypto.PublicKey
+// The network server many need to request the identifier
+func (s *State) Identifier() (i common.Identifier) {
+	s.participantsLock.RLock()
+	i = s.participants[s.participantIndex].address.Id
+	s.participantsLock.RUnlock()
+	return
+}
+
+// receives a message and determines what function will handle it.
+// HandleMessage is not responsible for mutexes
+func (s *State) HandleMessage(m []byte) {
+	// message type is stored in the first byte, switch on this type
+	switch m[0] {
+	case incomingSignedHeartbeat:
+		s.handleSignedHeartbeat(m[1:])
+	case joinQuorumRequest:
+		// the message is going to contain connection information
+		// will need to return a marshalled state
+	default:
+		log.Infoln("Got message of unrecognized type")
+	}
+}
+
+// self() fetches the state's participant object
+func (s *State) Self() (p participant) {
+	// check that we have joined a quorum, otherwise we have no participant object
+	if participantIndex == 255 {
+		return
+	}
+
+	s.participantsLock.RLock()
+	p = s.participants[s.participantIndex]
+	s.participantsLock.RUnlock()
+	return
 }
 
 // Create and initialize a state object
@@ -90,32 +124,61 @@ func CreateState(messageSender common.MessageSender) (s State, err error) {
 	return
 }
 
-// receives a message and determines what function will handle it.
-// HandleMessage is not responsible for mutexes
-func (s *State) HandleMessage(m []byte) {
-	// message type is stored in the first byte, switch on this type
-	switch m[0] {
-	case incomingSignedHeartbeat:
-		s.handleSignedHeartbeat(m[1:])
-	case joinQuorumRequest:
-		// the message is going to contain connection information
-		// will need to return a marshalled state
-	default:
-		log.Infoln("Got message of unrecognized type")
-	}
-}
+// Take an unstarted State and begin the consensus algorithm cycle
+func (s *State) Start() (err error) {
+	// state cannot call Start() if it has already started
+	s.tickLock.Lock()
+	defer s.tickLock.Unlock()
 
-// self() fetches the state's participant object
-func (s *State) Self() (p participant) {
-	// check that we have joined a quorum, otherwise we have no participant object
-	if participantIndex == 255 {
+	// if s.ticking == true, then Start() was called but _ (end()?) was not
+	if s.ticking {
+		fmt.Errorf("State is ticking, cannot Start()")
 		return
 	}
 
-	s.participantsLock.RLock()
-	p = s.participants[s.participantIndex]
-	s.participantsLock.RUnlock()
-	return
+	// create first heartbeat
+	hb, err := s.newHeartbeat()
+	if err != nil {
+		return
+	}
+	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.marshal()))
+	if err != nil {
+		return
+	}
+
+	// add heartbeat to our map
+	s.heartbeatsLock.Lock()
+	s.heartbeats[s.participantIndex][heartbeatHash] = hb
+	s.heartbeatsLock.Unlock()
+
+	// sign and broadcast heartbeat
+	shb, err := s.signHeartbeat(hb)
+	if err != nil {
+		return
+	}
+	payload, err := sh.marshal()
+	if err != nil {
+		return
+	}
+
+	// start ticking
+	s.ticking = true
+	go s.tick()
+	s.broadcast(payload)
+}
+
+func (s *State) broadcast(payload []byte) {
+	for i:= range s.participants {
+		if s.participants[i] != nil {
+			m := new(common.Message)
+			m.Payload = payload
+			m.Destination = s.participants[i].address
+			err := s.messageSender.SendMessage(m)
+			if err != nil {
+				// bad error - this means our network is not responding to us
+			}
+		}
+	}
 }
 
 // Use the entropy stored in the state to generate a random integer [low, high)
@@ -140,45 +203,4 @@ func (s *State) randInt(low int, high int) (randInt int, err error) {
 	truncatedHash, err := crypto.CalculateTruncatedHash(s.currentEntropy[:])
 	s.currentEntropy = common.Entropy(truncatedHash)
 	return
-}
-
-// The network server many need to request the identifier
-func (s *State) Identifier() (i common.Identifier) {
-	s.participantsLock.RLock()
-	i = s.participants[s.participantIndex].address.Id
-	s.participantsLock.RUnlock()
-	return
-}
-
-// Take an unstarted State and begin the consensus algorithm cycle
-func (s *State) Start() {
-	// state cannot call Start() if it has already started
-	s.tickLock.Lock()
-	if s.ticking {
-		s.tickLock.Unlock()
-		return
-	} else {
-		s.ticking = true
-	}
-	s.tickLock.Unlock()
-
-	// start the ticker to progress the state
-	go s.tick()
-
-	// create first heartbeat and add it to heartbeat map, then announce it
-	hb, err := s.newHeartbeat()
-	if err != nil {
-		return
-	}
-	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.marshal()))
-
-	s.heartbeatsLock.Lock()
-	s.heartbeats[s.participantIndex][heartbeatHash] = hb
-	s.heartbeatsLock.Unlock()
-
-	shb, err := s.signHeartbeat(hb)
-	if err != nil {
-		return
-	}
-	s.announceSignedHeartbeat(shb)
 }
