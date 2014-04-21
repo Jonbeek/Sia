@@ -15,7 +15,7 @@ func TestCreateState(t *testing.T) {
 	}
 
 	// verify that the keys can sign and be verified
-	err = crypto.CheckKeys(s.participants[s.participantIndex].PublicKey, s.secretKey)
+	err = crypto.CheckKeys(s.participants[s.participantIndex].publicKey, s.secretKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestAddParticipant(t *testing.T) {
 	}
 
 	// check that participant 1 was added to state 0
-	if s1.participants[s1.participantIndex].PublicKey != s0.participants[1].PublicKey {
+	if s1.participants[s1.participantIndex].publicKey != s0.participants[1].publicKey {
 		t.Fatal("AddParticipant failed!")
 	}
 }

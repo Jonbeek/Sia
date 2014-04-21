@@ -18,7 +18,7 @@ type State struct {
 
 	// Network Variables
 	messageSender    common.MessageSender
-	participants     [common.QuorumSize]*Participant // list of participants
+	participants     [common.QuorumSize]*participant // list of participants
 	participantIndex participantIndex                // our participant index
 	secretKey        crypto.SecretKey                // public key in our participant index
 
@@ -42,9 +42,9 @@ type State struct {
 
 // Only temporarily a public object, will eventually be 'type participant struct'
 // makes building easier since we don't have a 'join swarm' function yet
-type Participant struct {
-	Address   common.Address
-	PublicKey crypto.PublicKey
+type participant struct {
+	address   common.Address
+	publicKey crypto.PublicKey
 }
 
 // Create and initialize a state object
@@ -68,10 +68,10 @@ func CreateState(messageSender common.MessageSender, participantIndex participan
 	}
 
 	// create and fill out the participant object
-	self := new(Participant)
-	self.Address = messageSender.Address()
-	self.Address.Id = common.Identifier(participantIndex)
-	self.PublicKey = pubKey
+	self := new(participant)
+	self.address = messageSender.Address()
+	self.address.Id = common.Identifier(participantIndex)
+	self.publicKey = pubKey
 
 	// calculate the value of an empty hash (default for storedEntropyStage2 on all hosts is a blank array)
 	emptyHash, err := crypto.CalculateTruncatedHash(s.storedEntropyStage2[:])
@@ -94,14 +94,14 @@ func CreateState(messageSender common.MessageSender, participantIndex participan
 }
 
 // self() fetches the state's participant object
-func (s *State) Self() (p *Participant) {
+func (s *State) Self() (p *participant) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	return s.participants[s.participantIndex]
 }
 
 // add participant to s.Participants, and initialize the heartbeat map
-func (s *State) AddParticipant(p *Participant, i participantIndex) (err error) {
+func (s *State) AddParticipant(p *participant, i participantIndex) (err error) {
 	s.lock.Lock()
 	// Check that there is not already a participant for the index
 	if s.participants[i] != nil {
@@ -155,7 +155,7 @@ func (s *State) HandleMessage(m []byte) {
 func (s *State) Identifier() common.Identifier {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	return s.participants[s.participantIndex].Address.Id
+	return s.participants[s.participantIndex].address.Id
 }
 
 // Take an unstarted State and begin the consensus algorithm cycle

@@ -200,9 +200,8 @@ func (s *State) announceSignedHeartbeat(sh *signedHeartbeat) {
 			}
 
 			m := new(common.Message)
-			m.Payload = append([]byte{byte(1)}, payload...)
-			m.Destination = s.participants[i].Address
-			//time.Sleep(time.Millisecond) // prevents panics. No idea where original source of bug is.
+			m.Payload = append([]byte{byte(incomingSignedHeartbeat)}, payload...)
+			m.Destination = s.participants[i].address
 			err = s.messageSender.SendMessage(m)
 			if err != nil {
 				log.Fatalln("Error while sending message")
@@ -314,7 +313,7 @@ func (s *State) handleSignedHeartbeat(message []byte) (returnCode int) {
 
 		// verify the signature
 		signedMessage.Signature = sh.signatures[i]
-		verification, err := crypto.Verify(s.participants[signatory].PublicKey, signedMessage)
+		verification, err := crypto.Verify(s.participants[signatory].publicKey, signedMessage)
 		if err != nil {
 			log.Fatalln(err)
 			return

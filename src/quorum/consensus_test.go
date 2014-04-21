@@ -150,10 +150,10 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	}
 
 	// create participants and add them to s
-	p1 := new(Participant)
-	p2 := new(Participant)
-	p1.PublicKey = pubKey1
-	p2.PublicKey = pubKey2
+	p1 := new(participant)
+	p2 := new(participant)
+	p1.publicKey = pubKey1
+	p2.publicKey = pubKey2
 	s.AddParticipant(p1, 1)
 	s.AddParticipant(p2, 2)
 
