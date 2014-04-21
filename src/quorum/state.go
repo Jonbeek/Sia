@@ -8,13 +8,16 @@ import (
 	"sync"
 )
 
+// Message Types
 const (
-	joinQuorumRequest       = 2
-	incomingSignedHeartbeat = 1
+	joinQuorumRequest uint8 = iota
+	incomingSignedHeartbeat
 )
 
-type participantIndex int
+// Leaves space for flexibility in the future
+type participantIndex uint8
 
+// Identifies other members of the quorum
 type participant struct {
 	address   common.Address
 	publicKey crypto.PublicKey
@@ -75,12 +78,12 @@ func (s *State) HandleMessage(m []byte) {
 // self() fetches the state's participant object
 func (s *State) Self() (p participant) {
 	// check that we have joined a quorum, otherwise we have no participant object
-	if participantIndex == 255 {
+	if s.participantIndex == 255 {
 		return
 	}
 
 	s.participantsLock.RLock()
-	p = s.participants[s.participantIndex]
+	p = *s.participants[s.participantIndex]
 	s.participantsLock.RUnlock()
 	return
 }
@@ -90,12 +93,6 @@ func CreateState(messageSender common.MessageSender) (s State, err error) {
 	// check that we have a non-nil messageSender
 	if messageSender == nil {
 		err = fmt.Errorf("Cannot initialize with a nil messageSender")
-		return
-	}
-
-	// check that participantIndex is legal
-	if int(participantIndex) >= common.QuorumSize {
-		err = fmt.Errorf("Invalid participant index!")
 		return
 	}
 
@@ -152,7 +149,7 @@ func (s *State) Start() (err error) {
 	s.heartbeatsLock.Unlock()
 
 	// sign and broadcast heartbeat
-	shb, err := s.signHeartbeat(hb)
+	sh, err := s.signHeartbeat(hb)
 	if err != nil {
 		return
 	}
@@ -165,10 +162,13 @@ func (s *State) Start() (err error) {
 	s.ticking = true
 	go s.tick()
 	s.broadcast(payload)
+	return
 }
 
+// Takes a payload and sends it in a message to every participant in the quorum
 func (s *State) broadcast(payload []byte) {
-	for i:= range s.participants {
+	s.participantsLock.RLock()
+	for i := range s.participants {
 		if s.participants[i] != nil {
 			m := new(common.Message)
 			m.Payload = payload
@@ -179,6 +179,7 @@ func (s *State) broadcast(payload []byte) {
 			}
 		}
 	}
+	s.participantsLock.RUnlock()
 }
 
 // Use the entropy stored in the state to generate a random integer [low, high)
