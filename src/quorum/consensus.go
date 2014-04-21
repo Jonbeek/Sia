@@ -325,7 +325,7 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 	sh.signatures = append(sh.signatures, signedMessage.Signature)
 	sh.signatories = append(sh.signatories, s.participantIndex)
 
-	// Send the new message to everybody
+	// broadcast the message to the quorum
 	err = s.announceSignedHeartbeat(sh)
 	if err != nil {
 		log.Fatalln(err)
@@ -366,15 +366,17 @@ func (s *State) tossParticipant(pi participantIndex) {
 	// remove from s.PreviousEntropyStage1
 	var emptyEntropy common.Entropy
 	zeroHash, err := crypto.CalculateTruncatedHash(emptyEntropy[:])
-	s.previousEntropyStage1[pi] = zeroHash
 	if err != nil {
 		log.Fatal(err)
 	}
+	s.previousEntropyStage1[pi] = zeroHash
 
 	// nil map in s.Heartbeats
 	s.heartbeats[pi] = nil
 }
 
+// Update the state according to the information presented in the heartbeat
+// processHeartbeat uses return codes for testing purposes
 func (s *State) processHeartbeat(hb *heartbeat, i participantIndex) int {
 	// compare EntropyStage2 to the hash from the previous heartbeat
 	expectedHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
@@ -389,8 +391,8 @@ func (s *State) processHeartbeat(hb *heartbeat, i participantIndex) int {
 	// Add the EntropyStage2 to UpcomingEntropy
 	th, err := crypto.CalculateTruncatedHash(append(s.upcomingEntropy[:], hb.entropyStage2[:]...))
 	s.upcomingEntropy = common.Entropy(th)
-	// update PreviousEntropy, to compare this EntropyStage1 against the next
-	// EntropyStage1
+
+	// store entropyStage1 to compare with next heartbeat from this participant
 	s.previousEntropyStage1[i] = hb.entropyStage1
 
 	return 0
@@ -398,10 +400,14 @@ func (s *State) processHeartbeat(hb *heartbeat, i participantIndex) int {
 
 // compile() takes the list of heartbeats and uses them to advance the state.
 func (s *State) compile() {
+	// fetch a participant ordering
 	participantOrdering := s.participantOrdering()
 
-	// Read read heartbeats, process them, then archive them. Other functions
-	// concurrently access the heartbeats, so mutexes are needed.
+	// Lock down s.participants and s.heartbeats for editing
+	s.participantsLock.Lock()
+	s.heartbeatsLock.Lock()
+
+	// Read heartbeats, process them, then archive them.
 	for _, participant := range participantOrdering {
 		if s.participants[participant] == nil {
 			continue
@@ -413,12 +419,15 @@ func (s *State) compile() {
 			continue
 		}
 
+		// this is the only way I know to access the only element of a map;
+		// the key is unknown
 		for _, hb := range s.heartbeats[participant] {
 			s.processHeartbeat(hb, participant)
 		}
 
-		// archive heartbeats
-		// currently, archives are sent to /dev/null
+		// archive heartbeats (unimplemented)
+
+		// clear heartbeat list for next block
 		s.heartbeats[participant] = make(map[crypto.TruncatedHash]*heartbeat)
 	}
 

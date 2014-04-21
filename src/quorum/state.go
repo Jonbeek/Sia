@@ -89,17 +89,11 @@ func (s *State) Self() (p participant) {
 	return
 }
 
-// Create and initialize a state object
+// Create and initialize a state object. Crypto keys are not created until a quorum is joined
 func CreateState(messageSender common.MessageSender) (s State, err error) {
 	// check that we have a non-nil messageSender
 	if messageSender == nil {
 		err = fmt.Errorf("Cannot initialize with a nil messageSender")
-		return
-	}
-
-	// initialize crypto keys
-	_, secKey, err := crypto.CreateKeyPair()
-	if err != nil {
 		return
 	}
 
@@ -111,7 +105,6 @@ func CreateState(messageSender common.MessageSender) (s State, err error) {
 
 	// set state variables to their defaults
 	s.messageSender = messageSender
-	s.secretKey = secKey
 	for i := range s.previousEntropyStage1 {
 		s.previousEntropyStage1[i] = emptyHash
 	}
