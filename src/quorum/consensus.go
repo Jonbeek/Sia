@@ -203,7 +203,7 @@ func (s *State) announceSignedHeartbeat(sh *signedHeartbeat) {
 			m.Payload = append([]byte{byte(1)}, payload...)
 			m.Destination = s.participants[i].Address
 			//time.Sleep(time.Millisecond) // prevents panics. No idea where original source of bug is.
-			err = s.messageSender.SendMessage(m)
+			err = s.messageRouter.SendMessage(m)
 			if err != nil {
 				log.Fatalln("Error while sending message")
 			}
