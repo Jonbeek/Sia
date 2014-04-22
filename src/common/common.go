@@ -14,7 +14,7 @@ const (
 	MinSegmentSize int = 512
 	MaxSegmentSize int = 1048576 // 1 MB
 
-	// How many hosts participate in each quorum
+	// How many participants are in each quorum
 	// This number is chosen to minimize the probability of a single quorum
 	// 	becoming more than 80% compromised by an attacker controlling 1/2 of
 	// 	the network.
@@ -26,9 +26,7 @@ const (
 
 type Entropy [EntropyVolume]byte
 
-// An Identifier uniquely identifies a host.
-// A byte is used for now, but a more sophisticated data structure will be
-// used eventually -- probably a path through a tree.
+// An Identifier uniquely identifies a participant on a host.
 type Identifier byte
 
 // An Address couples an Identifier with its network address.
@@ -40,19 +38,23 @@ type Address struct {
 
 // Messages are for sending things over the network.
 // Each message has a single destination, and it is
-// the job of the network package to interpret the
-// destinations.
+// the job of the network package to route a message
+// to its intended destination.
 type Message struct {
 	Destination Address
 	Payload     []byte
 }
 
+// A MessageHandler is a function that processes a message payload.
+// MessageHandlers are associated with various Identifiers by a MessageRouter.
 type MessageHandler interface {
-	Identifier() Identifier
 	HandleMessage([]byte)
 }
 
-type MessageSender interface {
+// A MessageRouter both transmits outgoing messages and processes incoming messages.
+// It allows MessageHandlers to be associated with a given Identifier.
+type MessageRouter interface {
 	Address() Address
-	SendMessage(m *Message) error
+	AddMessageHandler(MessageHandler) Address
+	SendMessage(*Message) error
 }
