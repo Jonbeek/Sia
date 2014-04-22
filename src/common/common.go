@@ -46,8 +46,9 @@ type Message struct {
 }
 
 // A MessageHandler is a function that processes a message payload.
-// MessageHandlers are associated with various Identifiers by a MessageRouter.
+// A MessageHandler has an Address associated with it that is determined by a MessageRouter.
 type MessageHandler interface {
+	SetAddress(*Address)
 	HandleMessage([]byte)
 }
 
