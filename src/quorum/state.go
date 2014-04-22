@@ -17,7 +17,7 @@ type State struct {
 	lock sync.Mutex
 
 	// Network Variables
-	messageSender    common.MessageSender
+	messageRouter    common.MessageRouter
 	participants     [common.QuorumSize]*Participant // list of participants
 	participantIndex participantIndex                // our participant index
 	secretKey        crypto.SecretKey                // public key in our participant index
@@ -48,10 +48,10 @@ type Participant struct {
 }
 
 // Create and initialize a state object
-func CreateState(messageSender common.MessageSender, participantIndex participantIndex) (s State, err error) {
+func CreateState(messageRouter common.MessageRouter, participantIndex participantIndex) (s State, err error) {
 	// check that we have a non-nil messageSender
-	if messageSender == nil {
-		err = fmt.Errorf("Cannot initialize with a nil messageSender")
+	if messageRouter == nil {
+		err = fmt.Errorf("Cannot initialize with a nil messageRouter")
 		return
 	}
 
@@ -69,7 +69,7 @@ func CreateState(messageSender common.MessageSender, participantIndex participan
 
 	// create and fill out the participant object
 	self := new(Participant)
-	self.Address = messageSender.Address()
+	self.Address = messageRouter.Address()
 	self.Address.Id = common.Identifier(participantIndex)
 	self.PublicKey = pubKey
 
@@ -80,7 +80,7 @@ func CreateState(messageSender common.MessageSender, participantIndex participan
 	}
 
 	// set state variables to their defaults
-	s.messageSender = messageSender
+	s.messageRouter = messageRouter
 	s.AddParticipant(self, participantIndex)
 	s.secretKey = secKey
 	for i := range s.previousEntropyStage1 {
@@ -140,6 +140,12 @@ func (s *State) randInt(low int, high int) (randInt int, err error) {
 	return
 }
 
+func (s *State) SetAddress(addr *common.Address) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.participants[s.participantIndex].Address = *addr
+}
+
 func (s *State) HandleMessage(m []byte) {
 	// message type is stored in the first byte, switch on this type
 	switch m[0] {
@@ -150,12 +156,6 @@ func (s *State) HandleMessage(m []byte) {
 	default:
 		log.Infoln("Got message of unrecognized type")
 	}
-}
-
-func (s *State) Identifier() common.Identifier {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	return s.participants[s.participantIndex].Address.Id
 }
 
 // Take an unstarted State and begin the consensus algorithm cycle
