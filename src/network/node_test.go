@@ -14,13 +14,8 @@ import (
 // stores the received message in the result field
 // uses a channel to signal when handler has been called
 type TestMsgHandler struct {
-	id     common.Identifier
 	result string
 	done   chan bool
-}
-
-func (tmh *TestMsgHandler) Identifier() common.Identifier {
-	return tmh.id
 }
 
 func (tmh *TestMsgHandler) HandleMessage(payload []byte) {
@@ -41,7 +36,6 @@ func TestTCPSendMessage(t *testing.T) {
 
 	// create message handler and add it to the TCPServer
 	tmh := new(TestMsgHandler)
-	tmh.id = 1
 	tmh.done = make(chan bool, 1)
 	tcp.AddMessageHandler(tmh)
 
@@ -97,13 +91,8 @@ func TestTCPSendMessage(t *testing.T) {
 // writes the received data to a file handle
 // uses a channel to signal when handler has been called
 type TestFileHandler struct {
-	id   common.Identifier
 	file *os.File
 	done chan bool
-}
-
-func (tfh *TestFileHandler) Identifier() common.Identifier {
-	return tfh.id
 }
 
 func (tfh *TestFileHandler) HandleMessage(payload []byte) {
@@ -124,7 +113,6 @@ func TestTCPSendSegment(t *testing.T) {
 
 	// create message handler and add it to the TCPServer
 	tfh := new(TestFileHandler)
-	tfh.id = 1
 	tfh.done = make(chan bool, 1)
 	tfh.file, err = os.Create("OutputFile")
 	if err != nil {
