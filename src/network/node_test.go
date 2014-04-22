@@ -18,6 +18,10 @@ type TestMsgHandler struct {
 	done   chan bool
 }
 
+func (tmh *TestMsgHandler) SetAddress(addr *common.Address) {
+	return
+}
+
 func (tmh *TestMsgHandler) HandleMessage(payload []byte) {
 	tmh.result = string(payload)
 	tmh.done <- true
@@ -93,6 +97,10 @@ func TestTCPSendMessage(t *testing.T) {
 type TestFileHandler struct {
 	file *os.File
 	done chan bool
+}
+
+func (tfh *TestFileHandler) SetAddress(addr *common.Address) {
+	return
 }
 
 func (tfh *TestFileHandler) HandleMessage(payload []byte) {

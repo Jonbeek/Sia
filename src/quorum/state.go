@@ -140,6 +140,12 @@ func (s *State) randInt(low int, high int) (randInt int, err error) {
 	return
 }
 
+func (s *State) SetAddress(addr *common.Address) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.participants[s.participantIndex].Address = *addr
+}
+
 func (s *State) HandleMessage(m []byte) {
 	// message type is stored in the first byte, switch on this type
 	switch m[0] {
@@ -150,12 +156,6 @@ func (s *State) HandleMessage(m []byte) {
 	default:
 		log.Infoln("Got message of unrecognized type")
 	}
-}
-
-func (s *State) Identifier() common.Identifier {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	return s.participants[s.participantIndex].Address.Id
 }
 
 // Take an unstarted State and begin the consensus algorithm cycle
