@@ -11,7 +11,7 @@
 // using cgo.
 package erasure
 
-// #include "bridge.c"
+// #include "erasure.c"
 import "C"
 
 import (
@@ -36,14 +36,14 @@ func EncodeRing(k int, bytesPerSegment int, originalData []byte) (segmentdData [
 	}
 
 	// check that bytesPerSegment is not too big or small
-	if bytesPerSegment < common.MinSliceSize || bytesPerSegment > common.MaxSliceSize {
-		err = fmt.Errorf("bytesPerSegment must be greater than %v and smaller than %v", common.MinSliceSize, common.MaxSliceSize)
+	if bytesPerSegment < common.MinSegmentSize || bytesPerSegment > common.MaxSegmentSize {
+		err = fmt.Errorf("bytesPerSegment must be greater than %v and smaller than %v", common.MinSegmentSize, common.MaxSegmentSize)
 		return
 	}
 
-	// check that bytesPerSegment is divisible by 8
-	if bytesPerSegment%8 != 0 {
-		err = fmt.Errorf("bytesPerSegment must be divisible by 8")
+	// check that bytesPerSegment is divisible by 64
+	if bytesPerSegment%64 != 0 {
+		err = fmt.Errorf("bytesPerSegment must be divisible by 64")
 		return
 	}
 
@@ -94,8 +94,8 @@ func RebuildSector(k int, bytesPerSegment int, untaintedSegments []string, segme
 	}
 
 	// check for legal size of bytesPerSegment
-	if bytesPerSegment < common.MinSliceSize || bytesPerSegment > common.MaxSliceSize {
-		err = fmt.Errorf("bytesPerSegment must be greater than %v and smaller than %v", common.MinSliceSize, common.MaxSliceSize)
+	if bytesPerSegment < common.MinSegmentSize || bytesPerSegment > common.MaxSegmentSize {
+		err = fmt.Errorf("bytesPerSegment must be greater than %v and smaller than %v", common.MinSegmentSize, common.MaxSegmentSize)
 		return
 	}
 
