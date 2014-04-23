@@ -12,6 +12,7 @@ import (
 const (
 	joinQuorumRequest uint8 = iota
 	incomingSignedHeartbeat
+	addressChangeNotification
 )
 
 // Leaves space for flexibility in the future
@@ -51,6 +52,22 @@ type State struct {
 
 	// Wallet Data
 	wallets map[string]uint64
+}
+
+func (s *State) updateParticipantAddress(msp []byte) {
+	// this message is actually a signature of a participant
+	// it's valid if the signature matches the public key
+	//
+	// actually we also need an index =/
+	// not sure if it's worth making a whole new struct or not
+}
+
+func (p *participant) marshal(mp []byte) {
+	// unfinished, considering switching to 'gob'
+}
+
+func unmarshallParticipant(mp []byte) {
+	// unfinished, considering switching to 'gob'
 }
 
 // Create and initialize a state object. Crypto keys are not created until a quorum is joined
@@ -126,6 +143,7 @@ func (s *State) SetAddress(addr *common.Address) {
 	s.participantsLock.Unlock()
 
 	// now notifiy everyone else in the quorum that the address has changed:
+	// that will consist of a 'moved locations' message that has been signed
 }
 
 // receives a message and determines what function will handle it.
@@ -138,6 +156,8 @@ func (s *State) HandleMessage(m []byte) {
 	case joinQuorumRequest:
 		// the message is going to contain connection information
 		// will need to return a marshalled state
+	case addressChangeNotification:
+		s.updateParticipantAddress(m[1:])
 	default:
 		log.Infoln("Got message of unrecognized type")
 	}
@@ -162,6 +182,8 @@ func (s *State) broadcast(payload []byte) {
 
 // Use the entropy stored in the state to generate a random integer [low, high)
 // randInt only runs during compile(), when the mutexes are already locked
+//
+// needs to be converted to return uint64
 func (s *State) randInt(low int, high int) (randInt int, err error) {
 	// verify there's a gap between the numbers
 	if low == high {
