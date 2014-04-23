@@ -31,8 +31,9 @@ type State struct {
 	messageRouter    common.MessageRouter
 	participants     [common.QuorumSize]*participant // list of participants
 	participantsLock sync.RWMutex                    // write-locks for compile only
+	self             *participant                    // ourselves
 	participantIndex participantIndex                // our participant index
-	secretKey        crypto.SecretKey
+	secretKey        crypto.SecretKey                // our secret key
 
 	// Heartbeat Variables
 	storedEntropyStage2 common.Entropy // hashed to EntropyStage1 for previous heartbeat
@@ -78,6 +79,12 @@ func CreateState(messageRouter common.MessageRouter) (s State, err error) {
 		return
 	}
 
+	// create a signature keypair for this state
+	pubKey, secKey, err := crypto.CreateKeyPair()
+	if err != nil {
+		return
+	}
+
 	// calculate the value of an empty hash (default for storedEntropyStage2 on all hosts is a blank array)
 	emptyHash, err := crypto.CalculateTruncatedHash(s.storedEntropyStage2[:])
 	if err != nil {
@@ -86,6 +93,10 @@ func CreateState(messageRouter common.MessageRouter) (s State, err error) {
 
 	// set state variables to their defaults
 	s.messageRouter = messageRouter
+	s.self = new(participant)
+	s.self.address = messageRouter.Address()
+	s.self.publicKey = pubKey
+	s.secretKey = secKey
 	for i := range s.previousEntropyStage1 {
 		s.previousEntropyStage1[i] = emptyHash
 	}
