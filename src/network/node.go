@@ -27,7 +27,7 @@ func (tcp *TCPServer) Address() common.Address {
 func (tcp *TCPServer) AddMessageHandler(mh common.MessageHandler) common.Address {
 	tcp.MessageHandlers = append(tcp.MessageHandlers, mh)
 	addr := tcp.Addr
-	addr.Id = common.Identifier(len(tcp.MessageHandlers))
+	addr.Id = common.Identifier(len(tcp.MessageHandlers) - 1)
 	return addr
 }
 
@@ -154,6 +154,13 @@ func (tcp *TCPServer) clientHandler(conn net.Conn) {
 		}
 		payload = append(payload, buffer[:b]...)
 		bytesRead += b
+	}
+
+	// Message sent directly to TCPServer
+	// for now, just send it to the first message handler
+	if id == 0 {
+		tcp.MessageHandlers[1].HandleMessage(payload)
+		return
 	}
 
 	// look up message handler and call it
