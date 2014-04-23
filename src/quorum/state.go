@@ -27,8 +27,7 @@ type participant struct {
 // should have an identical state.
 type State struct {
 	// Network Variables
-	messageSender    common.MessageSender
-	self             *participant
+	messageRouter    common.MessageRouter
 	participants     [common.QuorumSize]*participant // list of participants
 	participantsLock sync.RWMutex                    // write-locks for compile only
 	participantIndex participantIndex                // our participant index
@@ -55,10 +54,10 @@ type State struct {
 }
 
 // Create and initialize a state object. Crypto keys are not created until a quorum is joined
-func CreateState(messageSender common.MessageSender) (s State, err error) {
+func CreateState(messageRouter common.MessageRouter) (s State, err error) {
 	// check that we have a non-nil messageSender
-	if messageSender == nil {
-		err = fmt.Errorf("Cannot initialize with a nil messageSender")
+	if messageRouter == nil {
+		err = fmt.Errorf("Cannot initialize with a nil messageRouter")
 		return
 	}
 
@@ -69,7 +68,7 @@ func CreateState(messageSender common.MessageSender) (s State, err error) {
 	}
 
 	// set state variables to their defaults
-	s.messageSender = messageSender
+	s.messageRouter = messageRouter
 	for i := range s.previousEntropyStage1 {
 		s.previousEntropyStage1[i] = emptyHash
 	}
@@ -120,6 +119,15 @@ func (s *State) Start() (err error) {
 	return
 }
 
+// Called by the MessageRouter in case of an address change
+func (s *State) SetAddress(addr *common.Address) {
+	s.participantsLock.Lock()
+	s.participants[s.participantIndex].address = *addr
+	s.participantsLock.Unlock()
+
+	// now notifiy everyone else in the quorum that the address has changed:
+}
+
 // receives a message and determines what function will handle it.
 // HandleMessage is not responsible for mutexes
 func (s *State) HandleMessage(m []byte) {
@@ -143,7 +151,7 @@ func (s *State) broadcast(payload []byte) {
 			m := new(common.Message)
 			m.Payload = payload
 			m.Destination = s.participants[i].address
-			err := s.messageSender.SendMessage(m)
+			err := s.messageRouter.SendMessage(m)
 			if err != nil {
 				log.Errorln("messageSender returning an error")
 			}

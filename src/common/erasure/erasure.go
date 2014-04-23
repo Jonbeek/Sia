@@ -41,9 +41,9 @@ func EncodeRing(k int, bytesPerSegment int, originalData []byte) (segmentdData [
 		return
 	}
 
-	// check that bytesPerSegment is divisible by 8
-	if bytesPerSegment%8 != 0 {
-		err = fmt.Errorf("bytesPerSegment must be divisible by 8")
+	// check that bytesPerSegment is divisible by 64
+	if bytesPerSegment%64 != 0 {
+		err = fmt.Errorf("bytesPerSegment must be divisible by 64")
 		return
 	}
 

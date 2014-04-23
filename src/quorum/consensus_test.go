@@ -4,7 +4,7 @@ import (
 	"common"
 	"common/crypto"
 	"testing"
-	"time"
+	//"time"
 )
 
 // Verify that newHeartbeat() produces valid heartbeats
@@ -100,10 +100,10 @@ func TestSignedHeartbeatMarshalling(t *testing.T) {
 	}
 	for i := 0; i < len(unmarshalledSH.signatures); i++ {
 		if unmarshalledSH.signatures[i] != originalSignedHeartbeat.signatures[i] {
-			t.Fatal("For i=", i, ", unmarshalledSH.Signatures[i] did not equal originalSignedHeartbeat.Signatures[i]")
+			t.Fatal("For i =", i, ", unmarshalledSH.Signatures[i] did not equal originalSignedHeartbeat.Signatures[i]")
 		}
 		if unmarshalledSH.signatories[i] != originalSignedHeartbeat.signatories[i] {
-			t.Fatal("For i=", i, ", unmarshalledSH.Signatories[i] did not equal originalSignedHeartbeat.Signatories[i]")
+			t.Fatal("For i =", i, ", unmarshalledSH.Signatories[i] did not equal originalSignedHeartbeat.Signatories[i]")
 		}
 	}
 
@@ -131,6 +131,8 @@ func TestSignedHeartbeatMarshalling(t *testing.T) {
 	if err == nil {
 		t.Fatal("UnmarshalSignedHeartbeat succeded when input was too long")
 	}
+
+	// check marshalling and unmarshalling of a signedHeartbeat with many signatures
 }
 
 // TestHandleSignedHeartbeat should probably be reviewed and rehashed
@@ -438,7 +440,7 @@ func TestTossParticipant(t *testing.T) {
 } */
 
 // Ensures that Tick() updates CurrentStep
-func TestRegularTick(t *testing.T) {
+/* func TestRegularTick(t *testing.T) {
 	// test takes common.StepDuration seconds; skip for short testing
 	if testing.Short() {
 		t.Skip()
@@ -525,4 +527,4 @@ func TestTickLock(t *testing.T) {
 		t.Fatal("Double tick failed: ", s.currentStep)
 	}
 	s.lock.Unlock()
-}
+}*/

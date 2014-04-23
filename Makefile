@@ -41,4 +41,4 @@ race-libs:
 docs:
 	pdflatex -output-directory=doc/ doc/whitepaper.tex 
 
-.PHONY: all submodule-update fmt libraries test test-long dependencies race-libs docs
+.PHONY: all submodule-update fmt libraries test test-verbose test-race test-race-verbose test-long test-long-verbose dependencies race-libs docs

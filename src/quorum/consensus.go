@@ -97,90 +97,12 @@ func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 	return
 }
 
-// convert signedHeartbeat to string
-func (sh *signedHeartbeat) marshal() (msh []byte, err error) {
-	// error check the input
-	if len(sh.signatures) > common.QuorumSize {
-		err = fmt.Errorf("Too many signatures on heartbeat")
-		return
-	} else if len(sh.signatures) != len(sh.signatories) {
-		err = fmt.Errorf("Mismatched set of signatures and signatories")
-		return
-	}
-
-	// get all pieces of the marshalledSignedHeartbeat
-	mhb := sh.heartbeat.marshal()
-	numSignatures := byte(len(sh.signatures))
-	numBytes := len(mhb) + 1 + int(numSignatures)*(crypto.SignatureSize+1)
-	msh = make([]byte, numBytes)
-
-	// take the pieces and copy them into the byte slice
-	index := 0
-	copy(msh[index:], mhb)
-	index += len(mhb)
-	copy(msh[index:], string(numSignatures))
-	index += 1
-	for i := 0; i < int(numSignatures); i++ {
-		copy(msh[index:], sh.signatures[i][:])
-		index += crypto.SignatureSize
-		copy(msh[index:], string(sh.signatories[i]))
-		index += 1
-	}
-
-	return
-}
-
-// convert string to signedHeartbeat
-func unmarshalSignedHeartbeat(msh []byte) (sh *signedHeartbeat, err error) {
-	// we reference the nth element in the []byte, make sure there is an nth element
-	if len(msh) <= marshalledHeartbeatLen() {
-		err = fmt.Errorf("input for unmarshalSignedHeartbeat is too short")
-		return
-	}
-	numSignatures := int(msh[marshalledHeartbeatLen()]) // the nth element
-
-	// verify that the total length of msh is what is expected
-	signatureSectionLen := numSignatures * (crypto.SignatureSize + 1)
-	totalLen := marshalledHeartbeatLen() + 1 + signatureSectionLen
-	if len(msh) != totalLen {
-		err = fmt.Errorf("input for UnmarshalSignedHeartbeat is incorrect length, expecting ", totalLen, " bytes")
-		return
-	}
-
-	// get sh.Heartbeat and sh.HeartbeatHash
-	sh = new(signedHeartbeat)
-	index := 0
-	heartbeat, err := unmarshalHeartbeat(msh[index:marshalledHeartbeatLen()])
-	if err != nil {
-		return
-	}
-	heartbeatHash, err := crypto.CalculateTruncatedHash(msh[index:marshalledHeartbeatLen()])
-	if err != nil {
-		return
-	}
-	sh.heartbeat = heartbeat
-	sh.heartbeatHash = heartbeatHash
-
-	// get sh.Signatures and sh.Signatories
-	index += marshalledHeartbeatLen()
-	index += 1
-	sh.signatures = make([]crypto.Signature, numSignatures, numSignatures)
-	sh.signatories = make([]participantIndex, numSignatures)
-	for i := 0; i < numSignatures; i++ {
-		copy(sh.signatures[i][:], msh[index:])
-		index += crypto.SignatureSize
-		sh.signatories[i] = participantIndex(msh[index])
-		index += 1
-	}
-
-	return
-}
-
 func (s *State) announceSignedHeartbeat(sh *signedHeartbeat) (err error) {
 	msh, err := sh.marshal()
 	if err != nil {
 		return
 	}
+
 	payload := append([]byte(string(incomingSignedHeartbeat)), msh...)
 	s.broadcast(payload)
 	return
@@ -332,6 +254,85 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 	}
 
 	returnCode = 0
+	return
+}
+
+// convert signedHeartbeat to string
+func (sh *signedHeartbeat) marshal() (msh []byte, err error) {
+	// error check the input
+	if len(sh.signatures) > common.QuorumSize {
+		err = fmt.Errorf("Too many signatures on heartbeat")
+		return
+	} else if len(sh.signatures) != len(sh.signatories) {
+		err = fmt.Errorf("Mismatched set of signatures and signatories")
+		return
+	}
+
+	// get all pieces of the marshalledSignedHeartbeat
+	mhb := sh.heartbeat.marshal()
+	numSignatures := byte(len(sh.signatures))
+	numBytes := len(mhb) + 1 + int(numSignatures)*(crypto.SignatureSize+1)
+	msh = make([]byte, numBytes)
+
+	// take the pieces and copy them into the byte slice
+	index := 0
+	copy(msh[index:], mhb)
+	index += len(mhb)
+	copy(msh[index:], string(numSignatures))
+	index += 1
+	for i := 0; i < int(numSignatures); i++ {
+		copy(msh[index:], sh.signatures[i][:])
+		index += crypto.SignatureSize
+		msh[index] = byte(sh.signatories[i])
+		index += 1
+	}
+
+	return
+}
+
+// convert string to signedHeartbeat
+func unmarshalSignedHeartbeat(msh []byte) (sh *signedHeartbeat, err error) {
+	// we reference the nth element in the []byte, make sure there is an nth element
+	if len(msh) <= marshalledHeartbeatLen() {
+		err = fmt.Errorf("input for unmarshalSignedHeartbeat is too short")
+		return
+	}
+	numSignatures := int(msh[marshalledHeartbeatLen()]) // the nth element
+
+	// verify that the total length of msh is what is expected
+	signatureSectionLen := numSignatures * (crypto.SignatureSize + 1)
+	totalLen := marshalledHeartbeatLen() + 1 + signatureSectionLen
+	if len(msh) != totalLen {
+		err = fmt.Errorf("input for UnmarshalSignedHeartbeat is incorrect length, expecting ", totalLen, " bytes")
+		return
+	}
+
+	// get sh.Heartbeat and sh.HeartbeatHash
+	sh = new(signedHeartbeat)
+	index := 0
+	heartbeat, err := unmarshalHeartbeat(msh[index:marshalledHeartbeatLen()])
+	if err != nil {
+		return
+	}
+	heartbeatHash, err := crypto.CalculateTruncatedHash(msh[index:marshalledHeartbeatLen()])
+	if err != nil {
+		return
+	}
+	sh.heartbeat = heartbeat
+	sh.heartbeatHash = heartbeatHash
+
+	// get sh.Signatures and sh.Signatories
+	index += marshalledHeartbeatLen()
+	index += 1 // skip the numSignatures byte
+	sh.signatures = make([]crypto.Signature, numSignatures)
+	sh.signatories = make([]participantIndex, numSignatures)
+	for i := 0; i < numSignatures; i++ {
+		copy(sh.signatures[i][:], msh[index:])
+		index += crypto.SignatureSize
+		sh.signatories[i] = participantIndex(msh[index])
+		index += 1
+	}
+
 	return
 }
 
