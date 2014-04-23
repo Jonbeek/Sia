@@ -55,7 +55,7 @@ func EncodeRing(k int, bytesPerSegment int, originalData []byte) (segmentdData [
 
 	// call c library to encode data
 	m := common.QuorumSize - k
-	redundantChunk := C.encodeRedundancy(C.int(k), C.int(m), C.int(bytesPerSegment), (*C.uchar)(unsafe.Pointer(&originalData[0])))
+	redundantChunk := C.encodeRedundancy(C.int(k), C.int(m), C.int(bytesPerSegment), (*C.char)(unsafe.Pointer(&originalData[0])))
 	redundantString := C.GoStringN(redundantChunk, C.int(m*bytesPerSegment))
 
 	segmentdData = make([]string, common.QuorumSize)
