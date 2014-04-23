@@ -295,7 +295,7 @@ func TestSignedHeartbeatMarshalling(t *testing.T) {
 	}()
 
 	time.Sleep(time.Second)
-}*/
+}
 
 // add fuzzing tests for HandleSignedHeartbeat
 // test race conditions on HandleSignedHeartbeat
@@ -305,7 +305,7 @@ func TestTossParticipant(t *testing.T) {
 }
 
 // Check that valid heartbeats are accepted and invalid heartbeats are rejected
-/* func TestProcessHeartbeat(t *testing.T) {
+func TestProcessHeartbeat(t *testing.T) {
 	// create states and add them to each other
 	s0, err := CreateState(common.NewZeroNetwork())
 	if err != nil {
