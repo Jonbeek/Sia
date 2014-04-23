@@ -28,10 +28,11 @@ type participant struct {
 type State struct {
 	// Network Variables
 	messageSender    common.MessageSender
+	self             *participant
 	participants     [common.QuorumSize]*participant // list of participants
 	participantsLock sync.RWMutex                    // write-locks for compile only
 	participantIndex participantIndex                // our participant index
-	secretKey        crypto.SecretKey                // public key in our participant index
+	secretKey        crypto.SecretKey
 
 	// Heartbeat Variables
 	storedEntropyStage2 common.Entropy // hashed to EntropyStage1 for previous heartbeat
@@ -51,42 +52,6 @@ type State struct {
 
 	// Wallet Data
 	wallets map[string]uint64
-}
-
-// The network server many need to request the identifier
-func (s *State) Identifier() (i common.Identifier) {
-	s.participantsLock.RLock()
-	i = s.participants[s.participantIndex].address.Id
-	s.participantsLock.RUnlock()
-	return
-}
-
-// receives a message and determines what function will handle it.
-// HandleMessage is not responsible for mutexes
-func (s *State) HandleMessage(m []byte) {
-	// message type is stored in the first byte, switch on this type
-	switch m[0] {
-	case incomingSignedHeartbeat:
-		s.handleSignedHeartbeat(m[1:])
-	case joinQuorumRequest:
-		// the message is going to contain connection information
-		// will need to return a marshalled state
-	default:
-		log.Infoln("Got message of unrecognized type")
-	}
-}
-
-// self() fetches the state's participant object
-func (s *State) Self() (p participant) {
-	// check that we have joined a quorum, otherwise we have no participant object
-	if s.participantIndex == 255 {
-		return
-	}
-
-	s.participantsLock.RLock()
-	p = *s.participants[s.participantIndex]
-	s.participantsLock.RUnlock()
-	return
 }
 
 // Create and initialize a state object. Crypto keys are not created until a quorum is joined
@@ -155,6 +120,21 @@ func (s *State) Start() (err error) {
 	return
 }
 
+// receives a message and determines what function will handle it.
+// HandleMessage is not responsible for mutexes
+func (s *State) HandleMessage(m []byte) {
+	// message type is stored in the first byte, switch on this type
+	switch m[0] {
+	case incomingSignedHeartbeat:
+		s.handleSignedHeartbeat(m[1:])
+	case joinQuorumRequest:
+		// the message is going to contain connection information
+		// will need to return a marshalled state
+	default:
+		log.Infoln("Got message of unrecognized type")
+	}
+}
+
 // Takes a payload and sends it in a message to every participant in the quorum
 func (s *State) broadcast(payload []byte) {
 	s.participantsLock.RLock()
@@ -165,7 +145,7 @@ func (s *State) broadcast(payload []byte) {
 			m.Destination = s.participants[i].address
 			err := s.messageSender.SendMessage(m)
 			if err != nil {
-				// bad error - this means our network is not responding to us
+				log.Errorln("messageSender returning an error")
 			}
 		}
 	}

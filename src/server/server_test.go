@@ -14,20 +14,14 @@ func TestNetworkedQuorum(t *testing.T) {
 		println("fail")
 	}
 	// mh == messageHandler
-	mh0, err := quorum.CreateState(ms, 0)
+	_, err = quorum.CreateState(ms)
 	if err != nil {
 		println("fail")
 	}
-	mh1, err := quorum.CreateState(ms, 1)
+	_, err = quorum.CreateState(ms)
 	if err != nil {
 		println("fail")
 	}
 
-	// add the states to each other
-	mh0.AddParticipant(mh1.Self(), 1)
-	mh1.AddParticipant(mh0.Self(), 0)
-
-	// see if they initialize without issues
-	mh0.Start()
-	mh1.Start()
+	// more code here
 }
