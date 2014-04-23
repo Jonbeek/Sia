@@ -1,7 +1,9 @@
 package network
 
 import (
+	"bytes"
 	"common"
+	"common/erasure"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -84,6 +86,56 @@ func (tcp *TCPServer) SendSegment(seg *os.File, dest *common.Address) (err error
 	err = tcp.SendMessage(&m)
 	if err != nil {
 		return
+	}
+
+	return
+}
+
+// UploadFile splits a file into erasure-coded segments and distributes them across a quorum.
+// k is the number of non-redundant segments.
+// The file is padded to satisfy the erasure-coding requirements that:
+//     len(fileData) = k*bytesPerSegment, and:
+//     bytesPerSegment % 64 = 0
+func (tcp *TCPServer) UploadFile(file *os.File, k int, quorum [common.QuorumSize]common.Address) (bytesPerSegment int, err error) {
+	// read file
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return
+	}
+	if fileInfo.Size() > int64(common.QuorumSize*common.MaxSegmentSize) {
+		err = errors.New("File exceeds maximum per-quorum size")
+		return
+	}
+	fileData := make([]byte, fileInfo.Size())
+	_, err = io.ReadFull(file, fileData)
+	if err != nil {
+		return
+	}
+
+	// calculate EncodeRing parameters, padding file if necessary
+	bytesPerSegment = len(fileData) / k
+	if bytesPerSegment%64 != 0 {
+		bytesPerSegment += 64 - (bytesPerSegment % 64)
+		padding := k*bytesPerSegment - len(fileData)
+		fileData = append(fileData, bytes.Repeat([]byte{0x00}, padding)...)
+	}
+
+	// create erasure-coded segments
+	segments, err := erasure.EncodeRing(k, bytesPerSegment, fileData)
+	if err != nil {
+		return
+	}
+
+	// for now we just send segment i to node i
+	// this may need to be randomized for security
+	for i := range quorum {
+		m := new(common.Message)
+		m.Destination = quorum[i]
+		m.Payload = append([]byte{byte(i)}, []byte(segments[i])...)
+		err = tcp.SendMessage(m)
+		if err != nil {
+			return
+		}
 	}
 
 	return
