@@ -6,52 +6,50 @@ import (
 	"testing"
 )
 
-// quick sanity check
+// Create a state, check the defaults
 func TestCreateState(t *testing.T) {
-	// create a state
-	s, err := CreateState(common.NewZeroNetwork(), 0)
+	// does a state create without errors?
+	s, err := CreateState(common.NewZeroNetwork())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// verify that the keys can sign and be verified
-	err = crypto.CheckKeys(s.participants[s.participantIndex].PublicKey, s.secretKey)
+	// check that previousEntropyStage1 is initialized correctly
+	var emptyEntropy common.Entropy
+	emptyHash, err := crypto.CalculateTruncatedHash(emptyEntropy[:])
 	if err != nil {
 		t.Fatal(err)
 	}
+	for i := range s.previousEntropyStage1 {
+		if s.previousEntropyStage1[i] != emptyHash {
+			t.Error("previousEntropyStage1 initialized incorrectly at index ", i)
+		}
+	}
 
-	// sanity check CurrentStep
+	// sanity check the default values
+	if s.participantIndex != 255 {
+		t.Error("s.participantIndex initialized to ", s.participantIndex)
+	}
 	if s.currentStep != 1 {
-		t.Fatal("Current step should be initialized to 1!")
+		t.Error("s.currentStep should be initialized to 1!")
+	}
+	if s.wallets == nil {
+		t.Error("s.wallets was not initialized")
 	}
 }
 
-// verify that one state can add another
-func TestAddParticipant(t *testing.T) {
-	s0, err := CreateState(common.NewZeroNetwork(), 0)
+/* func TestJoinQuorum(t *testing.T) {
+	s, err := CreateState(common.NewZeroNetwork())
 	if err != nil {
 		t.Fatal(err)
 	}
+} */
 
-	s1, err := CreateState(common.NewZeroNetwork(), 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = s0.AddParticipant(s1.Self(), 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// check that participant 1 was added to state 0
-	if s1.participants[s1.participantIndex].PublicKey != s0.participants[1].PublicKey {
-		t.Fatal("AddParticipant failed!")
-	}
-}
+// test HandleMessage and SetAddress
 
 // check general case, check corner cases, and then do some fuzzing
-func TestrandInt(t *testing.T) {
-	s, err := CreateState(common.NewZeroNetwork(), 0)
+func TestRandInt(t *testing.T) {
+	s, err := CreateState(common.NewZeroNetwork())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +82,7 @@ func TestrandInt(t *testing.T) {
 
 	low := 0
 	high := common.QuorumSize
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 100000; i++ {
 		randInt, err = s.randInt(low, high)
 		if err != nil {
 			t.Fatal("randInt fuzzing error: ", err)
