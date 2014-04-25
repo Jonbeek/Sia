@@ -194,7 +194,8 @@ func (tcp *TCPServer) clientHandler(conn net.Conn) {
 	// split message into payload length, identifier, and payload
 	payloadLength, _ := binary.Uvarint(buffer[:4])
 	id := int(buffer[4])
-	payload := buffer[5:b]
+	payload := make([]byte, b-5)
+	copy(payload, buffer[5:b])
 
 	// read rest of payload, 1024 bytes at a time
 	// TODO: add a timeout
