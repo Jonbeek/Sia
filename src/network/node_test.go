@@ -214,7 +214,10 @@ func TestTCPUploadFile(t *testing.T) {
 	defer file.Close()
 	defer os.Remove("InputFile")
 
-	fileData := bytes.Repeat([]byte("b"), 70000)
+	fileData, err := crypto.RandomByteSlice(70000)
+	if err != nil {
+		t.Fatal("Could not generate test data:", err)
+	}
 
 	err = ioutil.WriteFile("InputFile", fileData, 0644)
 	if err != nil {
