@@ -9,7 +9,7 @@ import (
 func TestNetworkedQuorum(t *testing.T) {
 	// create a tcp server and 2 states
 	// ms == messageSender
-	ms, err := network.NewTCPServer(9988)
+	ms, err := network.NewTCPServer(9980)
 	if err != nil {
 		println("fail")
 	}
