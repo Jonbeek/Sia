@@ -56,26 +56,25 @@ type State struct {
 	wallets map[string]uint64
 }
 
-func (s *State) updateParticipantAddress(msp []byte) {
+// A participant can update their address, etc. at any time
+func (s *State) updateParticipant(msp []byte) {
 	// this message is actually a signature of a participant
 	// it's valid if the signature matches the public key
-	//
-	// actually we also need an index =/
-	// for now we'll just do an n time search... cause why not...
-	// not sure if it's worth making a whole new struct or not
 }
 
+// participant to string
 func (p *participant) marshal() (mp []byte) {
 	// unfinished, considering switching to 'gob'
 	return
 }
 
+// string to participant
 func unmarshalParticipant(mp []byte) (p *participant, err error) {
 	// unfinished, considering switching to 'gob'
 	return
 }
 
-// Create and initialize a state object. Crypto keys are not created until a quorum is joined
+// Create and initialize a state object.
 func CreateState(messageRouter common.MessageRouter) (s *State, err error) {
 	s = new(State)
 	// check that we have a non-nil messageSender
@@ -135,7 +134,6 @@ func (s *State) SetAddress(addr *common.Address) {
 }
 
 // receives a message and determines what function will handle it.
-// HandleMessage is not responsible for mutexes
 func (s *State) HandleMessage(m []byte) {
 	// message type is stored in the first byte, switch on this type
 	switch m[0] {
@@ -144,7 +142,7 @@ func (s *State) HandleMessage(m []byte) {
 	case joinSia:
 		s.handleJoinSia(m[1:])
 	case addressChangeNotification:
-		s.updateParticipantAddress(m[1:])
+		s.updateParticipant(m[1:])
 	case newParticipant:
 		s.addNewParticipant(m[1:])
 	default:
@@ -152,23 +150,28 @@ func (s *State) HandleMessage(m []byte) {
 	}
 }
 
-// This request is only ever sent to the bootstrap address
+// Adds a new participants, and then announces them with their index
 func (s *State) handleJoinSia(payload []byte) {
+	// extract participant from payload
 	p, err := unmarshalParticipant(payload)
 	if err != nil {
 		return
 	}
 
+	// find index for participant
+	s.participantsLock.Lock()
 	i := 0
 	for i = 0; i < common.QuorumSize; i++ {
 		if s.participants[i] == nil {
 			break
 		}
 	}
-
-	s.participantsLock.Lock()
-	s.participants[i] = p
 	s.participantsLock.Unlock()
+
+	// see if the quorum is full
+	if i == common.QuorumSize {
+		return
+	}
 
 	// now announce a new participant at index i
 	var header [2]byte
@@ -180,38 +183,42 @@ func (s *State) handleJoinSia(payload []byte) {
 
 // Add a participant to the state, tell the participant about ourselves
 func (s *State) addNewParticipant(payload []byte) {
+	// extract index and participant object from payload
 	participantIndex := payload[0]
 	p, err := unmarshalParticipant(payload[1:])
 	if err != nil {
 		return
 	}
 
-	s.participantsLock.Lock()
-	s.participants[participantIndex] = p
-	s.participantsLock.Unlock()
-
-	// add to our structure the first heartbeat for this participant
+	// for this participant, make the heartbeat map and add the default heartbeat
 	hb := new(heartbeat)
 	emptyHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
 	hb.entropyStage1 = emptyHash
 	s.heartbeatsLock.Lock()
+	s.participantsLock.Lock()
+	s.heartbeats[participantIndex] := make(map[crypto.TruncatedHash]*heartbeat)
 	s.heartbeats[participantIndex][emptyHash] = hb
 	s.heartbeatsLock.Unlock()
 
-	s.participantsLock.RLock()
 	if *p == *s.self {
+		// add our self object to the correct index in participants
+		s.participants[participantIndex] = s.self
 		s.tickingLock.Lock()
 		s.ticking = true
 		s.tickingLock.Unlock()
 
 		go s.tick()
 	} else {
-		// tell the new guy about ourselves; it's insecure but it's for the demo
+		// add the participant to participants
+		s.participants[participantIndex] = p
+
+		// tell the new guy about ourselves
 		m := new(common.Message)
 		m.Destination = p.address
 		m.Payload = append([]byte(string(newParticipant)), s.self.marshal()...)
 		s.messageRouter.SendMessage(m)
 	}
+	s.participantsLock.Unlock()
 }
 
 // Takes a payload and sends it in a message to every participant in the quorum

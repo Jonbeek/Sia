@@ -74,6 +74,7 @@ func unmarshalHeartbeat(marshalledHeartbeat []byte) (hb *heartbeat, err error) {
 }
 
 // take new heartbeat (our own), sign it, and package it into a signedHearteat
+// I'm pretty sure this only follows a newHeartbeat() call; they can be merged
 func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 	sh = new(signedHeartbeat)
 
@@ -97,6 +98,7 @@ func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 	return
 }
 
+// Takes a signed heartbeat and broadcasts it to the quorum
 func (s *State) announceSignedHeartbeat(sh *signedHeartbeat) (err error) {
 	msh, err := sh.marshal()
 	if err != nil {
