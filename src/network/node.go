@@ -1,7 +1,9 @@
 package network
 
 import (
+	"bytes"
 	"common"
+	"common/erasure"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -27,7 +29,7 @@ func (tcp *TCPServer) Address() common.Address {
 func (tcp *TCPServer) AddMessageHandler(mh common.MessageHandler) common.Address {
 	tcp.MessageHandlers = append(tcp.MessageHandlers, mh)
 	addr := tcp.Addr
-	addr.Id = common.Identifier(len(tcp.MessageHandlers))
+	addr.Id = common.Identifier(len(tcp.MessageHandlers) - 1)
 	return addr
 }
 
@@ -89,6 +91,56 @@ func (tcp *TCPServer) SendSegment(seg *os.File, dest *common.Address) (err error
 	return
 }
 
+// UploadFile splits a file into erasure-coded segments and distributes them across a quorum.
+// k is the number of non-redundant segments.
+// The file is padded to satisfy the erasure-coding requirements that:
+//     len(fileData) = k*bytesPerSegment, and:
+//     bytesPerSegment % 64 = 0
+func (tcp *TCPServer) UploadFile(file *os.File, k int, quorum [common.QuorumSize]common.Address) (bytesPerSegment int, err error) {
+	// read file
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return
+	}
+	if fileInfo.Size() > int64(common.QuorumSize*common.MaxSegmentSize) {
+		err = errors.New("File exceeds maximum per-quorum size")
+		return
+	}
+	fileData := make([]byte, fileInfo.Size())
+	_, err = io.ReadFull(file, fileData)
+	if err != nil {
+		return
+	}
+
+	// calculate EncodeRing parameters, padding file if necessary
+	bytesPerSegment = len(fileData) / k
+	if bytesPerSegment%64 != 0 {
+		bytesPerSegment += 64 - (bytesPerSegment % 64)
+		padding := k*bytesPerSegment - len(fileData)
+		fileData = append(fileData, bytes.Repeat([]byte{0x00}, padding)...)
+	}
+
+	// create erasure-coded segments
+	segments, err := erasure.EncodeRing(k, bytesPerSegment, fileData)
+	if err != nil {
+		return
+	}
+
+	// for now we just send segment i to node i
+	// this may need to be randomized for security
+	for i := range quorum {
+		m := new(common.Message)
+		m.Destination = quorum[i]
+		m.Payload = append([]byte{byte(i)}, []byte(segments[i])...)
+		err = tcp.SendMessage(m)
+		if err != nil {
+			return
+		}
+	}
+
+	return
+}
+
 // NewTCPServer creates and initializes a server that listens for TCP connections on a specified port.
 // It then spawns a serverHandler with a specified message.
 // It is the serverHandler's responsibility to close the TCP connection.
@@ -142,7 +194,8 @@ func (tcp *TCPServer) clientHandler(conn net.Conn) {
 	// split message into payload length, identifier, and payload
 	payloadLength, _ := binary.Uvarint(buffer[:4])
 	id := int(buffer[4])
-	payload := buffer[5:b]
+	payload := make([]byte, b-5)
+	copy(payload, buffer[5:b])
 
 	// read rest of payload, 1024 bytes at a time
 	// TODO: add a timeout
@@ -154,6 +207,13 @@ func (tcp *TCPServer) clientHandler(conn net.Conn) {
 		}
 		payload = append(payload, buffer[:b]...)
 		bytesRead += b
+	}
+
+	// Message sent directly to TCPServer
+	// for now, just send it to the first message handler
+	if id == 0 {
+		tcp.MessageHandlers[1].HandleMessage(payload)
+		return
 	}
 
 	// look up message handler and call it
