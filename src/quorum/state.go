@@ -67,6 +67,7 @@ func (p *participant) marshal() (mp []byte) {
 func unmarshalParticipant(mp []byte) (p *participant, err error) {
 	if len(mp) < crypto.PublicKeySize+5 {
 		err = fmt.Errorf("Length of mp is too small to be a participant")
+		return
 	}
 
 	p = new(participant)

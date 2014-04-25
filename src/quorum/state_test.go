@@ -6,6 +6,34 @@ import (
 	"testing"
 )
 
+// Verify zero case marshalling works, check inputs, do fuzzing
+func TestParticipantMarshalling(t *testing.T) {
+	// zero case marshalling
+	p := new(participant)
+	mp := p.marshal()
+	up, err := unmarshalParticipant(mp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if *up != *p {
+		t.Fatal("Zero case marshalling and unmarshalling not equal")
+	}
+
+	// Attempt bad input
+	var bad []byte
+	up, err = unmarshalParticipant(bad)
+	if err == nil {
+		t.Fatal("unmarshalled an empty []byte")
+	}
+	bad = make([]byte, crypto.PublicKeySize+4)
+	up, err = unmarshalParticipant(bad)
+	if err == nil {
+		t.Fatal("unmarshalled a []byte of insufficient length")
+	}
+
+	// fuzzing
+}
+
 // Create a state, check the defaults
 func TestCreateState(t *testing.T) {
 	// does a state create without errors?
