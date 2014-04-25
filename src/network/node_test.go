@@ -238,8 +238,8 @@ func TestTCPUploadFile(t *testing.T) {
 	}
 
 	// wait for all participants to complete
-	for _, tuh := range tuhs {
-		<-tuh.done
+	for i := range tuhs {
+		<-tuhs[i].done
 	}
 
 	// rebuild file from first k segments
