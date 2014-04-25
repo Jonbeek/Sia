@@ -56,21 +56,23 @@ type State struct {
 	wallets map[string]uint64
 }
 
-// A participant can update their address, etc. at any time
-func (s *State) updateParticipant(msp []byte) {
-	// this message is actually a signature of a participant
-	// it's valid if the signature matches the public key
-}
-
 // participant to string
 func (p *participant) marshal() (mp []byte) {
-	// unfinished, considering switching to 'gob'
+	ma := p.address.Marshal()
+	mp = append(ma, p.publicKey[:]...)
 	return
 }
 
 // string to participant
 func unmarshalParticipant(mp []byte) (p *participant, err error) {
-	// unfinished, considering switching to 'gob'
+	if len(mp) < crypto.PublicKeySize+5 {
+		err = fmt.Errorf("Length of mp is too small to be a participant")
+	}
+
+	p = new(participant)
+	copy(p.publicKey[:], mp[len(mp)-crypto.PublicKeySize:])
+	addy, err := common.UnmarshalAddress(mp[:len(mp)-crypto.PublicKeySize])
+	p.address = *addy
 	return
 }
 
@@ -173,6 +175,12 @@ func (s *State) handleJoinSia(payload []byte) {
 	header[1] = byte(i)
 	payload = append(header[:], payload...)
 	s.broadcast(payload)
+}
+
+// A participant can update their address, etc. at any time
+func (s *State) updateParticipant(msp []byte) {
+	// this message is actually a signature of a participant
+	// it's valid if the signature matches the public key
 }
 
 // Add a participant to the state, tell the participant about ourselves

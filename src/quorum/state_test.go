@@ -38,12 +38,13 @@ func TestCreateState(t *testing.T) {
 	}
 }
 
-/* func TestJoinQuorum(t *testing.T) {
-	s, err := CreateState(common.NewZeroNetwork())
+//
+func TestJoinQuorum(t *testing.T) {
+	_, err := CreateState(common.NewZeroNetwork())
 	if err != nil {
 		t.Fatal(err)
 	}
-} */
+}
 
 // test HandleMessage and SetAddress
 
