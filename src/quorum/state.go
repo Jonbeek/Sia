@@ -152,12 +152,6 @@ func (s *State) HandleMessage(m []byte) {
 
 // Adds a new participants, and then announces them with their index
 func (s *State) handleJoinSia(payload []byte) {
-	// extract participant from payload
-	p, err := unmarshalParticipant(payload)
-	if err != nil {
-		return
-	}
-
 	// find index for participant
 	s.participantsLock.Lock()
 	i := 0
@@ -196,7 +190,7 @@ func (s *State) addNewParticipant(payload []byte) {
 	hb.entropyStage1 = emptyHash
 	s.heartbeatsLock.Lock()
 	s.participantsLock.Lock()
-	s.heartbeats[participantIndex] := make(map[crypto.TruncatedHash]*heartbeat)
+	s.heartbeats[participantIndex] = make(map[crypto.TruncatedHash]*heartbeat)
 	s.heartbeats[participantIndex][emptyHash] = hb
 	s.heartbeatsLock.Unlock()
 
