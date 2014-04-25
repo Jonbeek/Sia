@@ -16,6 +16,13 @@ const (
 	newParticipant
 )
 
+// Bootstrapping
+const (
+	bootstrapId   common.Identifier = 0
+	bootstrapHost string            = "localhost"
+	bootstrapPort int               = 9988
+)
+
 // Leaves space for flexibility in the future
 type participantIndex uint8
 
@@ -160,6 +167,12 @@ func (s *State) handleJoinSia(payload []byte) {
 	i := 0
 	for i = 0; i < common.QuorumSize; i++ {
 		if s.participants[i] == nil {
+			var err error
+			s.participants[i], err = unmarshalParticipant(payload)
+			if err != nil {
+				// log perhaps?... still need to figure out error handling in Sia
+				return
+			}
 			break
 		}
 	}
