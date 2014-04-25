@@ -10,9 +10,10 @@ import (
 
 // Message Types
 const (
-	joinQuorumRequest uint8 = iota
+	joinSia byte = iota
 	incomingSignedHeartbeat
 	addressChangeNotification
+	newParticipant
 )
 
 // Leaves space for flexibility in the future
@@ -60,19 +61,23 @@ func (s *State) updateParticipantAddress(msp []byte) {
 	// it's valid if the signature matches the public key
 	//
 	// actually we also need an index =/
+	// for now we'll just do an n time search... cause why not...
 	// not sure if it's worth making a whole new struct or not
 }
 
-func (p *participant) marshal(mp []byte) {
+func (p *participant) marshal() (mp []byte) {
 	// unfinished, considering switching to 'gob'
+	return
 }
 
-func unmarshallParticipant(mp []byte) {
+func unmarshalParticipant(mp []byte) (p *participant, err error) {
 	// unfinished, considering switching to 'gob'
+	return
 }
 
 // Create and initialize a state object. Crypto keys are not created until a quorum is joined
-func CreateState(messageRouter common.MessageRouter) (s State, err error) {
+func CreateState(messageRouter common.MessageRouter) (s *State, err error) {
+	s = new(State)
 	// check that we have a non-nil messageSender
 	if messageRouter == nil {
 		err = fmt.Errorf("Cannot initialize with a nil messageRouter")
@@ -94,7 +99,7 @@ func CreateState(messageRouter common.MessageRouter) (s State, err error) {
 	// set state variables to their defaults
 	s.messageRouter = messageRouter
 	s.self = new(participant)
-	s.self.address = messageRouter.Address()
+	s.self.address = messageRouter.AddMessageHandler(s)
 	s.self.publicKey = pubKey
 	s.secretKey = secKey
 	for i := range s.previousEntropyStage1 {
@@ -107,43 +112,15 @@ func CreateState(messageRouter common.MessageRouter) (s State, err error) {
 	return
 }
 
-// Take an unstarted State and begin the consensus algorithm cycle
-func (s *State) Start() (err error) {
-	// state cannot call Start() if it has already started
-	s.tickingLock.Lock()
-	defer s.tickingLock.Unlock()
-
-	// if s.ticking == true, then Start() was called but _ (end()?) was not
-	if s.ticking {
-		fmt.Errorf("State is ticking, cannot Start()")
-		return
-	}
-
-	// create first heartbeat
-	hb, err := s.newHeartbeat()
-	if err != nil {
-		return
-	}
-	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.marshal()))
-	if err != nil {
-		return
-	}
-
-	// add heartbeat to our map
-	s.heartbeatsLock.Lock()
-	s.heartbeats[s.participantIndex][heartbeatHash] = hb
-	s.heartbeatsLock.Unlock()
-
-	// sign and broadcast heartbeat
-	sh, err := s.signHeartbeat(hb)
-	if err != nil {
-		return
-	}
-	s.announceSignedHeartbeat(sh)
-
-	// start ticking
-	s.ticking = true
-	go s.tick()
+// Announce ourself to the bootstrap address, who will announce us to the quorum
+func (s *State) JoinSia() (err error) {
+	// Send join message to bootstrap address
+	m := new(common.Message)
+	m.Destination.Id = 0
+	m.Destination.Host = "localhost"
+	m.Destination.Port = 9988
+	m.Payload = append([]byte(string(joinSia)), s.self.marshal()...)
+	err = s.messageRouter.SendMessage(m)
 	return
 }
 
@@ -164,13 +141,76 @@ func (s *State) HandleMessage(m []byte) {
 	switch m[0] {
 	case incomingSignedHeartbeat:
 		s.handleSignedHeartbeat(m[1:])
-	case joinQuorumRequest:
-		// the message is going to contain connection information
-		// will need to return a marshalled state
+	case joinSia:
+		s.handleJoinSia(m[1:])
 	case addressChangeNotification:
 		s.updateParticipantAddress(m[1:])
+	case newParticipant:
+		s.addNewParticipant(m[1:])
 	default:
 		log.Infoln("Got message of unrecognized type")
+	}
+}
+
+// This request is only ever sent to the bootstrap address
+func (s *State) handleJoinSia(payload []byte) {
+	p, err := unmarshalParticipant(payload)
+	if err != nil {
+		return
+	}
+
+	i := 0
+	for i = 0; i < common.QuorumSize; i++ {
+		if s.participants[i] == nil {
+			break
+		}
+	}
+
+	s.participantsLock.Lock()
+	s.participants[i] = p
+	s.participantsLock.Unlock()
+
+	// now announce a new participant at index i
+	var header [2]byte
+	header[0] = byte(newParticipant)
+	header[1] = byte(i)
+	payload = append(header[:], payload...)
+	s.broadcast(payload)
+}
+
+// Add a participant to the state, tell the participant about ourselves
+func (s *State) addNewParticipant(payload []byte) {
+	participantIndex := payload[0]
+	p, err := unmarshalParticipant(payload[1:])
+	if err != nil {
+		return
+	}
+
+	s.participantsLock.Lock()
+	s.participants[participantIndex] = p
+	s.participantsLock.Unlock()
+
+	// add to our structure the first heartbeat for this participant
+	hb := new(heartbeat)
+	emptyHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
+	hb.entropyStage1 = emptyHash
+	s.heartbeatsLock.Lock()
+	s.heartbeats[participantIndex][emptyHash] = hb
+	s.heartbeatsLock.Unlock()
+
+	s.participantsLock.RLock()
+	if *p == *s.self {
+		s.tickingLock.Lock()
+		s.ticking = true
+		s.tickingLock.Unlock()
+
+		go s.tick()
+	} else {
+		// tell the new guy about ourselves; it's insecure but it's for the demo
+		m := new(common.Message)
+		m.Destination = p.address
+		m.Payload = append([]byte(string(newParticipant)), s.self.marshal()...)
+		s.messageRouter.SendMessage(m)
 	}
 }
 

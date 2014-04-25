@@ -17,7 +17,7 @@ func establishQuorum() {
 		println(err)
 		return
 	}
-	participant.Start()
+	participant.JoinSia()
 
 	select {}
 }
