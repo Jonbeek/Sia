@@ -125,9 +125,9 @@ func CreateState(messageRouter common.MessageRouter) (s *State, err error) {
 func (s *State) JoinSia() (err error) {
 	// Send join message to bootstrap address
 	m := new(common.Message)
-	m.Destination.Id = 0
-	m.Destination.Host = "localhost"
-	m.Destination.Port = 9988
+	m.Destination.Id = bootstrapId
+	m.Destination.Host = bootstrapHost
+	m.Destination.Port = bootstrapPort
 	m.Payload = append([]byte(string(joinSia)), s.self.marshal()...)
 	err = s.messageRouter.SendMessage(m)
 	return
