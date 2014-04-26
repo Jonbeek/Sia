@@ -77,6 +77,9 @@ func unmarshalParticipant(mp []byte) (p *participant, err error) {
 	p = new(participant)
 	copy(p.publicKey[:], mp[len(mp)-crypto.PublicKeySize:])
 	addy, err := common.UnmarshalAddress(mp[:len(mp)-crypto.PublicKeySize])
+	if err != nil {
+		return
+	}
 	p.address = *addy
 	return
 }
@@ -145,7 +148,7 @@ func (s *State) HandleMessage(m []byte) {
 	// message type is stored in the first byte, switch on this type
 	switch m[0] {
 	case incomingSignedHeartbeat:
-		s.handleSignedHeartbeat(m[1:])
+		go s.handleSignedHeartbeat(m[1:])
 	case joinSia:
 		s.handleJoinSia(m[1:])
 	case addressChangeNotification:
@@ -181,9 +184,10 @@ func (s *State) handleJoinSia(payload []byte) {
 	}
 
 	// now announce a new participant at index i
-	var header [2]byte
+	var header [3]byte
 	header[0] = byte(newParticipant)
 	header[1] = byte(i)
+	header[2] = byte(0)
 	payload = append(header[:], payload...)
 	s.broadcast(payload)
 }
@@ -198,7 +202,8 @@ func (s *State) updateParticipant(msp []byte) {
 func (s *State) addNewParticipant(payload []byte) {
 	// extract index and participant object from payload
 	participantIndex := payload[0]
-	p, err := unmarshalParticipant(payload[1:])
+	sendSelf := payload[1]
+	p, err := unmarshalParticipant(payload[2:])
 	if err != nil {
 		return
 	}
@@ -206,6 +211,9 @@ func (s *State) addNewParticipant(payload []byte) {
 	// for this participant, make the heartbeat map and add the default heartbeat
 	hb := new(heartbeat)
 	emptyHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
+	if err != nil {
+		return
+	}
 	hb.entropyStage1 = emptyHash
 	s.heartbeatsLock.Lock()
 	s.participantsLock.Lock()
@@ -226,11 +234,17 @@ func (s *State) addNewParticipant(payload []byte) {
 		// add the participant to participants
 		s.participants[participantIndex] = p
 
-		// tell the new guy about ourselves
-		m := new(common.Message)
-		m.Destination = p.address
-		m.Payload = append([]byte(string(newParticipant)), s.self.marshal()...)
-		s.messageRouter.SendMessage(m)
+		// tell the new guy about ourselves, unless we are the new guy
+		if sendSelf == 0 {
+			m := new(common.Message)
+			m.Destination = p.address
+			var header [3]byte
+			header[0] = newParticipant
+			header[1] = s.participantIndex
+			header[2] = byte(1)
+			m.Payload = append(header[:], s.self.marshal()...)
+			s.messageRouter.SendMessage(m)
+		}
 	}
 	s.participantsLock.Unlock()
 }
@@ -245,7 +259,7 @@ func (s *State) broadcast(payload []byte) {
 			m.Destination = s.participants[i].address
 			err := s.messageRouter.SendMessage(m)
 			if err != nil {
-				log.Errorln("messageSender returning an error")
+				log.Infoln(err)
 			}
 		}
 	}

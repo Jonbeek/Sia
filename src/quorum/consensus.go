@@ -140,10 +140,12 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 	}
 
 	s.stepLock.Lock() // prevents a benign race condition; is here to follow best practices
+	currentStep := s.currentStep
+	s.stepLock.Unlock()
 	// s.CurrentStep must be less than or equal to len(sh.Signatories), unless
 	// there is a new block and s.CurrentStep is common.QuorumSize
-	if s.currentStep > len(sh.signatories) {
-		if s.currentStep == common.QuorumSize && len(sh.signatories) == 1 {
+	if currentStep > len(sh.signatories) {
+		if currentStep == common.QuorumSize && len(sh.signatories) == 1 {
 			// by waiting common.StepDuration, the new block will be compiled
 			time.Sleep(common.StepDuration)
 			// now continue to rest of function
@@ -153,7 +155,6 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 			return
 		}
 	}
-	s.stepLock.Unlock()
 
 	// Check bounds on first signatory
 	if int(sh.signatories[0]) >= common.QuorumSize {
@@ -220,6 +221,7 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 
 		// verify the signature
 		signedMessage.Signature = sh.signatures[i]
+		time.Sleep(15 * time.Millisecond) // dirty partial fix for a bug of terrible consequences
 		verification, err := crypto.Verify(s.participants[signatory].publicKey, signedMessage)
 		if err != nil {
 			log.Fatalln(err)
@@ -393,6 +395,9 @@ func (s *State) processHeartbeat(hb *heartbeat, i byte) int {
 		return 1
 	}
 
+	print("Confirming Participant ")
+	println(i)
+
 	// Add the EntropyStage2 to UpcomingEntropy
 	th, err := crypto.CalculateTruncatedHash(append(s.upcomingEntropy[:], hb.entropyStage2[:]...))
 	s.upcomingEntropy = common.Entropy(th)
@@ -436,21 +441,17 @@ func (s *State) compile() {
 		s.heartbeats[participant] = make(map[crypto.TruncatedHash]*heartbeat)
 	}
 
+	s.participantsLock.Unlock()
+	s.heartbeatsLock.Unlock()
+
 	// move UpcomingEntropy to CurrentEntropy
 	s.currentEntropy = s.upcomingEntropy
 
-	// generate a new heartbeat and add it to s.Heartbeats
+	// generate, sign, and announce new heartbeat
 	hb, err := s.newHeartbeat()
 	if err != nil {
 		log.Fatalln(err)
 	}
-	hash, err := crypto.CalculateTruncatedHash(hb.marshal())
-	if err != nil {
-		log.Fatalln(err)
-	}
-	s.heartbeats[s.participantIndex][hash] = hb
-
-	// sign and annouce the heartbeat
 	shb, err := s.signHeartbeat(hb)
 	if err != nil {
 		log.Fatalln(err)
@@ -467,9 +468,11 @@ func (s *State) tick() {
 	ticker := time.Tick(common.StepDuration)
 	for _ = range ticker {
 		if s.currentStep == common.QuorumSize {
+			println("compiling")
 			s.compile()
 			s.currentStep = 1
 		} else {
+			println("stepping")
 			s.currentStep += 1
 		}
 	}
