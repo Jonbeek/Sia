@@ -19,7 +19,7 @@ type heartbeat struct {
 type signedHeartbeat struct {
 	heartbeat     *heartbeat
 	heartbeatHash crypto.TruncatedHash
-	signatories   []participantIndex // a list of everyone who's seen the heartbeat
+	signatories   []byte             // a list of everyone who's seen the heartbeat
 	signatures    []crypto.Signature // their corresponding signatures
 }
 
@@ -93,7 +93,7 @@ func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 		return
 	}
 	sh.signatures[0] = signedHb.Signature
-	sh.signatories = make([]participantIndex, 1)
+	sh.signatories = make([]byte, 1)
 	sh.signatories[0] = s.participantIndex
 	return
 }
@@ -165,6 +165,8 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 	// we are starting to read from memory, initiate locks
 	s.participantsLock.RLock()
 	s.heartbeatsLock.Lock()
+	defer s.participantsLock.RUnlock()
+	defer s.heartbeatsLock.Unlock()
 
 	// check that first sigatory is a participant
 	if s.participants[sh.signatories[0]] == nil {
@@ -190,7 +192,7 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 	// iterate through the signatures and make sure each is legal
 	var signedMessage crypto.SignedMessage // grows each iteration
 	signedMessage.Message = string(sh.heartbeatHash[:])
-	previousSignatories := make(map[participantIndex]bool) // which signatories have already signed
+	previousSignatories := make(map[byte]bool) // which signatories have already signed
 	for i, signatory := range sh.signatories {
 		// Check bounds on the signatory
 		if int(signatory) >= common.QuorumSize {
@@ -327,11 +329,11 @@ func unmarshalSignedHeartbeat(msh []byte) (sh *signedHeartbeat, err error) {
 	index += marshalledHeartbeatLen()
 	index += 1 // skip the numSignatures byte
 	sh.signatures = make([]crypto.Signature, numSignatures)
-	sh.signatories = make([]participantIndex, numSignatures)
+	sh.signatories = make([]byte, numSignatures)
 	for i := 0; i < numSignatures; i++ {
 		copy(sh.signatures[i][:], msh[index:])
 		index += crypto.SignatureSize
-		sh.signatories[i] = participantIndex(msh[index])
+		sh.signatories[i] = msh[index]
 		index += 1
 	}
 
@@ -341,10 +343,10 @@ func unmarshalSignedHeartbeat(msh []byte) (sh *signedHeartbeat, err error) {
 // participants are processed in a random order each block, determied by the
 // entropy for the block. participantOrdering() deterministically picks that
 // order, using entropy from the state.
-func (s *State) participantOrdering() (participantOrdering [common.QuorumSize]participantIndex) {
+func (s *State) participantOrdering() (participantOrdering [common.QuorumSize]byte) {
 	// create an in-order list of participants
 	for i := range participantOrdering {
-		participantOrdering[i] = participantIndex(i)
+		participantOrdering[i] = byte(i)
 	}
 
 	// shuffle the list of participants
@@ -362,7 +364,7 @@ func (s *State) participantOrdering() (participantOrdering [common.QuorumSize]pa
 }
 
 // Removes all traces of a participant from the State
-func (s *State) tossParticipant(pi participantIndex) {
+func (s *State) tossParticipant(pi byte) {
 	// remove from s.Participants
 	s.participants[pi] = nil
 
@@ -380,7 +382,7 @@ func (s *State) tossParticipant(pi participantIndex) {
 
 // Update the state according to the information presented in the heartbeat
 // processHeartbeat uses return codes for testing purposes
-func (s *State) processHeartbeat(hb *heartbeat, i participantIndex) int {
+func (s *State) processHeartbeat(hb *heartbeat, i byte) int {
 	// compare EntropyStage2 to the hash from the previous heartbeat
 	expectedHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
 	if err != nil {

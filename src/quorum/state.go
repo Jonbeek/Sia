@@ -23,9 +23,6 @@ const (
 	bootstrapPort int               = 9988
 )
 
-// Leaves space for flexibility in the future
-type participantIndex uint8
-
 // Identifies other members of the quorum
 type participant struct {
 	address   common.Address
@@ -40,7 +37,7 @@ type State struct {
 	participants     [common.QuorumSize]*participant // list of participants
 	participantsLock sync.RWMutex                    // write-locks for compile only
 	self             *participant                    // ourselves
-	participantIndex participantIndex                // our participant index
+	participantIndex byte                            // our participant index
 	secretKey        crypto.SecretKey                // our secret key
 
 	// Heartbeat Variables
@@ -219,6 +216,7 @@ func (s *State) addNewParticipant(payload []byte) {
 	if *p == *s.self {
 		// add our self object to the correct index in participants
 		s.participants[participantIndex] = s.self
+		s.participantIndex = participantIndex
 		s.tickingLock.Lock()
 		s.ticking = true
 		s.tickingLock.Unlock()

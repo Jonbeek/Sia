@@ -93,6 +93,11 @@ func TestJoinQuorum(t *testing.T) {
 	}
 	s0.tickingLock.Unlock()
 
+	// Verify that s0.participantIndex updated
+	if s0.participantIndex == 255 {
+		t.Error("Bootstrapping failed to update State.participantIndex")
+	}
+
 	// Create a new state to bootstrap
 	s1, err := CreateState(z)
 	if err != nil {
