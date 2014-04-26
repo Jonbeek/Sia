@@ -79,8 +79,7 @@ func unmarshalParticipant(mp []byte) (p *participant, err error) {
 
 	p = new(participant)
 	copy(p.publicKey[:], mp[len(mp)-crypto.PublicKeySize:])
-	addy, err := common.UnmarshalAddress(mp[:len(mp)-crypto.PublicKeySize])
-	p.address = *addy
+	p.address, err = common.UnmarshalAddress(mp[:len(mp)-crypto.PublicKeySize])
 	return
 }
 

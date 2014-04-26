@@ -57,13 +57,13 @@ func TestIdentifierMarshalling(t *testing.T) {
 // fuzz over a bunch of random values for Address during long tests
 func TestAddressMarshalling(t *testing.T) {
 	// marshal, unmarshal, verify at the zero value
-	a := new(Address)
+	var a Address
 	ma := a.Marshal()
 	ua, err := UnmarshalAddress(ma)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if *ua != *a {
+	if ua != a {
 		t.Fatal("Address not equal after marshalling and unmarshalling!")
 	}
 
@@ -95,7 +95,7 @@ func TestAddressMarshalling(t *testing.T) {
 			t.Error(a.Id, " ", a.Host, " ", a.Port)
 			t.Error(err)
 		}
-		if *ua != *a {
+		if ua != a {
 			t.Error("Fuzzing Test Failed: Marshalled and Unmarshalled address not identical")
 			t.Error(a.Id, " ", a.Host, " ", a.Port)
 		}

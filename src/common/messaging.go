@@ -67,13 +67,12 @@ func (a *Address) Marshal() (ma []byte) {
 }
 
 // Turns a []byte into an Address
-func UnmarshalAddress(ma []byte) (a *Address, err error) {
+func UnmarshalAddress(ma []byte) (a Address, err error) {
 	if len(ma) < 5 {
 		err = fmt.Errorf("marshalledAddress of insufficient length")
 		return
 	}
 
-	a = new(Address)
 	a.Id, err = UnmarshalIdentifier(ma[0:1])
 	if err != nil {
 		return
