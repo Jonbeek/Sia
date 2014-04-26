@@ -181,7 +181,7 @@ func (tuh *TestUploadHandler) HandleMessage(payload []byte) {
 	tuh.done <- true
 }
 
-// TestTCPSendSegment tests the NewTCPServer and SendSegment functions.
+// TestTCPUploadFile tests the NewTCPServer and UploadFile functions.
 // NewTCPServer must properly initialize a TCP server.
 // UploadFile must succesfully distribute a file among a quorum.
 // The uploaded file must be successfully reconstructed.
