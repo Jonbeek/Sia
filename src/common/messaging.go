@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/binary"
 	"fmt"
 )
 
@@ -38,13 +39,14 @@ type MessageRouter interface {
 	SendMessage(*Message) error
 }
 
-// Turns an Identifier into a string
+// Turns an Identifier into a []byte
 func (i Identifier) Marshal() (mi []byte) {
 	mi = make([]byte, 1)
 	mi[0] = byte(i)
 	return
 }
 
+// Turns a []byte into an Identifier
 func UnmarshalIdentifier(mi []byte) (i Identifier, err error) {
 	if len(mi) != 1 {
 		err = fmt.Errorf("Marshalled Identifier must be of length 1")
@@ -55,8 +57,29 @@ func UnmarshalIdentifier(mi []byte) (i Identifier, err error) {
 	return
 }
 
-// Turns an address into a string
+// Turns an Address into a []byte
 func (a *Address) Marshal() (ma []byte) {
-	// unfinished, considering switching to 'gob'
+	idAndHost := append(a.Id.Marshal(), []byte(a.Host)...)
+	marshalledInt := make([]byte, 4)
+	binary.PutUvarint(marshalledInt, uint64(a.Port))
+	ma = append(idAndHost, marshalledInt...)
+	return
+}
+
+// Turns a []byte into an Address
+func UnmarshalAddress(ma []byte) (a *Address, err error) {
+	if len(ma) < 5 {
+		err = fmt.Errorf("marshalledAddress of insufficient length")
+		return
+	}
+
+	a = new(Address)
+	a.Id, err = UnmarshalIdentifier(ma[0:1])
+	if err != nil {
+		return
+	}
+	a.Host = string(ma[1 : len(ma)-4])
+	port, _ := binary.Uvarint(ma[len(ma)-4:])
+	a.Port = int(port)
 	return
 }

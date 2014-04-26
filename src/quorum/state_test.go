@@ -6,6 +6,34 @@ import (
 	"testing"
 )
 
+// Verify zero case marshalling works, check inputs, do fuzzing
+func TestParticipantMarshalling(t *testing.T) {
+	// zero case marshalling
+	p := new(participant)
+	mp := p.marshal()
+	up, err := unmarshalParticipant(mp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if *up != *p {
+		t.Fatal("Zero case marshalling and unmarshalling not equal")
+	}
+
+	// Attempt bad input
+	var bad []byte
+	up, err = unmarshalParticipant(bad)
+	if err == nil {
+		t.Fatal("unmarshalled an empty []byte")
+	}
+	bad = make([]byte, crypto.PublicKeySize+4)
+	up, err = unmarshalParticipant(bad)
+	if err == nil {
+		t.Fatal("unmarshalled a []byte of insufficient length")
+	}
+
+	// fuzzing
+}
+
 // Create a state, check the defaults
 func TestCreateState(t *testing.T) {
 	// does a state create without errors?
@@ -38,12 +66,57 @@ func TestCreateState(t *testing.T) {
 	}
 }
 
-/* func TestJoinQuorum(t *testing.T) {
-	s, err := CreateState(common.NewZeroNetwork())
+// Bootstrap a state to the network, then another
+func TestJoinQuorum(t *testing.T) {
+	// Make a new state and network; start bootstrapping
+	z := common.NewZeroNetwork()
+	s0, err := CreateState(z)
 	if err != nil {
 		t.Fatal(err)
 	}
-} */
+	s0.JoinSia()
+
+	// Verify the message for correctness
+
+	// Forward message to bootstrap State (ourselves, as it were)
+	s0.HandleMessage(z.RecentMessage(0).Payload)
+
+	// Verify that a broadcast message went out indicating a new participant
+
+	// Forward message to recipient
+	s0.HandleMessage(z.RecentMessage(1).Payload)
+
+	// Verify that we started ticking
+	s0.tickingLock.Lock()
+	if !s0.ticking {
+		t.Error("Bootstrap state not ticking after joining Sia")
+	}
+	s0.tickingLock.Unlock()
+
+	// Create a new state to bootstrap
+	s1, err := CreateState(z)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s1.JoinSia()
+
+	// Verify message for correctness
+
+	// Deliver message to bootstrap
+	s0.HandleMessage(z.RecentMessage(2).Payload)
+
+	// Deliver the broadcasted messages
+	s0.HandleMessage(z.RecentMessage(3).Payload)
+	s1.HandleMessage(z.RecentMessage(4).Payload)
+
+	// Verify the messages made it
+	s1.tickingLock.Lock()
+	if !s1.ticking {
+		t.Error("s1 did not start ticking")
+	}
+
+	// both swarms should be aware of each other... maybe test their ongoing interactions?
+}
 
 // test HandleMessage and SetAddress
 
