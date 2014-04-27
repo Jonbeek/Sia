@@ -10,6 +10,10 @@ import (
 
 // Uses the hash in libsodium
 func CalculateHash(data []byte) (hash Hash, err error) {
+	if data == nil {
+		err = fmt.Errorf("Could not calculate hash of nil")
+		return
+	}
 	hashPointer := (*C.uchar)(unsafe.Pointer(&hash[0]))
 	messagePointer := (*C.uchar)(unsafe.Pointer(&data[0]))
 	sizeOfMessage := C.ulonglong(len(data))

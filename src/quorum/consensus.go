@@ -19,8 +19,8 @@ type heartbeat struct {
 type signedHeartbeat struct {
 	heartbeat     *heartbeat
 	heartbeatHash crypto.TruncatedHash
-	signatures    []crypto.Signature
-	signatories   []participantIndex
+	signatories   []participantIndex // a list of everyone who's seen the heartbeat
+	signatures    []crypto.Signature // their corresponding signatures
 }
 
 // Using the current State, newHeartbeat() creates a heartbeat that fulfills all
@@ -32,11 +32,11 @@ func (s *State) newHeartbeat() (hb *heartbeat, err error) {
 	hb.entropyStage2 = s.storedEntropyStage2
 
 	// Generate EntropyStage2 for next heartbeat
-	rawEntropy, err := crypto.RandomByteSlice(common.EntropyVolume)
+	entropy, err := crypto.RandomByteSlice(common.EntropyVolume)
 	if err != nil {
 		return
 	}
-	copy(s.storedEntropyStage2[:], rawEntropy)
+	copy(s.storedEntropyStage2[:], entropy) // convert entropy from slice to byte array
 
 	// Use EntropyStage2 to generate EntropyStage1 for this heartbeat
 	hb.entropyStage1, err = crypto.CalculateTruncatedHash(s.storedEntropyStage2[:])
@@ -53,16 +53,16 @@ func marshalledHeartbeatLen() int {
 	return crypto.TruncatedHashSize + common.EntropyVolume
 }
 
-// Convert Heartbeat to string
+// Convert heartbeat to string
 func (hb *heartbeat) marshal() (marshalledHeartbeat []byte) {
 	marshalledHeartbeat = append(hb.entropyStage1[:], hb.entropyStage2[:]...)
 	return
 }
 
-// Convert string to Heartbeat
+// Convert string to heartbeat
 func unmarshalHeartbeat(marshalledHeartbeat []byte) (hb *heartbeat, err error) {
-	expectedLen := marshalledHeartbeatLen()
-	if len(marshalledHeartbeat) != expectedLen {
+	// check length of input
+	if len(marshalledHeartbeat) != marshalledHeartbeatLen() {
 		err = fmt.Errorf("Marshalled heartbeat is the wrong size!")
 		return
 	}
@@ -73,6 +73,8 @@ func unmarshalHeartbeat(marshalledHeartbeat []byte) (hb *heartbeat, err error) {
 	return
 }
 
+// take new heartbeat (our own), sign it, and package it into a signedHearteat
+// I'm pretty sure this only follows a newHeartbeat() call; they can be merged
 func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 	sh = new(signedHeartbeat)
 
@@ -96,146 +98,30 @@ func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 	return
 }
 
-func (sh *signedHeartbeat) marshal() (msh []byte, err error) {
-	// error check the input
-	if len(sh.signatures) > common.QuorumSize {
-		err = fmt.Errorf("Too many signatures on heartbeat")
-		return
-	} else if len(sh.signatures) != len(sh.signatories) {
-		err = fmt.Errorf("Mismatched set of signatures and signatories")
+// Takes a signed heartbeat and broadcasts it to the quorum
+func (s *State) announceSignedHeartbeat(sh *signedHeartbeat) (err error) {
+	msh, err := sh.marshal()
+	if err != nil {
 		return
 	}
 
-	// get all pieces of the marshalledSignedHeartbeat
-	mhb := sh.heartbeat.marshal()
-	numSignatures := byte(len(sh.signatures))
-	numBytes := len(mhb) + 1 + int(numSignatures)*(crypto.SignatureSize+1)
-	msh = make([]byte, numBytes)
-
-	index := 0
-	copy(msh[index:], mhb)
-	index += len(mhb)
-	copy(msh[index:], string(numSignatures))
-	index += 1
-	for i := 0; i < int(numSignatures); i++ {
-		copy(msh[index:], sh.signatures[i][:])
-		index += crypto.SignatureSize
-		copy(msh[index:], string(sh.signatories[i]))
-		index += 1
-	}
-
+	payload := append([]byte(string(incomingSignedHeartbeat)), msh...)
+	s.broadcast(payload)
 	return
 }
 
-func unmarshalSignedHeartbeat(msh []byte) (sh *signedHeartbeat, err error) {
-	// error check the input
-	if len(msh) <= marshalledHeartbeatLen() {
-		err = fmt.Errorf("input for unmarshalSignedHeartbeat is too short")
-		return
-	}
-	numSignatures := int(msh[marshalledHeartbeatLen()])
-	signatureSectionLen := numSignatures * (crypto.SignatureSize + 1)
-	totalLen := marshalledHeartbeatLen() + 1 + signatureSectionLen
-	if len(msh) != totalLen {
-		err = fmt.Errorf("input for UnmarshalSignedHeartbeat is incorrect length, expecting ", totalLen, " bytes")
-		return
-	}
-
-	// get sh.Heartbeat and sh.HeartbeatHash
-	sh = new(signedHeartbeat)
-	index := 0
-	heartbeat, err := unmarshalHeartbeat(msh[index:marshalledHeartbeatLen()])
-	if err != nil {
-		return
-	}
-	heartbeatHash, err := crypto.CalculateTruncatedHash(msh[index:marshalledHeartbeatLen()])
-	if err != nil {
-		return
-	}
-	sh.heartbeat = heartbeat
-	sh.heartbeatHash = heartbeatHash
-
-	// get sh.Signatures and sh.Signatories
-	index += marshalledHeartbeatLen()
-	index += 1
-	sh.signatures = make([]crypto.Signature, numSignatures)
-	sh.signatories = make([]participantIndex, numSignatures)
-	for i := 0; i < numSignatures; i++ {
-		copy(sh.signatures[i][:], msh[index:])
-		index += crypto.SignatureSize
-		sh.signatories[i] = participantIndex(msh[index])
-		index += 1
-	}
-
-	return
-}
-
-func (s *State) processHeartbeat(hb *heartbeat, i participantIndex) int {
-	// compare EntropyStage2 to the hash from the previous heartbeat
-	expectedHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
-	if err != nil {
-		log.Fatalln(err)
-	}
-	if expectedHash != s.previousEntropyStage1[i] {
-		s.tossParticipant(i)
-		return 1
-	}
-
-	// Add the EntropyStage2 to UpcomingEntropy
-	th, err := crypto.CalculateTruncatedHash(append(s.upcomingEntropy[:], hb.entropyStage2[:]...))
-	s.upcomingEntropy = common.Entropy(th)
-	// update PreviousEntropy, to compare this EntropyStage1 against the next
-	// EntropyStage1
-	s.previousEntropyStage1[i] = hb.entropyStage1
-
-	return 0
-}
-
-func (s *State) announceSignedHeartbeat(sh *signedHeartbeat) {
-	for i := range s.participants {
-		if s.participants[i] != nil {
-			payload, err := sh.marshal()
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			m := new(common.Message)
-			m.Payload = append([]byte{byte(1)}, payload...)
-			m.Destination = s.participants[i].Address
-			//time.Sleep(time.Millisecond) // prevents panics. No idea where original source of bug is.
-			err = s.messageRouter.SendMessage(m)
-			if err != nil {
-				log.Fatalln("Error while sending message")
-			}
-		}
-	}
-}
-
-// HandleSignedHeartbeat takes a heartbeat that has been signed
-// as a part of the concensus algorithm, and follows all the rules
-// that are necessary to ensure that all honest hosts arrive at
-// the same conclusions about the actions of their peers.
+// handleSignedHeartbeat takes the payload of an incoming message of type
+// 'incomingSignedHeartbeat' and verifies it according to rules established by
+// the specification.
 //
-// See the paper 'The Byzantine Generals Problem' for more insight
-// on the algorithms used here. Paper can be found in
-// doc/The Byzantine Generals Problem
-//
-// This function is called concurrently, mutexes will be needed when
-// accessing or altering the State
-//
-// It is assumed that when this function is called, the Heartbeat in
-// question will already be in memory, and was correctly signed by the
-// first signatory, the the first signatory is a participant, and that
-// it matches its hash. And that the first signatory is used to store
-// the heartbeat
-//
-// The return code is purely for the testing suite. The numbers are chosen
-// arbitrarily
-func (s *State) handleSignedHeartbeat(message []byte) (returnCode int) {
-	// covert message to SignedHeartbeat
-	sh, err := unmarshalSignedHeartbeat(message)
+// The return code is currently purely for the testing suite, the numbers
+// have been chosen arbitrarily
+func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
+	// covert payload to SignedHeartbeat
+	sh, err := unmarshalSignedHeartbeat(payload)
 	if err != nil {
 		log.Infoln("Received bad message SignedHeartbeat: ", err)
+		returnCode = 11
 		return
 	}
 
@@ -246,11 +132,19 @@ func (s *State) handleSignedHeartbeat(message []byte) (returnCode int) {
 		return
 	}
 
-	// s.CurrentStep must be less than or equal to len(sh.Signatories), unless the
-	// current step is common.QuorumSize and len(sh.Signatories) == 1
+	// check that there are not too many signatures and signatories
+	if len(sh.signatories) > common.QuorumSize {
+		log.Infoln("Received an over-signed signedHeartbeat")
+		returnCode = 12
+		return
+	}
+
+	s.stepLock.Lock() // prevents a benign race condition; is here to follow best practices
+	// s.CurrentStep must be less than or equal to len(sh.Signatories), unless
+	// there is a new block and s.CurrentStep is common.QuorumSize
 	if s.currentStep > len(sh.signatories) {
 		if s.currentStep == common.QuorumSize && len(sh.signatories) == 1 {
-			// sleep long enough to pass the first requirement
+			// by waiting common.StepDuration, the new block will be compiled
 			time.Sleep(common.StepDuration)
 			// now continue to rest of function
 		} else {
@@ -259,6 +153,7 @@ func (s *State) handleSignedHeartbeat(message []byte) (returnCode int) {
 			return
 		}
 	}
+	s.stepLock.Unlock()
 
 	// Check bounds on first signatory
 	if int(sh.signatories[0]) >= common.QuorumSize {
@@ -267,7 +162,11 @@ func (s *State) handleSignedHeartbeat(message []byte) (returnCode int) {
 		return
 	}
 
-	// Check existence of first signatory
+	// we are starting to read from memory, initiate locks
+	s.participantsLock.RLock()
+	s.heartbeatsLock.Lock()
+
+	// check that first sigatory is a participant
 	if s.participants[sh.signatories[0]] == nil {
 		log.Infoln("Received heartbeat from non-participant")
 		returnCode = 10
@@ -281,12 +180,17 @@ func (s *State) handleSignedHeartbeat(message []byte) (returnCode int) {
 		return
 	}
 
-	// while processing signatures, signedMessage will keep growing
-	var signedMessage crypto.SignedMessage
-	signedMessage.Message = string(sh.heartbeatHash[:])
-	// keep a map of which signatories have already been confirmed
-	previousSignatories := make(map[participantIndex]bool)
+	// Check if we already have two heartbeats from this host
+	if len(s.heartbeats[sh.signatories[0]]) >= 2 {
+		log.Infoln("Received many invalid heartbeats from one host")
+		returnCode = 13
+		return
+	}
 
+	// iterate through the signatures and make sure each is legal
+	var signedMessage crypto.SignedMessage // grows each iteration
+	signedMessage.Message = string(sh.heartbeatHash[:])
+	previousSignatories := make(map[participantIndex]bool) // which signatories have already signed
 	for i, signatory := range sh.signatories {
 		// Check bounds on the signatory
 		if int(signatory) >= common.QuorumSize {
@@ -314,7 +218,7 @@ func (s *State) handleSignedHeartbeat(message []byte) (returnCode int) {
 
 		// verify the signature
 		signedMessage.Signature = sh.signatures[i]
-		verification, err := crypto.Verify(s.participants[signatory].PublicKey, signedMessage)
+		verification, err := crypto.Verify(s.participants[signatory].publicKey, signedMessage)
 		if err != nil {
 			log.Fatalln(err)
 			return
@@ -333,18 +237,104 @@ func (s *State) handleSignedHeartbeat(message []byte) (returnCode int) {
 	}
 
 	// Add heartbeat to list of seen heartbeats
-	// Don't check if heartbeat is valid, that's for compile()
 	s.heartbeats[sh.signatories[0]][sh.heartbeatHash] = sh.heartbeat
 
 	// Sign the stack of signatures and send it to all hosts
-	_, err = crypto.Sign(s.secretKey, signedMessage.Message)
+	signedMessage, err = crypto.Sign(s.secretKey, signedMessage.Message)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	// Send the new message to everybody
+	// add our signature to the signedHeartbeat
+	sh.signatures = append(sh.signatures, signedMessage.Signature)
+	sh.signatories = append(sh.signatories, s.participantIndex)
+
+	// broadcast the message to the quorum
+	err = s.announceSignedHeartbeat(sh)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	returnCode = 0
+	return
+}
+
+// convert signedHeartbeat to string
+func (sh *signedHeartbeat) marshal() (msh []byte, err error) {
+	// error check the input
+	if len(sh.signatures) > common.QuorumSize {
+		err = fmt.Errorf("Too many signatures on heartbeat")
+		return
+	} else if len(sh.signatures) != len(sh.signatories) {
+		err = fmt.Errorf("Mismatched set of signatures and signatories")
+		return
+	}
+
+	// get all pieces of the marshalledSignedHeartbeat
+	mhb := sh.heartbeat.marshal()
+	numSignatures := byte(len(sh.signatures))
+	numBytes := len(mhb) + 1 + int(numSignatures)*(crypto.SignatureSize+1)
+	msh = make([]byte, numBytes)
+
+	// take the pieces and copy them into the byte slice
+	index := 0
+	copy(msh[index:], mhb)
+	index += len(mhb)
+	copy(msh[index:], string(numSignatures))
+	index += 1
+	for i := 0; i < int(numSignatures); i++ {
+		copy(msh[index:], sh.signatures[i][:])
+		index += crypto.SignatureSize
+		msh[index] = byte(sh.signatories[i])
+		index += 1
+	}
+
+	return
+}
+
+// convert string to signedHeartbeat
+func unmarshalSignedHeartbeat(msh []byte) (sh *signedHeartbeat, err error) {
+	// we reference the nth element in the []byte, make sure there is an nth element
+	if len(msh) <= marshalledHeartbeatLen() {
+		err = fmt.Errorf("input for unmarshalSignedHeartbeat is too short")
+		return
+	}
+	numSignatures := int(msh[marshalledHeartbeatLen()]) // the nth element
+
+	// verify that the total length of msh is what is expected
+	signatureSectionLen := numSignatures * (crypto.SignatureSize + 1)
+	totalLen := marshalledHeartbeatLen() + 1 + signatureSectionLen
+	if len(msh) != totalLen {
+		err = fmt.Errorf("input for UnmarshalSignedHeartbeat is incorrect length, expecting ", totalLen, " bytes")
+		return
+	}
+
+	// get sh.Heartbeat and sh.HeartbeatHash
+	sh = new(signedHeartbeat)
+	index := 0
+	heartbeat, err := unmarshalHeartbeat(msh[index:marshalledHeartbeatLen()])
+	if err != nil {
+		return
+	}
+	heartbeatHash, err := crypto.CalculateTruncatedHash(msh[index:marshalledHeartbeatLen()])
+	if err != nil {
+		return
+	}
+	sh.heartbeat = heartbeat
+	sh.heartbeatHash = heartbeatHash
+
+	// get sh.Signatures and sh.Signatories
+	index += marshalledHeartbeatLen()
+	index += 1 // skip the numSignatures byte
+	sh.signatures = make([]crypto.Signature, numSignatures)
+	sh.signatories = make([]participantIndex, numSignatures)
+	for i := 0; i < numSignatures; i++ {
+		copy(sh.signatures[i][:], msh[index:])
+		index += crypto.SignatureSize
+		sh.signatories[i] = participantIndex(msh[index])
+		index += 1
+	}
+
 	return
 }
 
@@ -379,21 +369,48 @@ func (s *State) tossParticipant(pi participantIndex) {
 	// remove from s.PreviousEntropyStage1
 	var emptyEntropy common.Entropy
 	zeroHash, err := crypto.CalculateTruncatedHash(emptyEntropy[:])
-	s.previousEntropyStage1[pi] = zeroHash
 	if err != nil {
 		log.Fatal(err)
 	}
+	s.previousEntropyStage1[pi] = zeroHash
 
 	// nil map in s.Heartbeats
 	s.heartbeats[pi] = nil
 }
 
+// Update the state according to the information presented in the heartbeat
+// processHeartbeat uses return codes for testing purposes
+func (s *State) processHeartbeat(hb *heartbeat, i participantIndex) int {
+	// compare EntropyStage2 to the hash from the previous heartbeat
+	expectedHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
+	if err != nil {
+		log.Fatalln(err)
+	}
+	if expectedHash != s.previousEntropyStage1[i] {
+		s.tossParticipant(i)
+		return 1
+	}
+
+	// Add the EntropyStage2 to UpcomingEntropy
+	th, err := crypto.CalculateTruncatedHash(append(s.upcomingEntropy[:], hb.entropyStage2[:]...))
+	s.upcomingEntropy = common.Entropy(th)
+
+	// store entropyStage1 to compare with next heartbeat from this participant
+	s.previousEntropyStage1[i] = hb.entropyStage1
+
+	return 0
+}
+
 // compile() takes the list of heartbeats and uses them to advance the state.
 func (s *State) compile() {
+	// fetch a participant ordering
 	participantOrdering := s.participantOrdering()
 
-	// Read read heartbeats, process them, then archive them. Other functions
-	// concurrently access the heartbeats, so mutexes are needed.
+	// Lock down s.participants and s.heartbeats for editing
+	s.participantsLock.Lock()
+	s.heartbeatsLock.Lock()
+
+	// Read heartbeats, process them, then archive them.
 	for _, participant := range participantOrdering {
 		if s.participants[participant] == nil {
 			continue
@@ -405,12 +422,15 @@ func (s *State) compile() {
 			continue
 		}
 
+		// this is the only way I know to access the only element of a map;
+		// the key is unknown
 		for _, hb := range s.heartbeats[participant] {
 			s.processHeartbeat(hb, participant)
 		}
 
-		// archive heartbeats
-		// currently, archives are sent to /dev/null
+		// archive heartbeats (unimplemented)
+
+		// clear heartbeat list for next block
 		s.heartbeats[participant] = make(map[crypto.TruncatedHash]*heartbeat)
 	}
 
@@ -433,37 +453,22 @@ func (s *State) compile() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	s.announceSignedHeartbeat(shb)
+	err = s.announceSignedHeartbeat(shb)
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
 
 // Tick() updates s.CurrentStep, and calls compile() when all steps are complete
-// Tick() runs in its own gothread, only one instance of Tick() runs per state
 func (s *State) tick() {
-	// check that no other instance of Tick() is running
-	s.tickLock.Lock()
-	if s.ticking {
-		s.tickLock.Unlock()
-		return
-	} else {
-		s.ticking = true
-		s.tickLock.Unlock()
-	}
-
 	// Every common.StepDuration, advance the state stage
 	ticker := time.Tick(common.StepDuration)
 	for _ = range ticker {
-		s.lock.Lock()
 		if s.currentStep == common.QuorumSize {
 			s.compile()
 			s.currentStep = 1
 		} else {
 			s.currentStep += 1
 		}
-		s.lock.Unlock()
 	}
-
-	// if every we add code to stop ticking, this will be needed
-	s.tickLock.Lock()
-	s.ticking = false
-	s.tickLock.Unlock()
 }

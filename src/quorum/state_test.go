@@ -6,52 +6,123 @@ import (
 	"testing"
 )
 
-// quick sanity check
+// Verify zero case marshalling works, check inputs, do fuzzing
+func TestParticipantMarshalling(t *testing.T) {
+	// zero case marshalling
+	p := new(participant)
+	mp := p.marshal()
+	up, err := unmarshalParticipant(mp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if *up != *p {
+		t.Fatal("Zero case marshalling and unmarshalling not equal")
+	}
+
+	// Attempt bad input
+	var bad []byte
+	up, err = unmarshalParticipant(bad)
+	if err == nil {
+		t.Fatal("unmarshalled an empty []byte")
+	}
+	bad = make([]byte, crypto.PublicKeySize+4)
+	up, err = unmarshalParticipant(bad)
+	if err == nil {
+		t.Fatal("unmarshalled a []byte of insufficient length")
+	}
+
+	// fuzzing
+}
+
+// Create a state, check the defaults
 func TestCreateState(t *testing.T) {
-	// create a state
-	s, err := CreateState(common.NewZeroNetwork(), 0)
+	// does a state create without errors?
+	s, err := CreateState(common.NewZeroNetwork())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// verify that the keys can sign and be verified
-	err = crypto.CheckKeys(s.participants[s.participantIndex].PublicKey, s.secretKey)
+	// check that previousEntropyStage1 is initialized correctly
+	var emptyEntropy common.Entropy
+	emptyHash, err := crypto.CalculateTruncatedHash(emptyEntropy[:])
 	if err != nil {
 		t.Fatal(err)
 	}
+	for i := range s.previousEntropyStage1 {
+		if s.previousEntropyStage1[i] != emptyHash {
+			t.Error("previousEntropyStage1 initialized incorrectly at index ", i)
+		}
+	}
 
-	// sanity check CurrentStep
+	// sanity check the default values
+	if s.participantIndex != 255 {
+		t.Error("s.participantIndex initialized to ", s.participantIndex)
+	}
 	if s.currentStep != 1 {
-		t.Fatal("Current step should be initialized to 1!")
+		t.Error("s.currentStep should be initialized to 1!")
+	}
+	if s.wallets == nil {
+		t.Error("s.wallets was not initialized")
 	}
 }
 
-// verify that one state can add another
-func TestAddParticipant(t *testing.T) {
-	s0, err := CreateState(common.NewZeroNetwork(), 0)
+// Bootstrap a state to the network, then another
+func TestJoinQuorum(t *testing.T) {
+	// Make a new state and network; start bootstrapping
+	z := common.NewZeroNetwork()
+	s0, err := CreateState(z)
 	if err != nil {
 		t.Fatal(err)
 	}
+	s0.JoinSia()
 
-	s1, err := CreateState(common.NewZeroNetwork(), 1)
+	// Verify the message for correctness
+
+	// Forward message to bootstrap State (ourselves, as it were)
+	s0.HandleMessage(z.RecentMessage(0).Payload)
+
+	// Verify that a broadcast message went out indicating a new participant
+
+	// Forward message to recipient
+	s0.HandleMessage(z.RecentMessage(1).Payload)
+
+	// Verify that we started ticking
+	s0.tickingLock.Lock()
+	if !s0.ticking {
+		t.Error("Bootstrap state not ticking after joining Sia")
+	}
+	s0.tickingLock.Unlock()
+
+	// Create a new state to bootstrap
+	s1, err := CreateState(z)
 	if err != nil {
 		t.Fatal(err)
 	}
+	s1.JoinSia()
 
-	err = s0.AddParticipant(s1.Self(), 1)
-	if err != nil {
-		t.Fatal(err)
+	// Verify message for correctness
+
+	// Deliver message to bootstrap
+	s0.HandleMessage(z.RecentMessage(2).Payload)
+
+	// Deliver the broadcasted messages
+	s0.HandleMessage(z.RecentMessage(3).Payload)
+	s1.HandleMessage(z.RecentMessage(4).Payload)
+
+	// Verify the messages made it
+	s1.tickingLock.Lock()
+	if !s1.ticking {
+		t.Error("s1 did not start ticking")
 	}
 
-	// check that participant 1 was added to state 0
-	if s1.participants[s1.participantIndex].PublicKey != s0.participants[1].PublicKey {
-		t.Fatal("AddParticipant failed!")
-	}
+	// both swarms should be aware of each other... maybe test their ongoing interactions?
 }
+
+// test HandleMessage and SetAddress
 
 // check general case, check corner cases, and then do some fuzzing
-func TestrandInt(t *testing.T) {
-	s, err := CreateState(common.NewZeroNetwork(), 0)
+func TestRandInt(t *testing.T) {
+	s, err := CreateState(common.NewZeroNetwork())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +155,7 @@ func TestrandInt(t *testing.T) {
 
 	low := 0
 	high := common.QuorumSize
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 100000; i++ {
 		randInt, err = s.randInt(low, high)
 		if err != nil {
 			t.Fatal("randInt fuzzing error: ", err)
