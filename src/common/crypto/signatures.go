@@ -2,11 +2,14 @@ package crypto
 
 // #cgo LDFLAGS: -lsodium
 // #include <sodium.h>
-import "C"
+// import "C"
 
 import (
-	"fmt"
-	"unsafe"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	//"fmt"
+	//"unsafe"
 )
 
 type SignedMessage struct {
@@ -14,19 +17,24 @@ type SignedMessage struct {
 	Message   string
 }
 
-// Libsodium puts the signature first and the message second, therefore so do we
+// Return a string containing both the message and the prepended signature
 func (sm *SignedMessage) CombinedMessage() (combinedMessage string) {
-	combinedMessage = string(append(sm.Signature[:], []byte(sm.Message[:])...))
+	signature := append([]byte(sm.Signature.R.String()), []byte(sm.Signature.S.String())...)
+	combinedMessage = string(append(signature, []byte(sm.Message[:])...))
 	return
 }
 
 // CreateKeyPair needs no input, produces a public key and secret key as output
 func CreateKeyPair() (publicKey PublicKey, secretKey SecretKey, err error) {
-	errorCode := C.crypto_sign_keypair((*C.uchar)(unsafe.Pointer(&publicKey[0])), (*C.uchar)(unsafe.Pointer(&secretKey[0])))
+	/* errorCode := C.crypto_sign_keypair((*C.uchar)(unsafe.Pointer(&publicKey[0])), (*C.uchar)(unsafe.Pointer(&secretKey[0])))
 	if errorCode != 0 {
 		err = fmt.Errorf("Key Creation Failed!")
 		return
-	}
+	} */
+
+	priv, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	secretKey = SecretKey(*priv)
+	publicKey = PublicKey(priv.PublicKey)
 
 	return
 }
@@ -34,7 +42,7 @@ func CreateKeyPair() (publicKey PublicKey, secretKey SecretKey, err error) {
 // Sign takes a secret key and a message, and use the secret key to sign the message.
 // Sign returns a single SignedMessage struct containing a Message and a Signature
 func Sign(secretKey SecretKey, message string) (signedMessage SignedMessage, err error) {
-	// Points to a signed message of format signature + message after sigining
+	/* // Points to a signed message of format signature + message after sigining
 	signedMessageBytes := make([]byte, len(message)+SignatureSize)
 	signedMessagePointer := (*C.uchar)(unsafe.Pointer(&signedMessageBytes[0]))
 
@@ -67,7 +75,13 @@ func Sign(secretKey SecretKey, message string) (signedMessage SignedMessage, err
 
 	signedMessage.Message = message
 	// copy the signature from the byte slice to the Signature field of signedMessage
-	copy(signedMessage.Signature[:], signedMessageBytes[:len(signedMessage.Signature)])
+	copy(signedMessage.Signature[:], signedMessageBytes[:len(signedMessage.Signature)]) */
+
+	ecdsaKey := ecdsa.PrivateKey(secretKey)
+	r, s, err := ecdsa.Sign(rand.Reader, &ecdsaKey, []byte(message))
+	signedMessage.Signature.R = r
+	signedMessage.Signature.S = s
+	signedMessage.Message = message
 
 	return
 }
@@ -76,7 +90,7 @@ func Sign(secretKey SecretKey, message string) (signedMessage SignedMessage, err
 // returns whether the signature is valid or not
 func Verify(verificationKey PublicKey, signedMessage SignedMessage) (verified bool, err error) {
 	// points to unsigned message after verifying
-	var messagePointer *C.uchar
+	/* var messagePointer *C.uchar
 	messageBytes := make([]byte, len(signedMessage.Message)+1)
 	if len(signedMessage.Message) == 0 {
 		// must point somewhere valid, but the data won't be altered
@@ -102,14 +116,18 @@ func Verify(verificationKey PublicKey, signedMessage SignedMessage) (verified bo
 
 	// verify signature
 	success := C.crypto_sign_open(messagePointer, lenPointer, signedMessagePointer, signedMessageLen, verificationKeyPointer)
-	verified = success == 0
+	verified = success == 0 */
+
+	ecdsaKey := ecdsa.PublicKey(verificationKey)
+	verified = ecdsa.Verify(&ecdsaKey, []byte(signedMessage.Message), signedMessage.Signature.R, signedMessage.Signature.S)
+
 	return
 }
 
 // Only used for testing, but testing functions in multiple packages use it
 func CheckKeys(publicKey PublicKey, secretKey SecretKey) (err error) {
 	// create an arbitrary message
-	randomMessage, err := RandomByteSlice(20)
+	/* randomMessage, err := RandomByteSlice(20)
 	if err != nil {
 		return
 	}
@@ -167,7 +185,7 @@ func CheckKeys(publicKey PublicKey, secretKey SecretKey) (err error) {
 	emptyMessage.Signature[0] = 0
 	emptyMessage.Signature[1] = 0
 	verification, err = Verify(publicKey, emptyMessage)
-	// unfinished
+	// unfinished */
 
 	return
 }

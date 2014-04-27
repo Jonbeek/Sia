@@ -63,7 +63,8 @@ type State struct {
 // participant to string
 func (p *participant) marshal() (mp []byte) {
 	ma := p.address.Marshal()
-	mp = append(ma, p.publicKey[:]...)
+	key := p.publicKey.Marshal()
+	mp = append(ma, key[:]...)
 	return
 }
 
@@ -73,14 +74,6 @@ func unmarshalParticipant(mp []byte) (p *participant, err error) {
 		err = fmt.Errorf("Length of mp is too small to be a participant")
 		return
 	}
-
-	p = new(participant)
-	copy(p.publicKey[:], mp[len(mp)-crypto.PublicKeySize:])
-	addy, err := common.UnmarshalAddress(mp[:len(mp)-crypto.PublicKeySize])
-	if err != nil {
-		return
-	}
-	p.address = *addy
 	return
 }
 

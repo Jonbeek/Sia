@@ -1,10 +1,12 @@
 package quorum
 
 import (
+	"bytes"
 	"common"
 	"common/crypto"
 	"common/log"
-	"fmt"
+	"encoding/gob"
+	//"fmt"
 	"time"
 )
 
@@ -49,27 +51,48 @@ func (s *State) newHeartbeat() (hb *heartbeat, err error) {
 	return
 }
 
-func marshalledHeartbeatLen() int {
-	return crypto.TruncatedHashSize + common.EntropyVolume
-}
-
-// Convert heartbeat to string
-func (hb *heartbeat) marshal() (marshalledHeartbeat []byte) {
-	marshalledHeartbeat = append(hb.entropyStage1[:], hb.entropyStage2[:]...)
-	return
-}
-
-// Convert string to heartbeat
-func unmarshalHeartbeat(marshalledHeartbeat []byte) (hb *heartbeat, err error) {
-	// check length of input
-	if len(marshalledHeartbeat) != marshalledHeartbeatLen() {
-		err = fmt.Errorf("Marshalled heartbeat is the wrong size!")
+// Convert heartbeat to []byte
+func (hb *heartbeat) GobEncode() (marshalledHeartbeat []byte, err error) {
+	w := new(bytes.Buffer)
+	encoder := gob.NewEncoder(w)
+	err = encoder.Encode(hb.entropyStage1)
+	if err != nil {
+		return
+	}
+	err = encoder.Encode(hb.entropyStage2)
+	if err != nil {
 		return
 	}
 
-	hb = new(heartbeat)
-	copy(hb.entropyStage1[:], marshalledHeartbeat)
-	copy(hb.entropyStage2[:], marshalledHeartbeat[crypto.TruncatedHashSize:])
+	marshalledHeartbeat = w.Bytes()
+	return
+}
+
+func (hb *heartbeat) marshal() (marshalledHeartbeat []byte, err error) {
+	marshalledHeartbeat, err = hb.GobEncode()
+	return
+}
+
+// Convert []byte to heartbeat
+func (hb *heartbeat) GobDecode(marshalledHeartbeat []byte) (err error) {
+	r := bytes.NewBuffer(marshalledHeartbeat)
+	decoder := gob.NewDecoder(r)
+	err = decoder.Decode(&hb.entropyStage1)
+	if err != nil {
+		return
+	}
+	err = decoder.Decode(&hb.entropyStage2)
+	if err != nil {
+		return
+	}
+
+	// more code here
+
+	return
+}
+
+func (hb *heartbeat) unmarshal(marshalledHeartbeat []byte) (err error) {
+	err = hb.GobDecode(marshalledHeartbeat)
 	return
 }
 
@@ -80,7 +103,10 @@ func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 
 	// confirm heartbeat and hash
 	sh.heartbeat = hb
-	marshalledHb := hb.marshal()
+	marshalledHb, err := hb.marshal()
+	if err != nil {
+		return
+	}
 	sh.heartbeatHash, err = crypto.CalculateTruncatedHash([]byte(marshalledHb))
 	if err != nil {
 		return
@@ -118,7 +144,8 @@ func (s *State) announceSignedHeartbeat(sh *signedHeartbeat) (err error) {
 // have been chosen arbitrarily
 func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 	// covert payload to SignedHeartbeat
-	sh, err := unmarshalSignedHeartbeat(payload)
+	sh := new(signedHeartbeat)
+	err := sh.unmarshal(payload)
 	if err != nil {
 		log.Infoln("Received bad message SignedHeartbeat: ", err)
 		returnCode = 11
@@ -264,18 +291,18 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 }
 
 // convert signedHeartbeat to string
-func (sh *signedHeartbeat) marshal() (msh []byte, err error) {
-	// error check the input
-	if len(sh.signatures) > common.QuorumSize {
-		err = fmt.Errorf("Too many signatures on heartbeat")
-		return
-	} else if len(sh.signatures) != len(sh.signatories) {
+func (sh *signedHeartbeat) marshal() (marshalledSignedHeartbeat []byte, err error) {
+	/*// error check the input
+	if len(sh.signatures) != len(sh.signatories) {
 		err = fmt.Errorf("Mismatched set of signatures and signatories")
 		return
 	}
 
 	// get all pieces of the marshalledSignedHeartbeat
-	mhb := sh.heartbeat.marshal()
+	mhb, err := sh.heartbeat.marshal()
+	if err != nil {
+		return
+	}
 	numSignatures := byte(len(sh.signatures))
 	numBytes := len(mhb) + 1 + int(numSignatures)*(crypto.SignatureSize+1)
 	msh = make([]byte, numBytes)
@@ -287,19 +314,49 @@ func (sh *signedHeartbeat) marshal() (msh []byte, err error) {
 	copy(msh[index:], string(numSignatures))
 	index += 1
 	for i := 0; i < int(numSignatures); i++ {
-		copy(msh[index:], sh.signatures[i][:])
+		sig := sh.signatures[i].Marshal()
+		copy(msh[index:], sig[:])
 		index += crypto.SignatureSize
 		msh[index] = byte(sh.signatories[i])
 		index += 1
+	} */
+
+	w := new(bytes.Buffer)
+	encoder := gob.NewEncoder(w)
+
+	// marshal the heartbeat to the buffer
+	mhb, err := sh.heartbeat.marshal()
+	if err != nil {
+		return
+	}
+	w.Write(mhb)
+
+	// marshal remaining data to the buffer
+	err = encoder.Encode(sh.heartbeatHash)
+	if err != nil {
+		return
+	}
+	err = encoder.Encode(sh.signatories)
+	if err != nil {
+		return
+	}
+	err = encoder.Encode(sh.signatures)
+	if err != nil {
+		return
 	}
 
+	marshalledSignedHeartbeat = w.Bytes()
 	return
 }
 
+func marshalledHeartbeatLen() int {
+	return 35
+}
+
 // convert string to signedHeartbeat
-func unmarshalSignedHeartbeat(msh []byte) (sh *signedHeartbeat, err error) {
+func (shb *signedHeartbeat) unmarshal(marshalledSignedHeartbeat []byte) (err error) {
 	// we reference the nth element in the []byte, make sure there is an nth element
-	if len(msh) <= marshalledHeartbeatLen() {
+	/* if len(msh) <= marshalledHeartbeatLen() {
 		err = fmt.Errorf("input for unmarshalSignedHeartbeat is too short")
 		return
 	}
@@ -316,7 +373,6 @@ func unmarshalSignedHeartbeat(msh []byte) (sh *signedHeartbeat, err error) {
 	// get sh.Heartbeat and sh.HeartbeatHash
 	sh = new(signedHeartbeat)
 	index := 0
-	heartbeat, err := unmarshalHeartbeat(msh[index:marshalledHeartbeatLen()])
 	if err != nil {
 		return
 	}
@@ -324,7 +380,6 @@ func unmarshalSignedHeartbeat(msh []byte) (sh *signedHeartbeat, err error) {
 	if err != nil {
 		return
 	}
-	sh.heartbeat = heartbeat
 	sh.heartbeatHash = heartbeatHash
 
 	// get sh.Signatures and sh.Signatories
@@ -333,11 +388,15 @@ func unmarshalSignedHeartbeat(msh []byte) (sh *signedHeartbeat, err error) {
 	sh.signatures = make([]crypto.Signature, numSignatures)
 	sh.signatories = make([]byte, numSignatures)
 	for i := 0; i < numSignatures; i++ {
-		copy(sh.signatures[i][:], msh[index:])
+		sig := sh.signatures[i].Marshal()
+		copy(sig[:], msh[index:])
 		index += crypto.SignatureSize
 		sh.signatories[i] = msh[index]
 		index += 1
-	}
+	} */
+
+	r := bytes.NewBuffer(marshalledSignedHeartbeat)
+	decoder := gob.NewDecoder(r)
 
 	return
 }

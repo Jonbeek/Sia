@@ -30,48 +30,39 @@ func TestnewHeartbeat(t *testing.T) {
 	// verify that hosts accept the new heartbeats
 }
 
-// Marshalling and Unmarshalling should result in equivalent Heartbeats
+// Marshalling and Unmarshalling should result in equivalent Heartbeats, and
+// neither should ever cause panics
 func TestHeartbeatMarshalling(t *testing.T) {
-	s, err := CreateState(common.NewZeroNetwork())
+	// marshal an empty heartbeat
+	hb := new(heartbeat)
+	mhb, err := hb.marshal()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// verify that a heartbeat, once unmarshalled, is identical to the original
-	hbOriginal, err := s.newHeartbeat()
+	// unmarshal the empty heartbeat
+	uhb := new(heartbeat)
+	err = uhb.unmarshal(mhb)
 	if err != nil {
 		t.Fatal(err)
 	}
-	hbMarshalled := hbOriginal.marshal()
-	hbUnmarshalled, err := unmarshalHeartbeat(hbMarshalled)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if hbOriginal.entropyStage1 != hbUnmarshalled.entropyStage1 {
+
+	// test for equivalency
+	if hb.entropyStage1 != uhb.entropyStage1 {
 		t.Fatal("EntropyStage1 not identical upon umarshalling")
 	}
-	if hbOriginal.entropyStage2 != hbUnmarshalled.entropyStage2 {
+	if hb.entropyStage2 != uhb.entropyStage2 {
 		t.Fatal("EntropyStage1 not identical upon umarshalling")
 	}
 
-	// verify that input is being checked for UnmarshalHeartbeat
-	_, err = unmarshalHeartbeat(hbMarshalled[1:])
-	if err == nil {
-		t.Fatal("Heartbeat unmarshalling succeded with a short input")
-	}
-	_, err = unmarshalHeartbeat(append(hbMarshalled, hbMarshalled...))
-	if err == nil {
-		t.Fatal("Heartbeat unmarshalling succeded with a long input")
-	}
+	// test unmarshalling with bad input
+
+	// fuzz over random potential values of heartbeat
 }
 
-// a SignedHeartbeat should be the same after marshalling and unmarshalling
-func TestSignedHeartbeatMarshalling(t *testing.T) {
-	s, err := CreateState(common.NewZeroNetwork())
-	if err != nil {
-		t.Fatal(err)
-	}
-
+// Marshalling and Unmarshalling should result in equivalent signedHeartbeats,
+// and neither should ever cause panics
+/* func TestSignedHeartbeatMarshalling(t *testing.T) {
 	// create a SignedHeartbeat, marshall and unmarshall it, and test equivalency
 	hb, err := s.newHeartbeat()
 	if err != nil {
@@ -133,7 +124,7 @@ func TestSignedHeartbeatMarshalling(t *testing.T) {
 	}
 
 	// check marshalling and unmarshalling of a signedHeartbeat with many signatures
-}
+}*/
 
 // TestHandleSignedHeartbeat should probably be reviewed and rehashed
 /* func TestHandleSignedHeartbeat(t *testing.T) {

@@ -21,7 +21,7 @@ const (
 	QuorumSize int = 128
 
 	// How long a single step in the consensus algorithm takes
-	StepDuration time.Duration = 15 * time.Second
+	StepDuration time.Duration = 5 * time.Second
 )
 
 type Entropy [EntropyVolume]byte

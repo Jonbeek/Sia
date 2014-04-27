@@ -6,7 +6,7 @@ import "C"
 // cgo can't be used in a test file, so it was necessary to
 // do the cgo-required tests in a test_supplement file
 
-// Verify PublicKeySize
+/* // Verify PublicKeySize
 func VerifyPublicKeySize() bool {
 	confirmation := C.testPublicKeySize(C.int(PublicKeySize))
 	return confirmation != 0
@@ -22,7 +22,7 @@ func VerifySecretKeySize() bool {
 func VerifySignatureSize() (verification bool) {
 	confirmation := C.testSignatureSize(C.int(SignatureSize))
 	return confirmation != 0
-}
+} */
 
 // Verify HashSize
 func VerifyHashSize() (verification bool) {
