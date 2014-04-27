@@ -28,4 +28,11 @@ func TestRandomPlacement(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed RandomPlacement of 9000")
 	}
+	total := 0
+	for i := range buckets {
+		total += buckets[i]
+	}
+	if total != 9000 {
+		t.Fatal("Sum of buckets does not equal total given")
+	}
 }
