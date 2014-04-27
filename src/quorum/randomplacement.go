@@ -4,25 +4,15 @@ import (
 	"common"
 )
 
-func RandomPlacement(toPlace int, SEED string) []int {
-	ascii := []byte(SEED)
-	intAscii := make([]int, len(ascii))
-	buckets := make([]int, common.QuorumSize)
-	tmp := toPlace
-	index := 0
-	ascInd := 0
-	//splits toPlace into the buckets according to given SEED
-	for tmp != 0 {
-		index += intAscii[ascInd]
-		if index >= common.QuorumSize {
-			index = index - common.QuorumSize
+func (s *State) RandomPlacement(toPlace int) (buckets []int, err error) {
+	buckets = make([]int, common.QuorumSize)
+	for toPlace != 0 {
+		rand, err := s.randInt(0, common.QuorumSize)
+		if err != nil {
+			return buckets, err
 		}
-		buckets[index] += 1
-		tmp--
-		ascInd++
-		if ascInd == len(intAscii) {
-			ascInd = 0
-		}
+		buckets[rand]++
+		toPlace--
 	}
-	return buckets
+	return buckets, nil
 }
