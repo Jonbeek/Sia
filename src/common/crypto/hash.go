@@ -10,7 +10,7 @@ import (
 
 // Uses the hash in libsodium
 func CalculateHash(data []byte) (hash Hash, err error) {
-	if data == nil {
+	if data == nil || len(data) == 0 {
 		err = fmt.Errorf("Could not calculate hash of nil")
 		return
 	}
