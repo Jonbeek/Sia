@@ -1,7 +1,6 @@
 package crypto
 
 import (
-	"crypto/ecdsa"
 	"testing"
 )
 

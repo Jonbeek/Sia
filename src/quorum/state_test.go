@@ -1,35 +1,53 @@
 package quorum
 
-/*
 import (
 	"common"
 	"common/crypto"
 	"testing"
 )
 
+func TestParticipantCompare(t *testing.T) {
+	// move some things around
+}
+
 // Verify zero case marshalling works, check inputs, do fuzzing
- func TestParticipantMarshalling(t *testing.T) {
+func TestParticipantMarshalling(t *testing.T) {
 	// zero case marshalling
 	p := new(participant)
-	mp := p.marshal()
-	up, err := unmarshalParticipant(mp)
+	up := new(participant)
+	_, err := p.GobEncode()
+	if err == nil {
+		t.Fatal("Should not be able to encode nil values")
+	}
+
+	// other bad input for marshalling and unmarshalling
+
+	// Make a bootstrap participant
+	pubKey, _, err := crypto.CreateKeyPair()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if *up != *p {
-		t.Fatal("Zero case marshalling and unmarshalling not equal")
+	p.publicKey = pubKey
+	p.address.Id = bootstrapId
+	p.address.Host = bootstrapHost
+	p.address.Port = bootstrapPort
+
+	mp, err := p.GobEncode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = up.GobDecode(mp)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	// Attempt bad input
-	var bad []byte
-	up, err = unmarshalParticipant(bad)
-	if err == nil {
-		t.Fatal("unmarshalled an empty []byte")
+	if up.address != p.address {
+		t.Error("up.address != p.address")
 	}
-	bad = make([]byte, crypto.PublicKeySize+4)
-	up, err = unmarshalParticipant(bad)
-	if err == nil {
-		t.Fatal("unmarshalled a []byte of insufficient length")
+
+	compare := up.publicKey.Compare(&p.publicKey)
+	if compare != true {
+		t.Error("up.PublicKey != p.PublicKey")
 	}
 
 	// fuzzing
@@ -75,22 +93,33 @@ func TestJoinQuorum(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s0.JoinSia()
+	err = s0.JoinSia()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Verify the message for correctness
 
 	// Forward message to bootstrap State (ourselves, as it were)
-	s0.HandleMessage(z.RecentMessage(0).Payload)
+	m := z.RecentMessage(0)
+	if m == nil {
+		t.Fatal("message 0 never received")
+	}
+	s0.HandleMessage(m.Payload)
 
 	// Verify that a broadcast message went out indicating a new participant
 
 	// Forward message to recipient
-	s0.HandleMessage(z.RecentMessage(1).Payload)
+	m = z.RecentMessage(1)
+	if m == nil {
+		t.Fatal("message 1 never received")
+	}
+	s0.HandleMessage(m.Payload)
 
 	// Verify that we started ticking
 	s0.tickingLock.Lock()
 	if !s0.ticking {
-		t.Error("Bootstrap state not ticking after joining Sia")
+		t.Fatal("Bootstrap state not ticking after joining Sia")
 	}
 	s0.tickingLock.Unlock()
 
@@ -171,4 +200,4 @@ func TestRandInt(t *testing.T) {
 			t.Fatal("randInt fuzzing: ", randInt, " produced, expected number between ", low, " and ", high)
 		}
 	}
-} */
+}

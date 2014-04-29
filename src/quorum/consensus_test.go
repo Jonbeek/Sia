@@ -35,14 +35,14 @@ func TestnewHeartbeat(t *testing.T) {
 func TestHeartbeatMarshalling(t *testing.T) {
 	// marshal an empty heartbeat
 	hb := new(heartbeat)
-	mhb, err := hb.marshal()
+	mhb, err := hb.GobEncode()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// unmarshal the empty heartbeat
 	uhb := new(heartbeat)
-	err = uhb.unmarshal(mhb)
+	err = uhb.GobDecode(mhb)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,7 +6,6 @@ import (
 	"common/crypto"
 	"common/log"
 	"encoding/gob"
-	//"fmt"
 	"time"
 )
 
@@ -52,7 +51,7 @@ func (s *State) newHeartbeat() (hb *heartbeat, err error) {
 }
 
 // Convert heartbeat to []byte
-func (hb *heartbeat) GobEncode() (marshalledHeartbeat []byte, err error) {
+func (hb *heartbeat) GobEncode() (gobHeartbeat []byte, err error) {
 	w := new(bytes.Buffer)
 	encoder := gob.NewEncoder(w)
 	err = encoder.Encode(hb.entropyStage1)
@@ -64,18 +63,13 @@ func (hb *heartbeat) GobEncode() (marshalledHeartbeat []byte, err error) {
 		return
 	}
 
-	marshalledHeartbeat = w.Bytes()
-	return
-}
-
-func (hb *heartbeat) marshal() (marshalledHeartbeat []byte, err error) {
-	marshalledHeartbeat, err = hb.GobEncode()
+	gobHeartbeat = w.Bytes()
 	return
 }
 
 // Convert []byte to heartbeat
-func (hb *heartbeat) GobDecode(marshalledHeartbeat []byte) (err error) {
-	r := bytes.NewBuffer(marshalledHeartbeat)
+func (hb *heartbeat) GobDecode(gobHeartbeat []byte) (err error) {
+	r := bytes.NewBuffer(gobHeartbeat)
 	decoder := gob.NewDecoder(r)
 	err = decoder.Decode(&hb.entropyStage1)
 	if err != nil {
@@ -85,14 +79,6 @@ func (hb *heartbeat) GobDecode(marshalledHeartbeat []byte) (err error) {
 	if err != nil {
 		return
 	}
-
-	// more code here
-
-	return
-}
-
-func (hb *heartbeat) unmarshal(marshalledHeartbeat []byte) (err error) {
-	err = hb.GobDecode(marshalledHeartbeat)
 	return
 }
 
@@ -103,11 +89,11 @@ func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 
 	// confirm heartbeat and hash
 	sh.heartbeat = hb
-	marshalledHb, err := hb.marshal()
+	gobHb, err := hb.GobEncode()
 	if err != nil {
 		return
 	}
-	sh.heartbeatHash, err = crypto.CalculateTruncatedHash([]byte(marshalledHb))
+	sh.heartbeatHash, err = crypto.CalculateTruncatedHash([]byte(gobHb))
 	if err != nil {
 		return
 	}
@@ -126,7 +112,7 @@ func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 
 // Takes a signed heartbeat and broadcasts it to the quorum
 func (s *State) announceSignedHeartbeat(sh *signedHeartbeat) (err error) {
-	msh, err := sh.marshal()
+	msh, err := sh.GobEncode()
 	if err != nil {
 		return
 	}
@@ -145,7 +131,7 @@ func (s *State) announceSignedHeartbeat(sh *signedHeartbeat) (err error) {
 func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 	// covert payload to SignedHeartbeat
 	sh := new(signedHeartbeat)
-	err := sh.unmarshal(payload)
+	err := sh.GobDecode(payload)
 	if err != nil {
 		log.Infoln("Received bad message SignedHeartbeat: ", err)
 		returnCode = 11
@@ -291,7 +277,7 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 }
 
 // convert signedHeartbeat to string
-func (sh *signedHeartbeat) marshal() (marshalledSignedHeartbeat []byte, err error) {
+func (sh *signedHeartbeat) GobEncode() (gobSignedHeartbeat []byte, err error) {
 	/*// error check the input
 	if len(sh.signatures) != len(sh.signatories) {
 		err = fmt.Errorf("Mismatched set of signatures and signatories")
@@ -323,15 +309,10 @@ func (sh *signedHeartbeat) marshal() (marshalledSignedHeartbeat []byte, err erro
 
 	w := new(bytes.Buffer)
 	encoder := gob.NewEncoder(w)
-
-	// marshal the heartbeat to the buffer
-	mhb, err := sh.heartbeat.marshal()
+	err = encoder.Encode(sh.heartbeat)
 	if err != nil {
 		return
 	}
-	w.Write(mhb)
-
-	// marshal remaining data to the buffer
 	err = encoder.Encode(sh.heartbeatHash)
 	if err != nil {
 		return
@@ -345,16 +326,12 @@ func (sh *signedHeartbeat) marshal() (marshalledSignedHeartbeat []byte, err erro
 		return
 	}
 
-	marshalledSignedHeartbeat = w.Bytes()
+	gobSignedHeartbeat = w.Bytes()
 	return
 }
 
-func marshalledHeartbeatLen() int {
-	return 35
-}
-
 // convert string to signedHeartbeat
-func (shb *signedHeartbeat) unmarshal(marshalledSignedHeartbeat []byte) (err error) {
+func (shb *signedHeartbeat) GobDecode(gobSignedHeartbeat []byte) (err error) {
 	// we reference the nth element in the []byte, make sure there is an nth element
 	/* if len(msh) <= marshalledHeartbeatLen() {
 		err = fmt.Errorf("input for unmarshalSignedHeartbeat is too short")
@@ -395,8 +372,24 @@ func (shb *signedHeartbeat) unmarshal(marshalledSignedHeartbeat []byte) (err err
 		index += 1
 	} */
 
-	r := bytes.NewBuffer(marshalledSignedHeartbeat)
+	r := bytes.NewBuffer(gobSignedHeartbeat)
 	decoder := gob.NewDecoder(r)
+	err = decoder.Decode(&shb.heartbeat)
+	if err != nil {
+		return
+	}
+	err = decoder.Decode(&shb.heartbeatHash)
+	if err != nil {
+		return
+	}
+	err = decoder.Decode(&shb.signatories)
+	if err != nil {
+		return
+	}
+	err = decoder.Decode(&shb.signatures)
+	if err != nil {
+		return
+	}
 
 	return
 }
