@@ -239,6 +239,8 @@ func TestRandInt(t *testing.T) {
 
 	// check that s.CurrentEntropy flipped to next value
 	if previousEntropy == s.currentEntropy {
+		t.Error(previousEntropy)
+		t.Error(s.currentEntropy)
 		t.Fatal("When calling randInt, s.CurrentEntropy was not changed")
 	}
 

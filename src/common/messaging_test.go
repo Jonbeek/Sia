@@ -84,10 +84,18 @@ func TestAddressMarshalling(t *testing.T) {
 		t.Skip()
 	}
 	for i := 0; i < 10000; i++ {
-		randomBytes, err := crypto.RandomByteSlice(crypto.RandomInt(100) + 1)
+		randomByteCount, err := crypto.RandomInt(100)
+		if err != nil {
+			t.Fatal(err)
+		}
+		randomBytes, err := crypto.RandomByteSlice(randomByteCount + 1)
 		a.Id = Identifier(randomBytes[0]) // random id
 		a.Host = string(randomBytes[1:])  // random host
-		a.Port = crypto.RandomInt(65536)  // random port
+		portNum, err := crypto.RandomInt(65536)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a.Port = portNum
 
 		ma = a.Marshal()
 		ua, err = UnmarshalAddress(ma)

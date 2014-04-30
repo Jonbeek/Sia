@@ -1,9 +1,5 @@
 package crypto
 
-// #cgo LDFLAGS: -lsodium
-// #include <sodium.h>
-// import "C"
-
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
