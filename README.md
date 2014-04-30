@@ -1,7 +1,7 @@
 What Is Sia?
 ============
 
-Sia (/'saɪə/) is a compensation-based platform for distributed cloud storage. Anybody can join Sia as a storage host, and anybody can rent storage from the network. It's like Airbnb for your hard drive: through croudsourcing, we can eliminate a lot of overhead and improve quality of service.
+Sia (/'saɪə/) is a compensation-based platform for distributed cloud storage. Anybody can join Sia as a storage host, and anybody can rent storage from the network. It's like Airbnb for your hard drive: through crowd-sourcing, we can eliminate a lot of overhead and improve quality of service.
 
 Sia is a robust platform that stores files across hundreds of machines. If any of these machines fail, corrupt, or disconnect, the network will automatically repair the lost files with no break in service. Even with these protections against widespread failure or host withdrawal, the total redundancy is only around 25%—substantially less expensive than using RAID or a mirrored backup.
 
