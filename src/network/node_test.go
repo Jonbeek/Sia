@@ -231,7 +231,7 @@ func TestTCPUploadFile(t *testing.T) {
 	}
 
 	// upload file to quorum
-	k := 50
+	k := common.QuorumSize - 2
 	b, err := tcp.UploadFile(file, k, q)
 	if err != nil {
 		t.Fatal("Failed to upload file:", err)

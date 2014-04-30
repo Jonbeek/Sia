@@ -63,11 +63,19 @@ type State struct {
 	wallets map[string]uint64
 }
 
+// Returns true if the values of the participants are equivalent
 func (p0 *participant) compare(p1 *participant) bool {
+	// false if either participant is nil
+	if p0 == nil || p1 == nil {
+		return false
+	}
+
+	// return false if the addresses are not equal
 	if p0.address != p1.address {
 		return false
 	}
 
+	// return false if the public keys are not equivalent
 	compare := p0.publicKey.Compare(&p1.publicKey)
 	if compare != true {
 		return false

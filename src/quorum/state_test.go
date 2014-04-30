@@ -7,10 +7,65 @@ import (
 )
 
 func TestParticipantCompare(t *testing.T) {
-	// move some things around
+	var p0 *participant
+	var p1 *participant
+	p0 = nil
+	p1 = nil
+
+	// compare nil values
+	compare := p0.compare(p1)
+	if compare == true {
+		t.Error("Comparing any nil participant should return false")
+	}
+
+	// compare when one is nil
+	p0 = new(participant)
+	compare = p0.compare(p1)
+	if compare == true {
+		t.Error("Comparing a zero participant to a nil participant should return false")
+	}
+	compare = p1.compare(p0)
+	if compare == true {
+		t.Error("Comparing a zero participant to a nil participant should return false")
+	}
+
+	// initialize each participant with a public key
+	p1 = new(participant)
+	pubKey, _, err := crypto.CreateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p0.publicKey = pubKey
+	p1.publicKey = pubKey
+
+	// compare initialized participants
+	compare = p0.compare(p1)
+	if compare == false {
+		t.Error("Comparing two zero participants should return true")
+	}
+	compare = p1.compare(p0)
+	if compare == false {
+		t.Error("Comparing two zero participants should return true")
+	}
+
+	// compare when address are not equal (piecewise for each component of address
+
+	// compare when public keys are not equivalent
+	pubKey, _, err = crypto.CreateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p1.publicKey = pubKey
+	compare = p0.compare(p1)
+	if compare == true {
+		t.Error("Comparing two participants with different public keys should return false")
+	}
+	compare = p1.compare(p0)
+	if compare == true {
+		t.Error("Comparing two participants with different public keys should return false")
+	}
 }
 
-// Verify zero case marshalling works, check inputs, do fuzzing
 func TestParticipantMarshalling(t *testing.T) {
 	// zero case marshalling
 	p := new(participant)
@@ -20,7 +75,7 @@ func TestParticipantMarshalling(t *testing.T) {
 		t.Fatal("Should not be able to encode nil values")
 	}
 
-	// other bad input for marshalling and unmarshalling
+	// bad input for marshalling and unmarshalling
 
 	// Make a bootstrap participant
 	pubKey, _, err := crypto.CreateKeyPair()
@@ -153,7 +208,17 @@ func TestJoinQuorum(t *testing.T) {
 	// both swarms should be aware of each other... maybe test their ongoing interactions?
 }
 
-// test HandleMessage and SetAddress
+func TestSetAddress(t *testing.T) {
+	// ?
+}
+
+func TestUpdateParticipant(t *testing.T) {
+	// ?
+}
+
+func TestHandleMessage(t *testing.T) {
+	// ?
+}
 
 // check general case, check corner cases, and then do some fuzzing
 func TestRandInt(t *testing.T) {
@@ -193,7 +258,7 @@ func TestRandInt(t *testing.T) {
 	for i := 0; i < 100000; i++ {
 		randInt, err = s.randInt(low, high)
 		if err != nil {
-			t.Fatal("randInt fuzzing error: ", err)
+			t.Fatal("randInt fuzzing error: ", err, " low: ", low, " high: ", high)
 		}
 
 		if randInt < low || randInt >= high {

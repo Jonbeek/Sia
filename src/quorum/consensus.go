@@ -6,6 +6,7 @@ import (
 	"common/crypto"
 	"common/log"
 	"encoding/gob"
+	"fmt"
 	"time"
 )
 
@@ -52,6 +53,12 @@ func (s *State) newHeartbeat() (hb *heartbeat, err error) {
 
 // Convert heartbeat to []byte
 func (hb *heartbeat) GobEncode() (gobHeartbeat []byte, err error) {
+	// test for bad input
+	if hb == nil {
+		err = fmt.Errorf("Cannot Encode a nil object")
+		return
+	}
+
 	w := new(bytes.Buffer)
 	encoder := gob.NewEncoder(w)
 	err = encoder.Encode(hb.entropyStage1)
@@ -278,34 +285,11 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 
 // convert signedHeartbeat to string
 func (sh *signedHeartbeat) GobEncode() (gobSignedHeartbeat []byte, err error) {
-	/*// error check the input
-	if len(sh.signatures) != len(sh.signatories) {
-		err = fmt.Errorf("Mismatched set of signatures and signatories")
+	// error check the input
+	if sh == nil {
+		err = fmt.Errorf("Cannot encode a nil object")
 		return
 	}
-
-	// get all pieces of the marshalledSignedHeartbeat
-	mhb, err := sh.heartbeat.marshal()
-	if err != nil {
-		return
-	}
-	numSignatures := byte(len(sh.signatures))
-	numBytes := len(mhb) + 1 + int(numSignatures)*(crypto.SignatureSize+1)
-	msh = make([]byte, numBytes)
-
-	// take the pieces and copy them into the byte slice
-	index := 0
-	copy(msh[index:], mhb)
-	index += len(mhb)
-	copy(msh[index:], string(numSignatures))
-	index += 1
-	for i := 0; i < int(numSignatures); i++ {
-		sig := sh.signatures[i].Marshal()
-		copy(msh[index:], sig[:])
-		index += crypto.SignatureSize
-		msh[index] = byte(sh.signatories[i])
-		index += 1
-	} */
 
 	w := new(bytes.Buffer)
 	encoder := gob.NewEncoder(w)
@@ -519,6 +503,7 @@ func (s *State) tick() {
 	// Every common.StepDuration, advance the state stage
 	ticker := time.Tick(common.StepDuration)
 	for _ = range ticker {
+		s.stepLock.Lock()
 		if s.currentStep == common.QuorumSize {
 			println("compiling")
 			s.compile()
@@ -527,5 +512,6 @@ func (s *State) tick() {
 			println("stepping")
 			s.currentStep += 1
 		}
+		s.stepLock.Unlock()
 	}
 }

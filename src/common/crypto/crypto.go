@@ -25,9 +25,21 @@ type Signature struct {
 type Hash [HashSize]byte
 type TruncatedHash [TruncatedHashSize]byte
 
+// Compare returns true if the keys are composed of the same integer values
+// Compare returns false if any sub-value is nil
 func (pk0 *PublicKey) Compare(pk1 *PublicKey) bool {
 	epk0 := (*ecdsa.PublicKey)(pk0)
 	epk1 := (*ecdsa.PublicKey)(pk1)
+
+	// return false if either value is nil
+	if epk0 == nil || epk1 == nil {
+		return false
+	}
+
+	// return false if either sub-value is nil
+	if epk0.X == nil || epk0.Y == nil || epk1.X == nil || epk1.Y == nil {
+		return false
+	}
 
 	cmp := epk0.X.Cmp(epk1.X)
 	if cmp != 0 {

@@ -4,7 +4,7 @@ import (
 	"common"
 	"common/crypto"
 	"testing"
-	//"time"
+	"time"
 )
 
 // Verify that newHeartbeat() produces valid heartbeats
@@ -30,9 +30,7 @@ func TestnewHeartbeat(t *testing.T) {
 	// verify that hosts accept the new heartbeats
 }
 
-// Marshalling and Unmarshalling should result in equivalent Heartbeats, and
-// neither should ever cause panics
-func TestHeartbeatMarshalling(t *testing.T) {
+func TestHeartbeatEncoding(t *testing.T) {
 	// marshal an empty heartbeat
 	hb := new(heartbeat)
 	mhb, err := hb.GobEncode()
@@ -55,14 +53,21 @@ func TestHeartbeatMarshalling(t *testing.T) {
 		t.Fatal("EntropyStage1 not identical upon umarshalling")
 	}
 
-	// test unmarshalling with bad input
+	// test encoding with bad input
+	hb = nil
+	mhb, err = hb.GobEncode()
+	if err == nil {
+		t.Error("able to encode a nil heartbeat")
+	}
+	err = uhb.GobDecode(nil)
+	if err == nil {
+		t.Error("able to decode a nil byte slice")
+	}
 
 	// fuzz over random potential values of heartbeat
 }
 
-// Marshalling and Unmarshalling should result in equivalent signedHeartbeats,
-// and neither should ever cause panics
-/* func TestSignedHeartbeatMarshalling(t *testing.T) {
+/* func TestSignedHeartbeatEncoding(t *testing.T) {
 	// create a SignedHeartbeat, marshall and unmarshall it, and test equivalency
 	hb, err := s.newHeartbeat()
 	if err != nil {
@@ -431,7 +436,7 @@ func TestProcessHeartbeat(t *testing.T) {
 } */
 
 // Ensures that Tick() updates CurrentStep
-/* func TestRegularTick(t *testing.T) {
+func TestRegularTick(t *testing.T) {
 	// test takes common.StepDuration seconds; skip for short testing
 	if testing.Short() {
 		t.Skip()
@@ -443,15 +448,17 @@ func TestProcessHeartbeat(t *testing.T) {
 	}
 
 	// verify that tick is updating CurrentStep
+	s.stepLock.Lock()
 	s.currentStep = 1
+	s.stepLock.Unlock()
 	go s.tick()
 	time.Sleep(common.StepDuration)
 	time.Sleep(time.Second)
-	s.lock.Lock()
+	s.stepLock.Lock()
 	if s.currentStep != 2 {
 		t.Fatal("s.currentStep failed to update correctly: ", s.currentStep)
 	}
-	s.lock.Unlock()
+	s.stepLock.Unlock()
 }
 
 // ensures Tick() calles compile() and then resets the counter to step 1
@@ -461,61 +468,20 @@ func TestCompilationTick(t *testing.T) {
 		t.Skip()
 	}
 
-	// create state and give it a heartbeat to prevent it from pruning itself
-	s, err := CreateState(common.NewZeroNetwork(), 0)
+	// create state, set values for compile
+	s, err := CreateState(common.NewZeroNetwork())
 	if err != nil {
 		t.Fatal(err)
 	}
-	hb, err := s.newHeartbeat()
-	if err != nil {
-		return
-	}
-	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.marshal()))
-	s.heartbeats[s.participantIndex][heartbeatHash] = hb
-
-	// remember entropy to verify that compile() gets called
-	currentEntropy := s.currentEntropy
-
-	// verify that tick is wrapping around properly
 	s.currentStep = common.QuorumSize
 	go s.tick()
+
+	// verify that tick is wrapping around properly
 	time.Sleep(common.StepDuration)
 	time.Sleep(time.Second)
-
-	s.lock.Lock()
+	s.stepLock.Lock()
 	if s.currentStep != 1 {
-		t.Fatal("s.currentStep failed to roll over: ", s.currentStep)
+		t.Error("s.currentStep failed to roll over: ", s.currentStep)
 	}
-
-	// check if s.compile() got called
-	if currentEntropy == s.currentEntropy {
-		t.Fatal("Entropy did not change after tick wrapped around")
-	}
-	s.lock.Unlock()
+	s.stepLock.Unlock()
 }
-
-// TestTickLock verifies that only one instance of Tick() can run at a time
-func TestTickLock(t *testing.T) {
-	// test takes common.StepDuration seconds; skip for short testing
-	if testing.Short() {
-		t.Skip()
-	}
-
-	// create state
-	s, err := CreateState(common.NewZeroNetwork(), 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// call tick twice
-	go s.tick()
-	go s.tick()
-	time.Sleep(common.StepDuration)
-	time.Sleep(time.Second)
-	// if two instances of Tick() are running, s.CurrentStep will update twice
-	s.lock.Lock()
-	if s.currentStep != 2 {
-		t.Fatal("Double tick failed: ", s.currentStep)
-	}
-	s.lock.Unlock()
-}*/
