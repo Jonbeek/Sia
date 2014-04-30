@@ -283,7 +283,6 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 	return
 }
 
-// convert signedHeartbeat to string
 func (sh *signedHeartbeat) GobEncode() (gobSignedHeartbeat []byte, err error) {
 	// error check the input
 	if sh == nil {
@@ -314,47 +313,11 @@ func (sh *signedHeartbeat) GobEncode() (gobSignedHeartbeat []byte, err error) {
 	return
 }
 
-// convert string to signedHeartbeat
 func (shb *signedHeartbeat) GobDecode(gobSignedHeartbeat []byte) (err error) {
-	// we reference the nth element in the []byte, make sure there is an nth element
-	/* if len(msh) <= marshalledHeartbeatLen() {
-		err = fmt.Errorf("input for unmarshalSignedHeartbeat is too short")
+	if gobSignedHeartbeat == nil {
+		err = fmt.Errorf("cannot decode a nil byte slice")
 		return
 	}
-	numSignatures := int(msh[marshalledHeartbeatLen()]) // the nth element
-
-	// verify that the total length of msh is what is expected
-	signatureSectionLen := numSignatures * (crypto.SignatureSize + 1)
-	totalLen := marshalledHeartbeatLen() + 1 + signatureSectionLen
-	if len(msh) != totalLen {
-		err = fmt.Errorf("input for UnmarshalSignedHeartbeat is incorrect length, expecting ", totalLen, " bytes")
-		return
-	}
-
-	// get sh.Heartbeat and sh.HeartbeatHash
-	sh = new(signedHeartbeat)
-	index := 0
-	if err != nil {
-		return
-	}
-	heartbeatHash, err := crypto.CalculateTruncatedHash(msh[index:marshalledHeartbeatLen()])
-	if err != nil {
-		return
-	}
-	sh.heartbeatHash = heartbeatHash
-
-	// get sh.Signatures and sh.Signatories
-	index += marshalledHeartbeatLen()
-	index += 1 // skip the numSignatures byte
-	sh.signatures = make([]crypto.Signature, numSignatures)
-	sh.signatories = make([]byte, numSignatures)
-	for i := 0; i < numSignatures; i++ {
-		sig := sh.signatures[i].Marshal()
-		copy(sig[:], msh[index:])
-		index += crypto.SignatureSize
-		sh.signatories[i] = msh[index]
-		index += 1
-	} */
 
 	r := bytes.NewBuffer(gobSignedHeartbeat)
 	decoder := gob.NewDecoder(r)

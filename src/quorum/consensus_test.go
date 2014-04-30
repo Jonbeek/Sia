@@ -67,69 +67,44 @@ func TestHeartbeatEncoding(t *testing.T) {
 	// fuzz over random potential values of heartbeat
 }
 
-/* func TestSignedHeartbeatEncoding(t *testing.T) {
-	// create a SignedHeartbeat, marshall and unmarshall it, and test equivalency
+func TestSignedHeartbeatEncoding(t *testing.T) {
+	// Test for bad inputs
+	var bad *signedHeartbeat
+	bad = nil
+	_, err := bad.GobEncode()
+	if err == nil {
+		t.Error("Should not encode a nil signedHeartbeat")
+	}
+	err = bad.GobDecode(nil)
+	if err == nil {
+		t.Error("Should not be able to decode a nil byte slice")
+	}
+
+	// Test the encoding and decoding of a simple signed heartbeat
+	s, err := CreateState(common.NewZeroNetwork())
+	if err != nil {
+		t.Fatal(err)
+	}
 	hb, err := s.newHeartbeat()
 	if err != nil {
 		t.Fatal(err)
 	}
-	originalSignedHeartbeat, err := s.signHeartbeat(hb)
+	sh, err := s.signHeartbeat(hb)
 	if err != nil {
 		t.Fatal(err)
 	}
-	marshalledSH, err := originalSignedHeartbeat.marshal()
+	msh, err := sh.GobEncode()
 	if err != nil {
 		t.Fatal(err)
 	}
-	unmarshalledSH, err := unmarshalSignedHeartbeat(marshalledSH)
-	if string(unmarshalledSH.heartbeat.marshal()) != string(originalSignedHeartbeat.heartbeat.marshal()) {
-		t.Fatal("Heartbeat changed after being marshalled and unmarshalled")
-	}
-	if unmarshalledSH.heartbeatHash != originalSignedHeartbeat.heartbeatHash {
-		t.Fatal("HeartbeatHash changed after being marshalled and unmarshalled")
-	}
-	if len(unmarshalledSH.signatures) != len(originalSignedHeartbeat.signatures) {
-		t.Fatal("Length of SignedHeartbeat.Signatures changed after being marshalled and unmarshalled")
-	}
-	if len(unmarshalledSH.signatories) != len(originalSignedHeartbeat.signatories) {
-		t.Fatal("Length of SignedHeartbeat.Signatories changed after being marshalled and unmarshalled")
-	}
-	for i := 0; i < len(unmarshalledSH.signatures); i++ {
-		if unmarshalledSH.signatures[i] != originalSignedHeartbeat.signatures[i] {
-			t.Fatal("For i =", i, ", unmarshalledSH.Signatures[i] did not equal originalSignedHeartbeat.Signatures[i]")
-		}
-		if unmarshalledSH.signatories[i] != originalSignedHeartbeat.signatories[i] {
-			t.Fatal("For i =", i, ", unmarshalledSH.Signatories[i] did not equal originalSignedHeartbeat.Signatories[i]")
-		}
-	}
-
-	// verify that input is being checked for SignedHeartbeat.Marshal()
-	originalSignedHeartbeat.signatures = make([]crypto.Signature, 2*common.QuorumSize)
-	_, err = originalSignedHeartbeat.marshal()
-	if err == nil {
-		t.Fatal("SignedHeartbeat.Marshal() needs to check the length of msh.Signatures")
-	}
-	originalSignedHeartbeat.signatures = make([]crypto.Signature, 2)
-	if err == nil {
-		t.Fatal("SignedHeartbeat.Marshal() needs to check that msh.Signatures and msh.Signatories are equal in length")
-	}
-
-	// verify that input is being checked for UnmarshalSignedHeartbeat()
-	_, err = unmarshalSignedHeartbeat(marshalledSH[:marshalledHeartbeatLen()])
-	if err == nil {
-		t.Fatal("UnmarshalSignedHeartbeat not checking input length")
-	}
-	_, err = unmarshalSignedHeartbeat(marshalledSH[1:])
-	if err == nil {
-		t.Fatal("UnmarshalSignedHeartbeat succeeded when input was too short")
-	}
-	_, err = unmarshalSignedHeartbeat(append(marshalledSH, marshalledSH...))
-	if err == nil {
-		t.Fatal("UnmarshalSignedHeartbeat succeded when input was too long")
+	ush := new(signedHeartbeat)
+	err = ush.GobDecode(msh)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	// check marshalling and unmarshalling of a signedHeartbeat with many signatures
-}*/
+}
 
 // TestHandleSignedHeartbeat should probably be reviewed and rehashed
 /* func TestHandleSignedHeartbeat(t *testing.T) {
