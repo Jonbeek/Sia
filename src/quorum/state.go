@@ -8,19 +8,40 @@ import (
 	"sync"
 )
 
-type participantIndex int
+// Message Types
+const (
+	joinSia byte = iota
+	incomingSignedHeartbeat
+	addressChangeNotification
+	newParticipant
+)
+
+// Bootstrapping
+const (
+	bootstrapId   common.Identifier = 0
+	bootstrapHost string            = "localhost"
+	bootstrapPort int               = 9988
+)
+
+// Leaves space for flexibility in the future
+type participantIndex uint8
+
+// Identifies other members of the quorum
+type participant struct {
+	address   common.Address
+	publicKey crypto.PublicKey
+}
 
 // The state provides persistence to the consensus algorithms. Every participant
 // should have an identical state.
 type State struct {
-	// a temporary overall lock, will eventually be replaced with component locks
-	lock sync.Mutex
-
 	// Network Variables
-	messageSender    common.MessageSender
-	participants     [common.QuorumSize]*Participant // list of participants
+	messageRouter    common.MessageRouter
+	participants     [common.QuorumSize]*participant // list of participants
+	participantsLock sync.RWMutex                    // write-locks for compile only
+	self             *participant                    // ourselves
 	participantIndex participantIndex                // our participant index
-	secretKey        crypto.SecretKey                // public key in our participant index
+	secretKey        crypto.SecretKey                // our secret key
 
 	// Heartbeat Variables
 	storedEntropyStage2 common.Entropy // hashed to EntropyStage1 for previous heartbeat
@@ -31,47 +52,51 @@ type State struct {
 	upcomingEntropy       common.Entropy                          // Used to compute entropy for next block
 
 	// Consensus Algorithm Status
-	currentStep int
-	ticking     bool
-	tickLock    sync.Mutex
-	heartbeats  [common.QuorumSize]map[crypto.TruncatedHash]*heartbeat
+	currentStep    int
+	stepLock       sync.RWMutex // prevents a benign race condition
+	ticking        bool
+	tickingLock    sync.Mutex
+	heartbeats     [common.QuorumSize]map[crypto.TruncatedHash]*heartbeat
+	heartbeatsLock sync.Mutex
 
 	// Wallet Data
 	wallets map[string]uint64
 }
 
-// Only temporarily a public object, will eventually be 'type participant struct'
-// makes building easier since we don't have a 'join swarm' function yet
-type Participant struct {
-	Address   common.Address
-	PublicKey crypto.PublicKey
+// participant to string
+func (p *participant) marshal() (mp []byte) {
+	ma := p.address.Marshal()
+	mp = append(ma, p.publicKey[:]...)
+	return
 }
 
-// Create and initialize a state object
-func CreateState(messageSender common.MessageSender, participantIndex participantIndex) (s State, err error) {
+// string to participant
+func unmarshalParticipant(mp []byte) (p *participant, err error) {
+	if len(mp) < crypto.PublicKeySize+5 {
+		err = fmt.Errorf("Length of mp is too small to be a participant")
+		return
+	}
+
+	p = new(participant)
+	copy(p.publicKey[:], mp[len(mp)-crypto.PublicKeySize:])
+	p.address, err = common.UnmarshalAddress(mp[:len(mp)-crypto.PublicKeySize])
+	return
+}
+
+// Create and initialize a state object.
+func CreateState(messageRouter common.MessageRouter) (s *State, err error) {
+	s = new(State)
 	// check that we have a non-nil messageSender
-	if messageSender == nil {
-		err = fmt.Errorf("Cannot initialize with a nil messageSender")
+	if messageRouter == nil {
+		err = fmt.Errorf("Cannot initialize with a nil messageRouter")
 		return
 	}
 
-	// check that participantIndex is legal
-	if int(participantIndex) >= common.QuorumSize {
-		err = fmt.Errorf("Invalid participant index!")
-		return
-	}
-
-	// initialize crypto keys
+	// create a signature keypair for this state
 	pubKey, secKey, err := crypto.CreateKeyPair()
 	if err != nil {
 		return
 	}
-
-	// create and fill out the participant object
-	self := new(Participant)
-	self.Address = messageSender.Address()
-	self.Address.Id = common.Identifier(participantIndex)
-	self.PublicKey = pubKey
 
 	// calculate the value of an empty hash (default for storedEntropyStage2 on all hosts is a blank array)
 	emptyHash, err := crypto.CalculateTruncatedHash(s.storedEntropyStage2[:])
@@ -80,44 +105,158 @@ func CreateState(messageSender common.MessageSender, participantIndex participan
 	}
 
 	// set state variables to their defaults
-	s.messageSender = messageSender
-	s.AddParticipant(self, participantIndex)
+	s.messageRouter = messageRouter
+	s.self = new(participant)
+	s.self.address = messageRouter.AddMessageHandler(s)
+	s.self.publicKey = pubKey
 	s.secretKey = secKey
 	for i := range s.previousEntropyStage1 {
 		s.previousEntropyStage1[i] = emptyHash
 	}
-	s.participantIndex = participantIndex
+	s.participantIndex = 255
 	s.currentStep = 1
 	s.wallets = make(map[string]uint64)
 
 	return
 }
 
-// self() fetches the state's participant object
-func (s *State) Self() (p *Participant) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	return s.participants[s.participantIndex]
-}
-
-// add participant to s.Participants, and initialize the heartbeat map
-func (s *State) AddParticipant(p *Participant, i participantIndex) (err error) {
-	s.lock.Lock()
-	// Check that there is not already a participant for the index
-	if s.participants[i] != nil {
-		err = fmt.Errorf("A participant already exists for the given index!")
-		return
-	}
-	s.participants[i] = p
-
-	// initialize the heartbeat map for this participant
-	s.heartbeats[i] = make(map[crypto.TruncatedHash]*heartbeat)
-	s.lock.Unlock()
-
+// Announce ourself to the bootstrap address, who will announce us to the quorum
+func (s *State) JoinSia() (err error) {
+	// Send join message to bootstrap address
+	m := new(common.Message)
+	m.Destination.Id = bootstrapId
+	m.Destination.Host = bootstrapHost
+	m.Destination.Port = bootstrapPort
+	m.Payload = append([]byte(string(joinSia)), s.self.marshal()...)
+	err = s.messageRouter.SendMessage(m)
 	return
 }
 
+// Called by the MessageRouter in case of an address change
+func (s *State) SetAddress(addr *common.Address) {
+	s.participantsLock.Lock()
+	s.participants[s.participantIndex].address = *addr
+	s.participantsLock.Unlock()
+
+	// now notifiy everyone else in the quorum that the address has changed:
+	// that will consist of a 'moved locations' message that has been signed
+}
+
+// receives a message and determines what function will handle it.
+func (s *State) HandleMessage(m []byte) {
+	// message type is stored in the first byte, switch on this type
+	switch m[0] {
+	case incomingSignedHeartbeat:
+		s.handleSignedHeartbeat(m[1:])
+	case joinSia:
+		s.handleJoinSia(m[1:])
+	case addressChangeNotification:
+		s.updateParticipant(m[1:])
+	case newParticipant:
+		s.addNewParticipant(m[1:])
+	default:
+		log.Infoln("Got message of unrecognized type")
+	}
+}
+
+// Adds a new participants, and then announces them with their index
+func (s *State) handleJoinSia(payload []byte) {
+	// find index for participant
+	s.participantsLock.Lock()
+	i := 0
+	for i = 0; i < common.QuorumSize; i++ {
+		if s.participants[i] == nil {
+			var err error
+			s.participants[i], err = unmarshalParticipant(payload)
+			if err != nil {
+				// log perhaps?... still need to figure out error handling in Sia
+				return
+			}
+			break
+		}
+	}
+	s.participantsLock.Unlock()
+
+	// see if the quorum is full
+	if i == common.QuorumSize {
+		return
+	}
+
+	// now announce a new participant at index i
+	var header [2]byte
+	header[0] = byte(newParticipant)
+	header[1] = byte(i)
+	payload = append(header[:], payload...)
+	s.broadcast(payload)
+}
+
+// A participant can update their address, etc. at any time
+func (s *State) updateParticipant(msp []byte) {
+	// this message is actually a signature of a participant
+	// it's valid if the signature matches the public key
+}
+
+// Add a participant to the state, tell the participant about ourselves
+func (s *State) addNewParticipant(payload []byte) {
+	// extract index and participant object from payload
+	participantIndex := payload[0]
+	p, err := unmarshalParticipant(payload[1:])
+	if err != nil {
+		return
+	}
+
+	// for this participant, make the heartbeat map and add the default heartbeat
+	hb := new(heartbeat)
+	emptyHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
+	hb.entropyStage1 = emptyHash
+	s.heartbeatsLock.Lock()
+	s.participantsLock.Lock()
+	s.heartbeats[participantIndex] = make(map[crypto.TruncatedHash]*heartbeat)
+	s.heartbeats[participantIndex][emptyHash] = hb
+	s.heartbeatsLock.Unlock()
+
+	if *p == *s.self {
+		// add our self object to the correct index in participants
+		s.participants[participantIndex] = s.self
+		s.tickingLock.Lock()
+		s.ticking = true
+		s.tickingLock.Unlock()
+
+		go s.tick()
+	} else {
+		// add the participant to participants
+		s.participants[participantIndex] = p
+
+		// tell the new guy about ourselves
+		m := new(common.Message)
+		m.Destination = p.address
+		m.Payload = append([]byte(string(newParticipant)), s.self.marshal()...)
+		s.messageRouter.SendMessage(m)
+	}
+	s.participantsLock.Unlock()
+}
+
+// Takes a payload and sends it in a message to every participant in the quorum
+func (s *State) broadcast(payload []byte) {
+	s.participantsLock.RLock()
+	for i := range s.participants {
+		if s.participants[i] != nil {
+			m := new(common.Message)
+			m.Payload = payload
+			m.Destination = s.participants[i].address
+			err := s.messageRouter.SendMessage(m)
+			if err != nil {
+				log.Errorln("messageSender returning an error")
+			}
+		}
+	}
+	s.participantsLock.RUnlock()
+}
+
 // Use the entropy stored in the state to generate a random integer [low, high)
+// randInt only runs during compile(), when the mutexes are already locked
+//
+// needs to be converted to return uint64
 func (s *State) randInt(low int, high int) (randInt int, err error) {
 	// verify there's a gap between the numbers
 	if low == high {
@@ -128,8 +267,8 @@ func (s *State) randInt(low int, high int) (randInt int, err error) {
 	// Convert CurrentEntropy into an int
 	rollingInt := 0
 	for i := 0; i < 4; i++ {
-		rollingInt = rollingInt << 4
-		rollingInt += int(s.currentEntropy[0])
+		rollingInt = rollingInt << 8
+		rollingInt += int(s.currentEntropy[i])
 	}
 
 	randInt = (rollingInt % (high - low)) + low
@@ -138,43 +277,4 @@ func (s *State) randInt(low int, high int) (randInt int, err error) {
 	truncatedHash, err := crypto.CalculateTruncatedHash(s.currentEntropy[:])
 	s.currentEntropy = common.Entropy(truncatedHash)
 	return
-}
-
-func (s *State) HandleMessage(m []byte) {
-	// message type is stored in the first byte, switch on this type
-	switch m[0] {
-	case 1:
-		s.lock.Lock()
-		s.handleSignedHeartbeat(m[1:])
-		s.lock.Unlock()
-	default:
-		log.Infoln("Got message of unrecognized type")
-	}
-}
-
-func (s *State) Identifier() common.Identifier {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	return s.participants[s.participantIndex].Address.Id
-}
-
-// Take an unstarted State and begin the consensus algorithm cycle
-func (s *State) Start() {
-	// start the ticker to progress the state
-	go s.tick()
-
-	s.lock.Lock()
-	// create first heartbeat and add it to heartbeat map, then announce it
-	hb, err := s.newHeartbeat()
-	if err != nil {
-		return
-	}
-	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.marshal()))
-	s.heartbeats[s.participantIndex][heartbeatHash] = hb
-	shb, err := s.signHeartbeat(hb)
-	if err != nil {
-		return
-	}
-	s.announceSignedHeartbeat(shb)
-	s.lock.Unlock()
 }

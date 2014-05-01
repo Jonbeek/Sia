@@ -8,16 +8,24 @@ import (
 )
 
 // TCPServer is a MessageSender that communicates over TCP.
-// MessageHandlers is a map of Identifiers to MessageHandler interfaces.
 type TCPServer struct {
 	Addr            common.Address
-	MessageHandlers map[common.Identifier]common.MessageHandler
+	MessageHandlers []common.MessageHandler
 	Listener        net.Listener
 }
 
-// Address returns the address of the server
 func (tcp *TCPServer) Address() common.Address {
 	return tcp.Addr
+}
+
+// AddMessageHandler adds a MessageHandler to the MessageHandlers slice.
+// It creates an identifier associated with that MessageHandler, and returns
+// an Address incorporating the identifier.
+func (tcp *TCPServer) AddMessageHandler(mh common.MessageHandler) common.Address {
+	tcp.MessageHandlers = append(tcp.MessageHandlers, mh)
+	addr := tcp.Addr
+	addr.Id = common.Identifier(len(tcp.MessageHandlers) - 1)
+	return addr
 }
 
 // SendMessage transmits the payload of a message to its intended recipient.
@@ -48,12 +56,6 @@ func (tcp *TCPServer) SendMessage(m *common.Message) (err error) {
 	return
 }
 
-// AddMessageHandler adds a MessageHandler to the MessageHandlers map
-// If the key already has a MessageHandler associated with it, it is overwritten.
-func (tcp *TCPServer) AddMessageHandler(mh common.MessageHandler) {
-	tcp.MessageHandlers[mh.Identifier()] = mh
-}
-
 // NewTCPServer creates and initializes a server that listens for TCP connections on a specified port.
 // It then spawns a serverHandler with a specified message.
 // It is the serverHandler's responsibility to close the TCP connection.
@@ -66,7 +68,8 @@ func NewTCPServer(port int) (tcp *TCPServer, err error) {
 
 	// initialize struct fields
 	tcp.Addr = common.Address{0, "localhost", port}
-	tcp.MessageHandlers = make(map[common.Identifier]common.MessageHandler)
+	// MessageHandlers[0] is reserved for the MessageHandler of the TCPServer
+	tcp.MessageHandlers = make([]common.MessageHandler, 1)
 	tcp.Listener = tcpServ
 
 	go tcp.serverHandler()
@@ -105,8 +108,9 @@ func (tcp *TCPServer) clientHandler(conn net.Conn) {
 
 	// split message into payload length, identifier, and payload
 	payloadLength, _ := binary.Uvarint(buffer[:4])
-	id := common.Identifier(buffer[4])
-	payload := buffer[5:b]
+	id := int(buffer[4])
+	payload := make([]byte, b-5)
+	copy(payload, buffer[5:b])
 
 	// read rest of payload, 1024 bytes at a time
 	// TODO: add a timeout
@@ -120,10 +124,15 @@ func (tcp *TCPServer) clientHandler(conn net.Conn) {
 		bytesRead += b
 	}
 
-	// look up message handler and call it
-	handler, exists := tcp.MessageHandlers[id]
-	if exists {
-		handler.HandleMessage(payload)
+	// Message sent directly to TCPServer
+	// for now, just send it to the first message handler
+	if id == 0 {
+		tcp.MessageHandlers[1].HandleMessage(payload)
+		return
 	}
-	// todo: decide on behavior when encountering uninitialized Identifier
+
+	// look up message handler and call it
+	if id < len(tcp.MessageHandlers) {
+		go tcp.MessageHandlers[id].HandleMessage(payload)
+	}
 }
