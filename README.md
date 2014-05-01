@@ -11,7 +11,7 @@ Sia is fast. Every file is hosted across hundreds of machines, so downloads are 
 
 Sia is elastic. You can rent as much or as little storage as you want, and you pay for exactly what you are renting. You never need to guess whether you need the 100GB package or the 500GB package. Instead, you rent exactly as much as you use, expanding or contracting as you add and remove files. There is no fee for adjusting how much you are renting.
 
-Sia secure. By default, all data is encrypted on the client machine before being uploaded to the network. The encrypted data is then divided into pieces and distributed across hundreds of hosts. Only you can view the contents of your files.
+Sia is secure. By default, all data is encrypted on the client machine before being uploaded to the network. The encrypted data is then divided into pieces and distributed across hundreds of hosts. Only you can view the contents of your files.
 
 Economic Model
 ======================
