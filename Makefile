@@ -33,7 +33,6 @@ test-long-verbose: libraries
 	$(govars) go test -v -race $(packages)
 
 dependencies: submodule-update race-libs
-	cd src/common/crypto/libsodium && ./autogen.sh && ./configure && make check && sudo make install && sudo ldconfig
 
 race-libs:
 	$(govars) go install -race std
