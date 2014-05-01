@@ -9,7 +9,7 @@ Sia is cheap. Very cheap. The amortized market cost of bulk storage is around $5
 
 Sia is fast. Every file is hosted across hundreds of machines, so downloads are highly parallel. In mosts cases, this should be enough to saturate your Internet connection. The power of distributed systems makes Sia both faster than Amazon S3 and cheaper than Amazon Glacier.
 
-Sia is elastic, meaning you can rent as much or as little storage as you want, and you pay for exactly what you are renting. You never need to guess whether you need the 100GB package or the 500GB package. Instead, you rent exactly as much as you use, expanding or contracting as you add and remove files. There is no fee for adjusting how much you are renting.
+Sia is elastic. You can rent as much or as little storage as you want, and you pay for exactly what you are renting. You never need to guess whether you need the 100GB package or the 500GB package. Instead, you rent exactly as much as you use, expanding or contracting as you add and remove files. There is no fee for adjusting how much you are renting.
 
 Sia secure. By default, all data is encrypted on the client machine before being uploaded to the network. The encrypted data is then divided into pieces and distributed across hundreds of hosts. Only you can view the contents of your files.
 
