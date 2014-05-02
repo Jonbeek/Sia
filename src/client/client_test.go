@@ -17,7 +17,7 @@ type serverHandler struct {
 	mr    common.MessageRouter
 	index byte
 	data  []byte
-	done  chan bool
+	done  chan struct{}
 }
 
 func (sh *serverHandler) SetAddress(addr *common.Address) {
@@ -40,7 +40,7 @@ func (sh *serverHandler) HandleMessage(payload []byte) {
 		m.Payload = append([]byte{0x00, sh.index}, sh.data...)
 		sh.mr.SendMessage(m)
 	}
-	sh.done <- true
+	sh.done <- struct{}{}
 }
 
 // TestTCPUploadFile tests the NewTCPServer and UploadFile functions.
@@ -65,7 +65,7 @@ func TestTCPUploadFile(t *testing.T) {
 		if err != nil {
 			t.Fatal("Failed to initialize TCPServer:", err)
 		}
-		shs[i].done = make(chan bool, 1)
+		shs[i].done = make(chan struct{}, 1)
 		q[i].Id = qtcp.AddMessageHandler(&shs[i]).Id
 	}
 
@@ -168,7 +168,7 @@ func TestTCPDownloadFile(t *testing.T) {
 	defer tcp.Close()
 	ch := new(clientHandler)
 	ch.k, ch.b = k, bytesPerSegment
-	ch.done = make(chan bool, 1)
+	ch.done = make(chan struct{}, 1)
 	tcp.AddMessageHandler(ch)
 
 	// create quorum
@@ -183,7 +183,7 @@ func TestTCPDownloadFile(t *testing.T) {
 		shs[i].mr = qtcp
 		shs[i].index = byte(i)
 		shs[i].data = []byte(segments[i])
-		shs[i].done = make(chan bool, 1)
+		shs[i].done = make(chan struct{}, 1)
 		q[i].Id = qtcp.AddMessageHandler(&shs[i]).Id
 	}
 

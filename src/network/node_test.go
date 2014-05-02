@@ -12,7 +12,7 @@ import (
 // uses a channel to signal when handler has been called
 type TestMsgHandler struct {
 	result string
-	done   chan bool
+	done   chan struct{}
 }
 
 func (tmh *TestMsgHandler) SetAddress(addr *common.Address) {
@@ -21,7 +21,7 @@ func (tmh *TestMsgHandler) SetAddress(addr *common.Address) {
 
 func (tmh *TestMsgHandler) HandleMessage(payload []byte) {
 	tmh.result = string(payload)
-	tmh.done <- true
+	tmh.done <- struct{}{}
 }
 
 // TestTCPSendMessage tests the NewTCPServer and SendMessage functions.
@@ -37,7 +37,7 @@ func TestTCPSendMessage(t *testing.T) {
 
 	// create message handler and add it to the TCPServer
 	tmh := new(TestMsgHandler)
-	tmh.done = make(chan bool, 1)
+	tmh.done = make(chan struct{}, 1)
 	tcp.AddMessageHandler(tmh)
 
 	// send a message to be echoed

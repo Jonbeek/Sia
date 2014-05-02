@@ -16,7 +16,7 @@ type clientHandler struct {
 	segments []string
 	indices  []uint8
 	k, b     int
-	done     chan bool
+	done     chan struct{}
 }
 
 func (ch *clientHandler) SetAddress(addr *common.Address) {
@@ -30,7 +30,7 @@ func (ch *clientHandler) HandleMessage(payload []byte) {
 		ch.indices = append(ch.indices, uint8(payload[1]))
 		ch.segments = append(ch.segments, string(payload[2:]))
 		if len(ch.segments) == ch.k {
-			ch.done <- true
+			ch.done <- struct{}{}
 		}
 	}
 }
