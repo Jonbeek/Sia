@@ -9,7 +9,7 @@ import (
 // Basic test for reed-solomon coding, verifies that standard input
 // will produce the correct results.
 func TestCoding(t *testing.T) {
-	k := 100
+	k := common.QuorumSize - 2
 	m := common.QuorumSize - k
 	bytesPerSegment := 1024
 

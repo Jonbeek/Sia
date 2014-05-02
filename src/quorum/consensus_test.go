@@ -4,7 +4,7 @@ import (
 	"common"
 	"common/crypto"
 	"testing"
-	//"time"
+	"time"
 )
 
 // Verify that newHeartbeat() produces valid heartbeats
@@ -30,106 +30,77 @@ func TestnewHeartbeat(t *testing.T) {
 	// verify that hosts accept the new heartbeats
 }
 
-// Marshalling and Unmarshalling should result in equivalent Heartbeats
-func TestHeartbeatMarshalling(t *testing.T) {
-	s, err := CreateState(common.NewZeroNetwork())
+func TestHeartbeatEncoding(t *testing.T) {
+	// marshal an empty heartbeat
+	hb := new(heartbeat)
+	mhb, err := hb.GobEncode()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// verify that a heartbeat, once unmarshalled, is identical to the original
-	hbOriginal, err := s.newHeartbeat()
+	// unmarshal the empty heartbeat
+	uhb := new(heartbeat)
+	err = uhb.GobDecode(mhb)
 	if err != nil {
 		t.Fatal(err)
 	}
-	hbMarshalled := hbOriginal.marshal()
-	hbUnmarshalled, err := unmarshalHeartbeat(hbMarshalled)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if hbOriginal.entropyStage1 != hbUnmarshalled.entropyStage1 {
+
+	// test for equivalency
+	if hb.entropyStage1 != uhb.entropyStage1 {
 		t.Fatal("EntropyStage1 not identical upon umarshalling")
 	}
-	if hbOriginal.entropyStage2 != hbUnmarshalled.entropyStage2 {
+	if hb.entropyStage2 != uhb.entropyStage2 {
 		t.Fatal("EntropyStage1 not identical upon umarshalling")
 	}
 
-	// verify that input is being checked for UnmarshalHeartbeat
-	_, err = unmarshalHeartbeat(hbMarshalled[1:])
+	// test encoding with bad input
+	hb = nil
+	mhb, err = hb.GobEncode()
 	if err == nil {
-		t.Fatal("Heartbeat unmarshalling succeded with a short input")
+		t.Error("able to encode a nil heartbeat")
 	}
-	_, err = unmarshalHeartbeat(append(hbMarshalled, hbMarshalled...))
+	err = uhb.GobDecode(nil)
 	if err == nil {
-		t.Fatal("Heartbeat unmarshalling succeded with a long input")
+		t.Error("able to decode a nil byte slice")
 	}
+
+	// fuzz over random potential values of heartbeat
 }
 
-// a SignedHeartbeat should be the same after marshalling and unmarshalling
-func TestSignedHeartbeatMarshalling(t *testing.T) {
+func TestSignedHeartbeatEncoding(t *testing.T) {
+	// Test for bad inputs
+	var bad *signedHeartbeat
+	bad = nil
+	_, err := bad.GobEncode()
+	if err == nil {
+		t.Error("Should not encode a nil signedHeartbeat")
+	}
+	err = bad.GobDecode(nil)
+	if err == nil {
+		t.Error("Should not be able to decode a nil byte slice")
+	}
+
+	// Test the encoding and decoding of a simple signed heartbeat
 	s, err := CreateState(common.NewZeroNetwork())
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// create a SignedHeartbeat, marshall and unmarshall it, and test equivalency
 	hb, err := s.newHeartbeat()
 	if err != nil {
 		t.Fatal(err)
 	}
-	originalSignedHeartbeat, err := s.signHeartbeat(hb)
+	sh, err := s.signHeartbeat(hb)
 	if err != nil {
 		t.Fatal(err)
 	}
-	marshalledSH, err := originalSignedHeartbeat.marshal()
+	msh, err := sh.GobEncode()
 	if err != nil {
 		t.Fatal(err)
 	}
-	unmarshalledSH, err := unmarshalSignedHeartbeat(marshalledSH)
-	if string(unmarshalledSH.heartbeat.marshal()) != string(originalSignedHeartbeat.heartbeat.marshal()) {
-		t.Fatal("Heartbeat changed after being marshalled and unmarshalled")
-	}
-	if unmarshalledSH.heartbeatHash != originalSignedHeartbeat.heartbeatHash {
-		t.Fatal("HeartbeatHash changed after being marshalled and unmarshalled")
-	}
-	if len(unmarshalledSH.signatures) != len(originalSignedHeartbeat.signatures) {
-		t.Fatal("Length of SignedHeartbeat.Signatures changed after being marshalled and unmarshalled")
-	}
-	if len(unmarshalledSH.signatories) != len(originalSignedHeartbeat.signatories) {
-		t.Fatal("Length of SignedHeartbeat.Signatories changed after being marshalled and unmarshalled")
-	}
-	for i := 0; i < len(unmarshalledSH.signatures); i++ {
-		if unmarshalledSH.signatures[i] != originalSignedHeartbeat.signatures[i] {
-			t.Fatal("For i =", i, ", unmarshalledSH.Signatures[i] did not equal originalSignedHeartbeat.Signatures[i]")
-		}
-		if unmarshalledSH.signatories[i] != originalSignedHeartbeat.signatories[i] {
-			t.Fatal("For i =", i, ", unmarshalledSH.Signatories[i] did not equal originalSignedHeartbeat.Signatories[i]")
-		}
-	}
-
-	// verify that input is being checked for SignedHeartbeat.Marshal()
-	originalSignedHeartbeat.signatures = make([]crypto.Signature, 2*common.QuorumSize)
-	_, err = originalSignedHeartbeat.marshal()
-	if err == nil {
-		t.Fatal("SignedHeartbeat.Marshal() needs to check the length of msh.Signatures")
-	}
-	originalSignedHeartbeat.signatures = make([]crypto.Signature, 2)
-	if err == nil {
-		t.Fatal("SignedHeartbeat.Marshal() needs to check that msh.Signatures and msh.Signatories are equal in length")
-	}
-
-	// verify that input is being checked for UnmarshalSignedHeartbeat()
-	_, err = unmarshalSignedHeartbeat(marshalledSH[:marshalledHeartbeatLen()])
-	if err == nil {
-		t.Fatal("UnmarshalSignedHeartbeat not checking input length")
-	}
-	_, err = unmarshalSignedHeartbeat(marshalledSH[1:])
-	if err == nil {
-		t.Fatal("UnmarshalSignedHeartbeat succeeded when input was too short")
-	}
-	_, err = unmarshalSignedHeartbeat(append(marshalledSH, marshalledSH...))
-	if err == nil {
-		t.Fatal("UnmarshalSignedHeartbeat succeded when input was too long")
+	ush := new(signedHeartbeat)
+	err = ush.GobDecode(msh)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	// check marshalling and unmarshalling of a signedHeartbeat with many signatures
@@ -440,7 +411,7 @@ func TestProcessHeartbeat(t *testing.T) {
 } */
 
 // Ensures that Tick() updates CurrentStep
-/* func TestRegularTick(t *testing.T) {
+func TestRegularTick(t *testing.T) {
 	// test takes common.StepDuration seconds; skip for short testing
 	if testing.Short() {
 		t.Skip()
@@ -452,15 +423,17 @@ func TestProcessHeartbeat(t *testing.T) {
 	}
 
 	// verify that tick is updating CurrentStep
+	s.stepLock.Lock()
 	s.currentStep = 1
+	s.stepLock.Unlock()
 	go s.tick()
 	time.Sleep(common.StepDuration)
 	time.Sleep(time.Second)
-	s.lock.Lock()
+	s.stepLock.Lock()
 	if s.currentStep != 2 {
 		t.Fatal("s.currentStep failed to update correctly: ", s.currentStep)
 	}
-	s.lock.Unlock()
+	s.stepLock.Unlock()
 }
 
 // ensures Tick() calles compile() and then resets the counter to step 1
@@ -470,61 +443,20 @@ func TestCompilationTick(t *testing.T) {
 		t.Skip()
 	}
 
-	// create state and give it a heartbeat to prevent it from pruning itself
-	s, err := CreateState(common.NewZeroNetwork(), 0)
+	// create state, set values for compile
+	s, err := CreateState(common.NewZeroNetwork())
 	if err != nil {
 		t.Fatal(err)
 	}
-	hb, err := s.newHeartbeat()
-	if err != nil {
-		return
-	}
-	heartbeatHash, err := crypto.CalculateTruncatedHash([]byte(hb.marshal()))
-	s.heartbeats[s.participantIndex][heartbeatHash] = hb
-
-	// remember entropy to verify that compile() gets called
-	currentEntropy := s.currentEntropy
-
-	// verify that tick is wrapping around properly
 	s.currentStep = common.QuorumSize
 	go s.tick()
+
+	// verify that tick is wrapping around properly
 	time.Sleep(common.StepDuration)
 	time.Sleep(time.Second)
-
-	s.lock.Lock()
+	s.stepLock.Lock()
 	if s.currentStep != 1 {
-		t.Fatal("s.currentStep failed to roll over: ", s.currentStep)
+		t.Error("s.currentStep failed to roll over: ", s.currentStep)
 	}
-
-	// check if s.compile() got called
-	if currentEntropy == s.currentEntropy {
-		t.Fatal("Entropy did not change after tick wrapped around")
-	}
-	s.lock.Unlock()
+	s.stepLock.Unlock()
 }
-
-// TestTickLock verifies that only one instance of Tick() can run at a time
-func TestTickLock(t *testing.T) {
-	// test takes common.StepDuration seconds; skip for short testing
-	if testing.Short() {
-		t.Skip()
-	}
-
-	// create state
-	s, err := CreateState(common.NewZeroNetwork(), 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// call tick twice
-	go s.tick()
-	go s.tick()
-	time.Sleep(common.StepDuration)
-	time.Sleep(time.Second)
-	// if two instances of Tick() are running, s.CurrentStep will update twice
-	s.lock.Lock()
-	if s.currentStep != 2 {
-		t.Fatal("Double tick failed: ", s.currentStep)
-	}
-	s.lock.Unlock()
-}*/
