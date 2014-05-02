@@ -22,8 +22,11 @@ func TestRandomByteSlice(t *testing.T) {
 }
 
 func TestRandomInt(t *testing.T) {
-	// test 0 as a ceiling
-	zero := RandomInt(0)
+	// test 1 as a ceiling in range [0, 1)
+	zero, err := RandomInt(1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if zero != 0 {
 		t.Fatal("Expecting rng to produce 0!")
 	}

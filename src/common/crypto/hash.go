@@ -1,27 +1,14 @@
 package crypto
 
-// #include <sodium.h>
-import "C"
-
 import (
-	"fmt"
-	"unsafe"
+	"crypto/sha512"
 )
 
-// Uses the hash in libsodium
 func CalculateHash(data []byte) (hash Hash, err error) {
-	if data == nil || len(data) == 0 {
-		err = fmt.Errorf("Could not calculate hash of nil")
-		return
-	}
-	hashPointer := (*C.uchar)(unsafe.Pointer(&hash[0]))
-	messagePointer := (*C.uchar)(unsafe.Pointer(&data[0]))
-	sizeOfMessage := C.ulonglong(len(data))
-	success := C.crypto_hash(hashPointer, messagePointer, sizeOfMessage)
-	if success != 0 {
-		err = fmt.Errorf("Error in calculating hash")
-	}
-
+	sha := sha512.New()
+	sha.Write(data)
+	hashSlice := sha.Sum(nil)
+	copy(hash[:], hashSlice)
 	return
 }
 

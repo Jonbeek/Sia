@@ -7,32 +7,29 @@ import (
 )
 
 func establishQuorum() {
-	networkServer, err := network.NewTCPServer(9988)
+	var port int
+	print("Port number: ")
+	fmt.Scanf("%d", &port)
+	networkServer, err := network.NewTCPServer(port)
 	if err != nil {
 		println(err)
 		return
 	}
-	participant, err := quorum.CreateState(networkServer)
-	if err != nil {
-		println(err)
-		return
-	}
-	participant.JoinSia()
-
+	s, err := quorum.CreateState(networkServer)
+	s.JoinSia()
 	select {}
 }
 
 func main() {
 	var input string
 	for {
-		print("Please enter a command:")
+		print("Please enter a command: ")
 		fmt.Scanln(&input)
 
 		switch input {
 		default:
 			println("unrecognized command")
 		case "e":
-			println("establishing new quorum")
 			establishQuorum()
 		case "q":
 			return
