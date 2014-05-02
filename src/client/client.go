@@ -10,53 +10,31 @@ import (
 	"os"
 )
 
-// MessageHandlers
-
-// uploadHandler is a MessageHandler that stores the received data in a byte slice.
-// It uses a channel to signal that it has finished.
-type uploadHandler struct {
-	index byte
-	data  []byte
-	done  chan bool
-}
-
-func (tuh *uploadHandler) SetAddress(addr *common.Address) {
-	return
-}
-
-func (uh *uploadHandler) HandleMessage(payload []byte) {
-	uh.index = payload[0]
-	uh.data = payload[1:]
-	uh.done <- true
-}
-
-// downloadHandler is a MessageHandler that reconstructs a file from a set of segments.
-// It uses a channel to signal that it has finished.
-type downloadHandler struct {
-	data     []byte
+// clientHandler is a MessageHandler that processes messages sent to a client.
+// It uses a channel to signal that it has finished processing.
+type clientHandler struct {
 	segments []string
 	indices  []uint8
 	k, b     int
 	done     chan bool
 }
 
-func (dh *downloadHandler) SetAddress(addr *common.Address) {
+func (ch *clientHandler) SetAddress(addr *common.Address) {
 	return
 }
 
-func (dh *downloadHandler) HandleMessage(payload []byte) {
-	// first byte is the segment index
-	dh.indices = append(dh.indices, uint8(payload[0]))
-	dh.segments = append(dh.segments, string(payload[1:]))
-	// if enough segments have been collected, reconstruct the data
-	if len(dh.segments) == dh.k {
-		dh.data, _ = erasure.RebuildSector(dh.k, dh.b, dh.segments, dh.indices)
-		dh.done <- true
+func (ch *clientHandler) HandleMessage(payload []byte) {
+	// first byte contains the message type
+	switch payload[0] {
+	case 0:
+		ch.indices = append(ch.indices, uint8(payload[1]))
+		ch.segments = append(ch.segments, string(payload[2:]))
+		if len(ch.segments) == ch.k {
+			ch.done <- true
+		}
 	}
 }
 
-// TestTCPDownloadFile tests the NewTCPServer and DownloadFile functions.
-// NewTCPServer must properly initialize a TCP server.
 // UploadFile splits a file into erasure-coded segments and distributes them across a quorum.
 // k is the number of non-redundant segments.
 // The file is padded to satisfy the erasure-coding requirements that:
@@ -97,7 +75,7 @@ func UploadFile(mr common.MessageRouter, file *os.File, k int, quorum [common.Qu
 	for i := range quorum {
 		m := new(common.Message)
 		m.Destination = quorum[i]
-		m.Payload = append([]byte{byte(i)}, []byte(segments[i])...)
+		m.Payload = append([]byte{0x00, byte(i)}, []byte(segments[i])...)
 		err = mr.SendMessage(m)
 		if err != nil {
 			return
@@ -109,19 +87,32 @@ func UploadFile(mr common.MessageRouter, file *os.File, k int, quorum [common.Qu
 
 // DownloadFile retrieves the erasure-coded segments corresponding to a given file from a quorum.
 // It reconstructs the original file from the segments using erasure.RebuildSector().
-func DownloadFile(mr common.MessageRouter, fileHash crypto.Hash, length int, k int, quorum [common.QuorumSize]common.Address) (fileData []byte, err error) {
-	// spawn a separate thread for each segment
+func DownloadFile(mr common.MessageRouter, ch *clientHandler, fileHash crypto.Hash, length int, k int, quorum [common.QuorumSize]common.Address) (data []byte, err error) {
+	// send requests to each member of the quorum
+	numSent := 0
 	for i := range quorum {
-		go func() {
-			// send request
-			m := new(common.Message)
-			m.Destination = quorum[i]
-			m.Payload = []byte{0x01}
-			m.Payload = append(m.Payload, fileHash[:]...)
-			mr.SendMessage(m)
-			// wait for response
-		}()
+		// send requests
+		m := new(common.Message)
+		m.Destination = quorum[i]
+		returnAddr := mr.Address()
+		m.Payload = append([]byte{0x01}, returnAddr.Marshal()...)
+		if mr.SendMessage(m) == nil {
+			numSent++
+		}
 	}
+	if numSent < k {
+		err = fmt.Errorf("too few hosts reachable: needed %v, reached %v", k, numSent)
+		return
+	}
+
+	// wait for responses
+	<-ch.done
+
+	// rebuild file
+	data, err = erasure.RebuildSector(ch.k, ch.b, ch.segments[:ch.k], ch.indices[:ch.k])
+	// remove padding
+	data = data[:length]
+
 	return
 }
 
