@@ -14,6 +14,11 @@
 
 \newcommand{\maxslicesize}{1mb}
 
+% the real set of commands - above to be replaced
+\newcommand{\quorumsize}{128}
+\newcommand{\defaultM}{28}
+\newcommant{\maxsegmentsize}{1mb}
+
 \documentclass[twocolumn]{article}
 
 \begin{document}
@@ -42,24 +47,60 @@ As explored in the paper, Sia should be a cheaper and superior solution to cloud
 
 Sia is a decentralized platform for storing data on the cloud.
 The storage on Sia is block level, like an unformatted hard drive.
-This makes Sia filesystem agnostic - you store information on Sia by setting and requesting arrays of bits.
+This makes Sia file system agnostic - you store information on Sia by setting and requesting arrays of bits.
 It is very easy to put a file system such as NTFS or ext4 on top of Sia.
 It is expected that the average user will not interact directly with Sia, but rather with an application such as a music player that streams directly from Sia.
-Storage on Sia is random-access, meaning that any set of bits can be requested without needing to download an entire file.
 
-Sia is a decentralized platform for storing data on the Internet.
-With only a few kilobytes of overhead, any file can be stored on the Sia network.
-Sia supports anonymity, and guarantees uptime for the files.
-Files can be fetched with only a few hundred milliseconds of latency.
-Files are random-access, meaning a piece of the file can be downloaded without fetching the whole file.
-All files are seeded by \numhosts{} peers, meaning files can be uploaded and downloaded at high speed.
-Sia minimizes file redundancy while maximizing speed and security, making Sia competitive with centralized services.
+Because Sia operates at the block level, it does not make as much sense to talk about files being stored on Sia.
+Instead we talk about sectors of storage, a sector being a logical set of bits stored on Sia.
+Files can be stored within sectors, across multiple sectors, or any other way that a file can be translated into a series of bits.
+Sia is random access, which means you can download any part of a sector without needed to download the whole sector.
 
-Files are stored by hosts in exchange for Siacoins.
-The price of storage is set algorithmically according to supply and demand.
-Siacoins are mined on the Sia network and are the only currency that can be used to purchase Sia storage.
-This constraint provides stability to the price of the siacoin - the price of the coin is tethered to the price of Sia storage.
-Siacoin is a superset of Bitcoin.
+Each sector is given to \quorumsize{} machines that monitor the health of the sector.
+If any of these machines goes offline, it is replaced by the network, keeping the sector available and in good health.
+The sector is broken into \quorumsize{} segments, of which M are redundant, where M is chosen by the uploader.
+Any M machines can go offline at the same time and the sector will still be recoverable - this is because Reed-Solomon coding is used.
+If a machine goes offline or fails, it will be replaced by a new machine within a few hours, bringing the sector back up to its original redundancy.
+Having a sector split between \quorumsize{} machines and being able to tolerate M faults every day means that even in scenarios of high paranoia M can be relatively small.
+
+Reed-Solomon codes are maximum-distance separable.
+This means that redundancy is maximally efficient.
+For example, take a 100mb sector that gets broken up into 128 pieces with M=28.
+You have 100 non-redundant pieces and 28 redundant pieces.
+Of these, ANY 28 pieces can be lost and the full sector can still be recovered.
+Together, all 128 pieces consume 128mb of physical storage.
+The default value for M on Sia is \defaultM{}.
+
+Each sector is stored on \quorumsize{} machines, and the sector can be downloaded in parallel from all of them.
+This allows Sia to obtain very high throughput for downloads, even if each machine is only offering a little bandwidth.
+Additionally, for situations requiring reduced latency, only the closest \quorumsize{} - M machines need to be contacted.
+Because a random set of machines are hosting each sector, the closest \quorumsize{} - M machines are likely to be very close when M is large, regardless of the location of the downloader.
+
+Each sector stored on Sia is accompanied by approximately 40kb of overhead that allows the network to monitor and error-check the sector.
+Multiple files can be stored on a single sector; 40kb is not a minimum file size it is a minimum sector size.
+Each sector is broken into \quorumsize{} segments after redundancy is added.
+The maximum size of a segment is limited to \maxsegmentsize.
+The maximum size of a sector therefore depends on the value of M, a larger M means a smaller maximum sector size.
+Sectors are just a way for the network to orgainze, even though the maximum sector size is small, files and information can be stored across many sectors.
+Optimizing for smaller sectors means that each file is stored on that many more machines, which means the benefits of parallel downloads are increased.
+
+This network design results in some great features:
+\begin{itemize}
+	\item High Speed
+	\item Low Latency
+	\item High Robustness and Security
+	\item Low Overhead
+\end{itemize}
+
+When uploading, a sector can either be encrypted or public.
+Encrypted sectors are great for housing personal or private files.
+Public sectors are great for hosting embeddable web content such as images and videos.
+
+Another property of Sia is that it becomes very difficult to censor files.
+Forcefully taking sectors off of the network requires corrupting or destroying more than M of the \quorumsize{} segments that compose the sector.
+Because sectors on Sia are randomly distributed among a global set of hosts, it is very difficult for a single entity (even as powerful as the NSA) to attack a sufficient number of machines to corrupt a segment, especially when M is set to be large.
+
+\section{File Modes}
 
 Files can be stored in two modes.
 \begin{itemize}
