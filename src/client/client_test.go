@@ -11,6 +11,38 @@ import (
 	"testing"
 )
 
+// serverHandler is a MessageHandler that processes messages sent to a server.
+// It uses a channel to signal that it has finished processing.
+type serverHandler struct {
+	mr    common.MessageRouter
+	index byte
+	data  []byte
+	done  chan struct{}
+}
+
+func (sh *serverHandler) SetAddress(addr *common.Address) {
+	return
+}
+
+func (sh *serverHandler) HandleMessage(payload []byte) {
+	// first byte contains the message type
+	switch payload[0] {
+	case 0: // store segment
+		sh.index = payload[1]
+		sh.data = payload[2:]
+	case 1: // reply to sender with segment
+		var err error
+		m := new(common.Message)
+		m.Destination, err = common.UnmarshalAddress(payload[1:])
+		if err != nil {
+			return
+		}
+		m.Payload = append([]byte{0x00, sh.index}, sh.data...)
+		sh.mr.SendMessage(m)
+	}
+	sh.done <- struct{}{}
+}
+
 // TestTCPUploadFile tests the NewTCPServer and UploadFile functions.
 // NewTCPServer must properly initialize a TCP server.
 // UploadFile must succesfully distribute a file among a quorum.
@@ -25,7 +57,7 @@ func TestTCPUploadFile(t *testing.T) {
 
 	// create quorum
 	var q [common.QuorumSize]common.Address
-	var uhs [common.QuorumSize]uploadHandler
+	var shs [common.QuorumSize]serverHandler
 	for i := 0; i < common.QuorumSize; i++ {
 		q[i] = common.Address{0, "localhost", 9000 + i}
 		qtcp, err := network.NewTCPServer(9000 + i)
@@ -33,8 +65,8 @@ func TestTCPUploadFile(t *testing.T) {
 		if err != nil {
 			t.Fatal("Failed to initialize TCPServer:", err)
 		}
-		uhs[i].done = make(chan bool, 1)
-		q[i].Id = qtcp.AddMessageHandler(&uhs[i]).Id
+		shs[i].done = make(chan struct{}, 1)
+		q[i].Id = qtcp.AddMessageHandler(&shs[i]).Id
 	}
 
 	// create file
@@ -62,23 +94,23 @@ func TestTCPUploadFile(t *testing.T) {
 	}
 
 	// upload file to quorum
-	k := common.QuorumSize - 2
+	k := common.QuorumSize / 2
 	b, err := UploadFile(tcp, file, k, q)
 	if err != nil {
 		t.Fatal("Failed to upload file:", err)
 	}
 
 	// wait for all participants to complete
-	for i := range uhs {
-		<-uhs[i].done
+	for i := range shs {
+		<-shs[i].done
 	}
 
 	// rebuild file from first k segments
 	segments := make([]string, k)
 	indices := make([]uint8, k)
 	for i := 0; i < k; i++ {
-		segments[i] = string(uhs[i].data)
-		indices[i] = uint8(uhs[i].index)
+		segments[i] = string(shs[i].data)
+		indices[i] = uint8(shs[i].index)
 	}
 
 	rebuiltData, err := erasure.RebuildSector(k, b, segments, indices)
@@ -99,34 +131,10 @@ func TestTCPUploadFile(t *testing.T) {
 	}
 }
 
-// a simple message handler
-// sends data to dest
-// uses a channel to signal when handler has been called
-type TestFileHandler struct {
-	tcpServ *network.TCPServer
-	dest    common.Address
-	data    string
-	done    chan bool
-}
-
-func (tfh *TestFileHandler) SetAddress(addr *common.Address) {
-	return
-}
-
-func (tfh *TestFileHandler) HandleMessage(payload []byte) {
-	m := new(common.Message)
-	m.Destination = tfh.dest
-	m.Payload = []byte(tfh.data)
-	tfh.tcpServ.SendMessage(m)
-
-	tfh.done <- true
-}
-
 // NewTCPServer must properly initialize a TCP server.
 // DownloadFile must successfully retrieve a file from a quorum.
 // The downloaded file must match the original file.
 func TestTCPDownloadFile(t *testing.T) {
-	t.Skip()
 	// create file
 	fileData, err := crypto.RandomByteSlice(70000)
 	if err != nil {
@@ -140,7 +148,7 @@ func TestTCPDownloadFile(t *testing.T) {
 	}
 
 	// encode file
-	k := 50
+	k := common.QuorumSize / 2
 	bytesPerSegment := len(fileData) / k
 	if bytesPerSegment%64 != 0 {
 		bytesPerSegment += 64 - (bytesPerSegment % 64)
@@ -158,36 +166,32 @@ func TestTCPDownloadFile(t *testing.T) {
 		t.Fatal("Failed to initialize TCPServer:", err)
 	}
 	defer tcp.Close()
-	tdh := new(downloadHandler)
-	tdh.segments = make([]string, k)
-	tdh.indices = make([]uint8, k)
-	tdh.k, tdh.b = k, bytesPerSegment
-	tcp.AddMessageHandler(tdh)
+	ch := new(clientHandler)
+	ch.k, ch.b = k, bytesPerSegment
+	ch.done = make(chan struct{}, 1)
+	tcp.AddMessageHandler(ch)
 
 	// create quorum
 	var q [common.QuorumSize]common.Address
-	var tfhs [common.QuorumSize]TestFileHandler
+	var shs [common.QuorumSize]serverHandler
 	for i := 0; i < common.QuorumSize; i++ {
 		q[i] = common.Address{0, "localhost", 9000 + i}
 		qtcp, err := network.NewTCPServer(9000 + i)
 		if err != nil {
 			t.Fatal("Failed to initialize TCPServer:", err)
 		}
-		tfhs[i].tcpServ = qtcp
-		tfhs[i].dest = tcp.Address()
-		tfhs[i].data = segments[i]
-		tfhs[i].done = make(chan bool, 1)
-		q[i].Id = qtcp.AddMessageHandler(&tfhs[i]).Id
+		shs[i].mr = qtcp
+		shs[i].index = byte(i)
+		shs[i].data = []byte(segments[i])
+		shs[i].done = make(chan struct{}, 1)
+		q[i].Id = qtcp.AddMessageHandler(&shs[i]).Id
 	}
 
 	// download file from quorum
-	downData, err := DownloadFile(tcp, origHash, len(fileData), k, q)
+	downData, err := DownloadFile(tcp, ch, origHash, 70000, k, q)
 	if err != nil {
 		t.Fatal("Failed to download file:", err)
 	}
-
-	// wait for download to complete
-	<-tdh.done
 
 	// check hash
 	rebuiltHash, err := crypto.CalculateHash(downData)
