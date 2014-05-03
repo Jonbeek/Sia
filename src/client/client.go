@@ -5,6 +5,7 @@ import (
 	"common"
 	"common/crypto"
 	"common/erasure"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"os"
@@ -94,8 +95,12 @@ func DownloadFile(mr common.MessageRouter, ch *clientHandler, fileHash crypto.Ha
 		// send requests
 		m := new(common.Message)
 		m.Destination = quorum[i]
-		returnAddr := mr.Address()
-		m.Payload = append([]byte{0x01}, returnAddr.Marshal()...)
+		b := new(bytes.Buffer)
+		err = gob.NewEncoder(b).Encode(mr.Address())
+		if err != nil {
+			continue
+		}
+		m.Payload = append([]byte{0x01}, b.Bytes()...)
 		if mr.SendMessage(m) == nil {
 			numSent++
 		}
