@@ -120,14 +120,37 @@ Immutable sectors cannot be deleted from the network unless the siacoin balance 
 
 \section{Use Cases}
 
+Sia can be used as an efficient replacement to many of today's web services.
+One obvious example it BitTorrent.
+With BitTorrent, every seeder needs essentially the entire file that's being seeded, resulting in a huge global redundancy of the file.
+With Sia, a file only needs a small amount of redundancy to provide the same amount of throughput.
+Another issue is that torrents die once the last seeder disappears.
+The half life of a torrent can be as low as a few months.
+With Sia, a file will stay around as long as the sectors are paid for.
+Because anyone can pay for a sector, anyone can secure the longevity of a file on Sia without needing to go through the hassle of seeding it continuously.
+Sia is not free, but neither is BitTorrent.
+The cost of BitTorrent is seeding files, which consumes hard drive space and bandwidth.
+Anybody with both of these resources can participant in Sia and gain Siacoins, enabling them to also download from Sia.
+Sia is a comprehensive replacement for BitTorrent.
+
+Sia makes sense as the storage layer for any streaming application.
+This includes content embedded into web pages.
+By embedding images and videos into Sia instead of hosting them on a centralized server, you can achieve lower storage costs, lower bandwidth costs, higher throughput, and equivalent (or even reduced) latencies.
+Sia automatically acts as a CDN, meaning users across the world receive similar service to local users.
+Sia could also be used for non-streaming applications, such as for save data in a video game, or even for loading new areas in a video game.
+
+Sia is also elastic, meaning you only need to rent exactly as much storage as you are currently using.
+Instead of needing to plan for the future and buying a 1TB drive, if you are only consuming 650GB then you can rent exactly 650GB of Sia storage.
+You can expand the volume of storage you are renting at any time, within minutes.
+
+On sufficiently fast connections, Sia could potentially be used as a replacement for hard drives.
+The throughput on Sia can potentially exceed a gigabit per second, which is nearly as much throughput as an SSD.
+The bottleneck would be latency, which would still be around a hundred milliseconds per request (except for sectors with very high redundancy).
+By moving enough of your operating system into RAM, you can avoid this problem and replace your local hard drive.
+
+\section{Economics}
+
 \section{Overview}
-
-Sia can be used as a more efficient replacement for many of todays services.
-These services include Bittorrent, Bitcoin, and file lockers such as MediaFire.
-On fast connections, Sia could be used as a replacement for hard drives - computers would only need enough local storage to boot and connect to the internet.
-
-One major advantage of Sia is that all shared files only need to be hosted once, yet no central service needs to be trusted or depended on.
-Another advantage of Sia is that you only need to rent as much storage as you are actively using - more storage can be rented on-the-fly.
 
 Sia is built out of many small blockchains of \numhosts{} hosts each.
 These blockchains participate in a deterministic consensus algorithm instead of using a block mining algorithm such as proof-of-work.
