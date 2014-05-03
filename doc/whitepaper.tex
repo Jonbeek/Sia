@@ -17,7 +17,7 @@
 % the real set of commands - above to be replaced
 \newcommand{\quorumsize}{128}
 \newcommand{\defaultM}{28}
-\newcommant{\maxsegmentsize}{1mb}
+\newcommand{\maxsegmentsize}{1mb}
 
 \documentclass[twocolumn]{article}
 
@@ -84,6 +84,10 @@ The maximum size of a sector therefore depends on the value of M, a larger M mea
 Sectors are just a way for the network to orgainze, even though the maximum sector size is small, files and information can be stored across many sectors.
 Optimizing for smaller sectors means that each file is stored on that many more machines, which means the benefits of parallel downloads are increased.
 
+Another property of Sia is that it becomes very difficult to censor data.
+Forcefully taking sectors off of the network requires corrupting or destroying more than M of the \quorumsize{} segments that compose the sector.
+Because sectors on Sia are randomly distributed among a global set of hosts, it is very difficult for a single entity (even as powerful as the NSA) to attack a sufficient number of machines to corrupt a segment, especially when M is set to be large.
+
 This network design results in some great features:
 \begin{itemize}
 	\item High Speed
@@ -92,34 +96,31 @@ This network design results in some great features:
 	\item Low Overhead
 \end{itemize}
 
+\section{Managing Sectors}
+
 When uploading, a sector can either be encrypted or public.
 Encrypted sectors are great for housing personal or private files.
 Public sectors are great for hosting embeddable web content such as images and videos.
+Any sector can be downloaded by anybody, and a sector may end up on any malicious machine.
+The best way to protect a file or sector is to use client-side encryption.
 
-Another property of Sia is that it becomes very difficult to censor files.
-Forcefully taking sectors off of the network requires corrupting or destroying more than M of the \quorumsize{} segments that compose the sector.
-Because sectors on Sia are randomly distributed among a global set of hosts, it is very difficult for a single entity (even as powerful as the NSA) to attack a sufficient number of machines to corrupt a segment, especially when M is set to be large.
+Sectors can also be mutable or immutable.
+The contents of a mutable sector can be altered at any time, but only by authorized parties.
+Authorization is done using public key cryptography.
+It is expected that most sectors will be mutable.
+Immutable sectors cannot be altered after they have been uploaded.
+This is achieved by authorizing nobody to edit a file.
+Immutable sectors are appropriate for public and/or shared data - if you use a public sector, you want assurance that the data will be the same every time you access it.
 
-\section{File Modes}
+Each sector is associated with a balance of siacoins, which is used to pay for the storage that the sector consumes.
+Each block, a volume of siacoins is subtracted from the sector balance according to the current price of storage.
+When the balance runs out, the sector is deleted, and space on the network is cleared for new data.
+Anybody can add to the balance of a sector at any time, whether the sector is mutable or immutable.
+Immutable sectors cannot be deleted from the network unless the siacoin balance fully depletes.
 
-Files can be stored in two modes.
-\begin{itemize}
-	\item Mutable - the contents of the file can be changed by anyone with permission.
-	The original contents of the file are permanently lost after a change is made.
-	Most files will be mutable.
-	\item Immutable - once uploaded, the file can never be altered, and the size of the file is constant.
-	At the end of the file, there is a pointer to another file, which can contain information about updates to the original file.
-	This pointer can be null.
-	Immutable files are appropriate for public and shared data and media - if you use a public file, you want to be sure that the uploader won't replace it with something else.
-\end{itemize}
+\section{Use Cases}
 
-Files have a balance of siacoins, which is used to pay the hosts that store the file.
-Each block, a volume of siacoins is removed from the balance according to the current price of storage.
-When the balance runs out, the file is deleted.
-Anybody can increase the balance at any time by sending more siacoins to the file.
-There is no way to remove a file from the network aside from waiting until the balance depletes.
-There is no way to extract coins from the balance - once sent to a file, siacoins are locked into a single purpose.
-These constraints protect against censorship.
+\section{Overview}
 
 Sia can be used as a more efficient replacement for many of todays services.
 These services include Bittorrent, Bitcoin, and file lockers such as MediaFire.
@@ -127,8 +128,6 @@ On fast connections, Sia could be used as a replacement for hard drives - comput
 
 One major advantage of Sia is that all shared files only need to be hosted once, yet no central service needs to be trusted or depended on.
 Another advantage of Sia is that you only need to rent as much storage as you are actively using - more storage can be rented on-the-fly.
-
-\section{Overview}
 
 Sia is built out of many small blockchains of \numhosts{} hosts each.
 These blockchains participate in a deterministic consensus algorithm instead of using a block mining algorithm such as proof-of-work.
