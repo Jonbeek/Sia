@@ -5,6 +5,7 @@ import (
 	"common"
 	"common/crypto"
 	"common/erasure"
+	"encoding/gob"
 	"io/ioutil"
 	"network"
 	"os"
@@ -33,7 +34,7 @@ func (sh *serverHandler) HandleMessage(payload []byte) {
 	case 1: // reply to sender with segment
 		var err error
 		m := new(common.Message)
-		m.Destination, err = common.UnmarshalAddress(payload[1:])
+		err = gob.NewDecoder(bytes.NewBuffer(payload[1:])).Decode(&m.Destination)
 		if err != nil {
 			return
 		}
