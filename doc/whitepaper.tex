@@ -40,6 +40,13 @@ As explored in the paper, Sia should be a cheaper and superior solution to cloud
 
 \section{Introduction}
 
+Sia is a decentralized platform for storing data on the cloud.
+The storage on Sia is block level, like an unformatted hard drive.
+This makes Sia filesystem agnostic - you store information on Sia by setting and requesting arrays of bits.
+It is very easy to put a file system such as NTFS or ext4 on top of Sia.
+It is expected that the average user will not interact directly with Sia, but rather with an application such as a music player that streams directly from Sia.
+Storage on Sia is random-access, meaning that any set of bits can be requested without needing to download an entire file.
+
 Sia is a decentralized platform for storing data on the Internet.
 With only a few kilobytes of overhead, any file can be stored on the Sia network.
 Sia supports anonymity, and guarantees uptime for the files.
@@ -465,6 +472,35 @@ All transactions using Siacoin will be charged 1\%.
 This 1\% is tossed from the network.
 
 \section{Conclusion}
+
+\section{Appendix: Vocabulary}
+
+\begin{description}
+	\item[Segment] \hfill \\
+	An erasure coded piece of a physical file held by a single participant.
+	\item[Sector] \hfill \\
+	A logical block of data stored on a quorum.
+	This logical block is composed of a set of equal sized erasure coded segments, one segment held by each participant in the quorum housing the Sector.
+	\item[Ring] \hfill \\
+	A physical block of erasure coded data.
+	A ring is every segment for a particular file in a quorum.
+	A ring is what the data looks like after it has been erasure coded; a sector is what the data looks like before it has been erasure coded.
+	
+	\item[Participant] \hfill \\
+	A network-connected computer offering a discreet and nonflexible volume of storage to the network.
+	\item[Quorum] \hfill \\
+	A set of randomly chosen particpants working in consenses to monitor a fragment of the Sia network.
+	\item[State] \hfill \\
+	The status of a quorum-monitored fragment of the Sia network.
+	Every participant in the same quorum will have an identical state.
+	Every quorum has a different state, as every quorum monitors a different fragment of the Sia network.
+
+	\item[Block] \hfill \\
+	A set of updates to the State of a particular quorum.
+	\item[Heartbeat] \hfill \\
+	A set of updates from a single participant in a quorum.
+	A block is actually just a list of heartbeats, one from every participant in the quorum that the block acts upon.
+\end{description}
 
 \end{document}
 
