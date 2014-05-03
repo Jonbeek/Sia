@@ -17,6 +17,7 @@
 % the real set of commands - above to be replaced
 \newcommand{\quorumsize}{128}
 \newcommand{\defaultM}{28}
+\newcommand{\hostincomefee}{3.9\%}
 \newcommand{\maxsegmentsize}{1mb}
 
 \documentclass[twocolumn]{article}
@@ -149,6 +150,38 @@ The bottleneck would be latency, which would still be around a hundred milliseco
 By moving enough of your operating system into RAM, you can avoid this problem and replace your local hard drive.
 
 \section{Economics}
+
+Sia compensates hosts using a cryptocurrency.
+This cryptocurrency, Siacoin, will be easily exchangeable for bitcoins and subsequently USD through a trustless exchange.
+When the currency launches, the mining rate will be set to 10,000 siacoins per day.
+The number of coins mined will decrease daily until the 4 year mark, at which point the network will mine coins such that the annual inflation rate is kept permanently at 5\%.
+This means that there is no cap to the number of siacoins that will be produced.
+No coins will be premined.
+
+An inflationary model has been chosen for Siacoin to emphasize the current hosts on the network as opposed to the early adopters.
+Initially, the number of coins generated will be very high, and the early adopters will be rewarded.
+In the long run however we want the people actively contributing resources to the network to be the people that are most heavily rewarded.
+We also believe that an inflationary model will result in a currency that is much less volatile.
+
+Hosts on Sia will have two incomes: the first is the income from mining new coins, and the second is the income from rental payments.
+This creates a unique dynamic where it's entirely possible that the raw cost of storage will be greater than the network price of storage due to the additional income hosts receive from mining.
+Both incomes for hosts have a \hostincomefee{} fee which is distributed among the owners of Siastock.
+
+Siastock is a 100\% premined currency that will be initially owned completely by the developers.
+During an IPO or a pre-IPO, some percentage of Siastock will be traded for seed money.
+Someone who owns 1\% of all Siatock will receive (1\% * \hostincomefee{}) = 0.039\% of all host income on the Sia network.
+This model of developer and backer revenue has been chosen instead of premining because it enables us to make Sia inflationary while still having a guaranteed income.
+It also makes it clearer exactly how much value is going towards the developers and stock owners.
+
+The only way to access the storage on Sia is to use siacoins.
+The storage on Sia has a certain value, and the only way to access that value is to use Siacoin.
+If the price of Siacoin drops significantly, access to Sia resources becomes very cheap, which should in turn increase the demand for Siacoin and bring the price back up.
+The internal value of Sia, combined with the fact that this value can only be accessed using Siacoin gives Siacoin an internal value that is roughly equivalent to the value of all the resources on Sia.
+Siastock provides a guaranteed income that is equivalent a percentage of all host income in siacoins, Siastock also has an internal value.
+
+% price ups and downs
+% pricing Siacoin
+% pricing Siastock
 
 \section{Overview}
 
