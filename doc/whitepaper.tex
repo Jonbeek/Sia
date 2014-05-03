@@ -24,29 +24,25 @@
 \author{
 {\rm David Vorick}\\
 Rensselaer Polytechnic Institute
-\and
-{\rm Colin Rice}\\
-Rensselaer Polytechnic Institute
 }
 
 \maketitle
 
 \subsection*{Abstract}
-Sia is a decentralized platform for computer storage.
-Host computers contribute storage and bandwidth in return for Sia's internal cryptocurrency - Siacoin.
-In addition to receiving compensation from the users, host computers also mine siacoins in proportion to the volume of storage they contribute.
-Clients acquire siacoins (either by being hosts or through a currency exchange) to exchange for storage space and download bandwidth on the Sia network.
-The cost of renting storage is set using a supply and demand algorithm.
-Sia is a cryptosystem that is secure with only a simple majority of honest hosts.
-Sia is built out of many small blockchains arranged in a tree structure.
-Blockchains operate using a concensus algorithm instead of proof-of-work.
-To join a blockchain, you must have proof-of-storage equivalent to \storageperhost{}.
+Sia is a decentralized platform for computer storage acting as a marketplace for storage.
+On the supply side, host computers contribute storage in return for Sia's internal cryptocurrency - Siacoin.
+On the demand side, consumers use Siacoin to rent storage space.
+The price of storage is set by a market making algorithm that is sensitive to the volume of supply and demand.
+Files on Sia are distributed to a large number of randomly selected hosts.
+Erasure Coding is used to give the files redundancy, enabling files to be spread over hundreds of machines with highly reliable network redundancies as low as 1.2.
+Spreading the files over hundreds of hosts means that files can be downloaded in parallel from hundreds of places and achieve high throughput.
+As explored in the paper, Sia should be a cheaper and superior solution to cloud storage when compared against the existing centralized alternatives.
 
 \section{Introduction}
 
-Sia is a decentralized platform for storing data on the internet.
+Sia is a decentralized platform for storing data on the Internet.
 With only a few kilobytes of overhead, any file can be stored on the Sia network.
-Sia supports anonymity, and guaruantees uptime for the files.
+Sia supports anonymity, and guarantees uptime for the files.
 Files can be fetched with only a few hundred milliseconds of latency.
 Files are random-access, meaning a piece of the file can be downloaded without fetching the whole file.
 All files are seeded by \numhosts{} peers, meaning files can be uploaded and downloaded at high speed.
@@ -471,3 +467,4 @@ This 1\% is tossed from the network.
 \section{Conclusion}
 
 \end{document}
+
