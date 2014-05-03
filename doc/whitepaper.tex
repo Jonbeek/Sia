@@ -183,6 +183,8 @@ Siastock provides a guaranteed income that is equivalent a percentage of all hos
 % pricing Siacoin
 % pricing Siastock
 
+\section{The Base Componenet: A Quorum}
+
 \section{Overview}
 
 Sia is built out of many small blockchains of \numhosts{} hosts each.
@@ -330,15 +332,6 @@ If individual blockchains converge to being 60\% dishonest, with high probabilit
 This means that for all blockchains, we can assume that at least \inversemaxcorruption{} hosts are honest.
 
 \section{File Storage Layout}
-
-Each blockchain has \numhosts{} and \storageperhost{} per host.
-Each \storageperhost{} block of data is split up into many smaller pieces, which are to be called slices.
-Slices have no minimum file size, but have a maximum file size of \maxslicesize.
-The collection of slices on a single block of data is called a stack.
-
-The slices in each stack correcspond to each other.
-For example, if the third slice on one host is 45kb, then the third slice on every single host is also 45kb.
-These inter-host sets of congruent slices are called rings.
 
 Files are stored on multiple hosts using Reed-Solomon coding, which is maximum distance separable.
 First the user picks redundancy settings, which is what volume of the hosts need to retain their piece of the file in order for the file to be recovered.
@@ -546,28 +539,6 @@ Parents of parents are also composed of random child hosts, but they are compose
 
 The tree is how hosts can be confident that their siacoins are real and confirmed without needing to know every transaction on the network.
 Each parent keeps track of the aggregate balance of all the children.
-
-\section{Aggregate Transactions}
-
-\section{Blockchain Certifications}
-
-\section{Blookchain DHT}
-
-\section{Economic Model}
-
-Siacoins are generated at a rate of twenty thousand per day.
-The number of siacoins being produced will increase by 5\% per year, therefore exactly 1 year from the launch date, approximately twenty one thousand coins will be produced each day.
-% an exact equation needs to be determined
-
-The goal of the Siacoin is to be a non-volatile currency.
-The permanent inflationary nature of the Siacoin makes it less attractive to speculation, which is what drives the volatility of Bitcoin.
-Additionally, the inflation means that over time the cruft of the network will be cleared out.
-
-To fight high frequency trading, a network transaction fee of 1\% will be instituted.
-All transactions using Siacoin will be charged 1\%.
-This 1\% is tossed from the network.
-
-\section{Conclusion}
 
 \section{Appendix: Vocabulary}
 
