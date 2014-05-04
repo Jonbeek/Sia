@@ -4,23 +4,26 @@ import (
 	"common/crypto"
 )
 
+// A Sector is a logical block of data.
+type Sector struct {
+	Data []byte
+	Hash crypto.Hash
+}
+
+// A Ring is an erasure-coded Sector, along with the parameters used to encode it.
+// k is the number of non-redundant segments, and b is the number of bytes per segment.
+type Ring struct {
+	Segs      []Segment
+	SegHashes []crypto.Hash
+	k, b      int
+	length    int
+}
+
 // A Segment is an erasure-coded piece of a Ring, containing both the data and its corresponding index.
 type Segment struct {
 	Data  []byte
 	Index uint8
 }
-
-// A Sector is a block of data, along with its erasure-coding parameters.
-// k is the number of non-redundant segments, and b is the number of bytes per segment.
-type Sector struct {
-	Data   []byte
-	Hash   crypto.Hash
-	length int
-	k, b   int
-}
-
-// A Ring is an array of QuorumSize Segments, ready for distribution across a Quorum.
-type Ring [QuorumSize]Segment
 
 // NewSector creates a Sector from data.
 func NewSector(data []byte) (s *Sector, err error) {
@@ -28,31 +31,40 @@ func NewSector(data []byte) (s *Sector, err error) {
 	hash, err := crypto.CalculateHash(data)
 
 	s = &Sector{
-		data,
-		hash,
-		len(data),
-		0, 0,
+		Data: data,
+		Hash: hash,
 	}
 	return
 }
 
-// SetRedundancy sets the erasure-coding parameters of a Sector based on a provided k value.
-func (s *Sector) SetRedundancy(k int) {
-	s.k = k
-	s.b = len(s.Data) / s.k
-	if s.b%64 != 0 {
-		s.b += 64 - (s.b % 64)
+// NewRing creates an empty Ring using the specified encoding parameters.
+func NewRing(k, b, length int) *Ring {
+	return &Ring{
+		k:      k,
+		b:      b,
+		length: length,
 	}
 }
 
-func (s *Sector) GetRedundancy() int {
-	return s.k
+// AddSegment adds a Segment to a Ring
+func (r *Ring) AddSegment(seg *Segment) (err error) {
+	sh, err := crypto.CalculateHash(seg.Data)
+	if err != nil {
+		return
+	}
+	r.Segs = append(r.Segs, *seg)
+	r.SegHashes = append(r.SegHashes, sh)
+	return
 }
 
-func (s *Sector) GetBytesPerSegment() int {
-	return s.b
+func (r *Ring) GetRedundancy() int {
+	return r.k
 }
 
-func (s *Sector) GetLength() int {
-	return s.length
+func (r *Ring) GetBytesPerSegment() int {
+	return r.b
+}
+
+func (r *Ring) GetLength() int {
+	return r.length
 }
