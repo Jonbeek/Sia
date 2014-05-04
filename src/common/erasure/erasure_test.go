@@ -9,54 +9,47 @@ import (
 // Basic test for reed-solomon coding, verifies that standard input
 // will produce the correct results.
 func TestCoding(t *testing.T) {
-	k := common.QuorumSize - 2
+	// set encoding parameters
+	k := common.QuorumSize / 2
 	m := common.QuorumSize - k
-	bytesPerSegment := 1024
+	b := 1024
 
-	randomBytes, err := crypto.RandomByteSlice(bytesPerSegment * k)
+	// create sector data
+	randomBytes, err := crypto.RandomByteSlice(b * k)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// get hash of original file
-	randomBytesHash, err := crypto.CalculateHash(randomBytes)
+	// create sector
+	sec, err := common.NewSector(randomBytes)
+	sec.SetRedundancy(k)
+
+	// encode data into a Ring
+	ring, err := EncodeRing(sec)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// encode original file into a data ring
-	ringSegments, err := EncodeRing(k, bytesPerSegment, randomBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// clear sector data
+	sec.Data = []byte{0x00}
 
-	// verify that first k segments are still original data
-	originalDataHash, err := crypto.CalculateHash(randomBytes)
-	if err != nil {
-		t.Fatal(err)
-	} else if originalDataHash != randomBytesHash {
-		t.Fatal("original data was modified after caling EncodeRing!")
-	}
-
-	// reduce file to a set of k segments and print those segments out
-	remainingSegments := make([]string, k)
-	segmentIndicies := make([]uint8, k)
+	// reduce data to a set of k segments
+	remainingSegments := make([]common.Segment, k)
 	for i := m; i < common.QuorumSize; i++ {
-		remainingSegments[i-m] = ringSegments[i]
-		segmentIndicies[i-m] = uint8(i)
+		remainingSegments[i-m] = ring[i]
 	}
 
 	// recover original data
-	recoveredData, err := RebuildSector(k, bytesPerSegment, remainingSegments, segmentIndicies)
+	err = RebuildSector(sec, remainingSegments)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// compare to hash of data when first generated
-	recoveredDataHash, err := crypto.CalculateHash(recoveredData)
+	recoveredDataHash, err := crypto.CalculateHash(sec.Data)
 	if err != nil {
 		t.Fatal(err)
-	} else if recoveredDataHash != randomBytesHash {
+	} else if recoveredDataHash != sec.Hash {
 		t.Fatal("recovered data is different from original data")
 	}
 
