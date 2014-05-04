@@ -2,15 +2,15 @@ package main
 
 import (
 	"common"
-	"common/data"
+	"common/erasure"
 	"fmt"
 	"network"
 )
 
 // uploadSector splits a Sector into erasure-coded segments and distributes them across a quorum.
-func uploadSector(sec *data.Sector, quorum [common.QuorumSize]common.Address) (err error) {
+func uploadSector(sec *common.Sector, quorum [common.QuorumSize]common.Address) (err error) {
 	// create erasure-coded segments
-	segments, err := sec.Encode()
+	ring, err := erasure.EncodeRing(sec)
 	if err != nil {
 		return
 	}
@@ -21,7 +21,7 @@ func uploadSector(sec *data.Sector, quorum [common.QuorumSize]common.Address) (e
 		m := &common.RPCMessage{
 			quorum[i],
 			"ServerHandler.UploadSegment",
-			segments[i],
+			ring[i],
 			nil,
 		}
 		err = network.SendRPCMessage(m)
@@ -35,13 +35,12 @@ func uploadSector(sec *data.Sector, quorum [common.QuorumSize]common.Address) (e
 
 // downloadSector retrieves the erasure-coded segments corresponding to a given Sector from a quorum.
 // It reconstructs the original data from the segments and returns the complete Sector
-func downloadSector(sec *data.Sector, quorum [common.QuorumSize]common.Address) error {
+func downloadSector(sec *common.Sector, quorum [common.QuorumSize]common.Address) (err error) {
 	// send requests to each member of the quorum
 	numSent := 0
-	var segments []string
-	var indices []uint8
+	var segs []common.Segment
 	for i := range quorum {
-		var seg data.Segment
+		var seg common.Segment
 		m := &common.RPCMessage{
 			quorum[i],
 			"ServerHandler.DownloadSegment",
@@ -49,8 +48,7 @@ func downloadSector(sec *data.Sector, quorum [common.QuorumSize]common.Address) 
 			&seg,
 		}
 		if network.SendRPCMessage(m) == nil {
-			segments = append(segments, seg.Data)
-			indices = append(indices, seg.Index)
+			segs = append(segs, seg)
 			numSent++
 		}
 	}
@@ -59,14 +57,8 @@ func downloadSector(sec *data.Sector, quorum [common.QuorumSize]common.Address) 
 	}
 
 	// rebuild file
-	return sec.Rebuild(segments, indices)
-}
-
-func joinQuorum(mr common.MessageRouter) (q [common.QuorumSize]common.Address) {
-	// for a := range q {
-
-	// }
-	return q
+	err = erasure.RebuildSector(sec, segs[:sec.GetRedundancy()])
+	return
 }
 
 func main() {

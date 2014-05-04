@@ -3,21 +3,21 @@ package main
 import (
 	"common"
 	"common/crypto"
-	"common/data"
+	"common/erasure"
 	"network"
 	"testing"
 )
 
 type ServerHandler struct {
-	seg data.Segment
+	seg common.Segment
 }
 
-func (sh *ServerHandler) UploadSegment(seg data.Segment, arb *struct{}) error {
+func (sh *ServerHandler) UploadSegment(seg common.Segment, arb *struct{}) error {
 	sh.seg = seg
 	return nil
 }
 
-func (sh *ServerHandler) DownloadSegment(hash crypto.Hash, seg *data.Segment) error {
+func (sh *ServerHandler) DownloadSegment(hash crypto.Hash, seg *common.Segment) error {
 	*seg = sh.seg
 	return nil
 }
@@ -53,7 +53,7 @@ func TestRPCuploadSector(t *testing.T) {
 		t.Fatal("Could not generate test data:", err)
 	}
 
-	sec, err := data.NewSector(secData)
+	sec, err := common.NewSector(secData)
 	if err != nil {
 		t.Fatal("Failed to create sector:", err)
 	}
@@ -67,15 +67,12 @@ func TestRPCuploadSector(t *testing.T) {
 	}
 
 	// rebuild file from first k segments
-	segments := make([]string, k)
-	indices := make([]uint8, k)
+	segments := make([]common.Segment, k)
 	for i := 0; i < k; i++ {
-		segments[i] = shs[i].seg.Data
-		indices[i] = shs[i].seg.Index
+		segments[i] = shs[i].seg
 	}
 
-	err = sec.Rebuild(segments, indices)
-	println(segments[1])
+	err = erasure.RebuildSector(sec, segments)
 	if err != nil {
 		t.Fatal("Failed to rebuild file:", err)
 	}
@@ -102,14 +99,14 @@ func TestRPCdownloadSector(t *testing.T) {
 		t.Fatal("Could not generate test data:", err)
 	}
 
-	sec, err := data.NewSector(secData)
+	sec, err := common.NewSector(secData)
 	if err != nil {
 		t.Fatal("Failed to create sector:", err)
 	}
 	sec.SetRedundancy(common.QuorumSize / 2)
 
 	// encode sector
-	segments, err := sec.Encode()
+	segments, err := erasure.EncodeRing(sec)
 	if err != nil {
 		t.Fatal("Failed to encode sector data:", err)
 	}
