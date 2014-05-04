@@ -255,7 +255,24 @@ This is okay however, because the action taken by an honest participant will be 
 
 \section{Block Compilation}
 
-\section{Entropy}
+Once step \quorumsize{} is reached, the heartbeats are aggregated and block compilation occurs.
+All participants who submitted multiple heartbeats are penalized and thrown from the quorum, and their heartbeats are discarded.
+Then the proof-of-storage algorithm is run.
+This extracts the data for the proof-of-storage from each heartbeat and verifies that the participant is honest about their storage.
+Each participant must also submit information relating to random number generation, which is also parsed and verified as honest.
+Any participant that fails the storage proofs and/or random number proofs are thrown from the network and their heartbeats are discarded.
+
+All that remains to be parsed is transactions.
+Before processing the transactions, the honest heartbeats are sorted into a random order.
+The shuffle algorithm (explained more fully in section 'Random Number Generation') uses a deterministic seed from the previous block, such that all participants will arrive at the same random ordering.
+Then, heartbeats are processed one at a time, taking the transactions from within the heartbeat and processing them one at a time.
+If a transaction is invalid or is a double spend, that transaction is ignored.
+All participants are assumed to start with the same state, receive the same heartbeats, and process the heartbeats in the same order.
+Therefore, all participants will end with the same new state.
+
+\section{Proof-of-Storage}
+
+\section{Random Number Generation}
 
 \section{Overview}
 
