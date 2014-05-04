@@ -11,8 +11,8 @@ type TestStoreHandler struct {
 	message string
 }
 
-func (tsh *TestStoreHandler) StoreMessage(message []byte, arb *struct{}) error {
-	tsh.message = string(message)
+func (tsh *TestStoreHandler) StoreMessage(message string, arb *struct{}) error {
+	tsh.message = message
 	return nil
 }
 
@@ -36,7 +36,7 @@ func TestRPCSendMessage(t *testing.T) {
 	m := &common.RPCMessage{
 		common.Address{0, "localhost", 9988},
 		"TestStoreHandler.StoreMessage",
-		[]byte("hello, world!"),
+		"hello, world!",
 		nil,
 	}
 	err = SendRPCMessage(m)

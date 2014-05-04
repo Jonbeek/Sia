@@ -56,17 +56,17 @@ func EncodeRing(sec *common.Sector) (ring common.Ring, err error) {
 	// call c library to encode data
 	m := common.QuorumSize - k
 	redundantChunk := C.encodeRedundancy(C.int(k), C.int(m), C.int(b), (*C.char)(unsafe.Pointer(&paddedData[0])))
-	redundantString := C.GoStringN(redundantChunk, C.int(m*b))
+	redundantBytes := C.GoBytes(unsafe.Pointer(redundantChunk), C.int(m*b))
 
 	// split paddedData into ring
 	for i := 0; i < k; i++ {
-		ring[i].Data = string(paddedData[i*b : i*b+b])
+		ring[i].Data = paddedData[i*b : (i+1)*b]
 		ring[i].Index = uint8(i)
 	}
 
 	// split redundantString into ring
 	for i := k; i < common.QuorumSize; i++ {
-		ring[i].Data = redundantString[(i-k)*b : ((i-k)*b)+b]
+		ring[i].Data = redundantBytes[(i-k)*b : (i-k+1)*b]
 		ring[i].Index = uint8(i)
 	}
 
@@ -106,7 +106,7 @@ func RebuildSector(sec *common.Sector, segs []common.Segment) error {
 	var segmentData []byte
 	var segmentIndices []uint8
 	for i := range segs {
-		byteSlice := []byte(segs[i].Data)
+		byteSlice := segs[i].Data
 
 		// verify that each string is the correct length
 		if len(byteSlice) != b {

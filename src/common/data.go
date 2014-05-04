@@ -6,7 +6,7 @@ import (
 
 // A Segment is an erasure-coded piece of a Ring, containing both the data and its corresponding index.
 type Segment struct {
-	Data  string
+	Data  []byte
 	Index uint8
 }
 
