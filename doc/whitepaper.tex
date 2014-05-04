@@ -19,6 +19,8 @@
 \newcommand{\defaultM}{28}
 \newcommand{\hostincomefee}{3.9\%}
 \newcommand{\maxsegmentsize}{1mb}
+\newcommand{\participantvolume}{8gb}
+\newcommand{\stepduration}{15 seconds}
 
 \documentclass[twocolumn]{article}
 
@@ -29,7 +31,10 @@
 
 \author{
 {\rm David Vorick}\\
-Rensselaer Polytechnic Institute
+Nebulous Labs
+\and
+{\rm Luke Champine}\\
+Nebulous Labs
 }
 
 \maketitle
@@ -183,7 +188,67 @@ Siastock provides a guaranteed income that is equivalent a percentage of all hos
 % pricing Siacoin
 % pricing Siastock
 
-\section{The Base Componenet: A Quorum}
+\section{Quorums}
+
+When a machine joins the network, it joins the network as a set of participants.
+Each participant contributes exactly \participantvolume{} to the network.
+Each participant is then assigned to a random quorum on the network.
+A quorum is a set of \quorumsize{} participants acting in consensus.
+Each quorum has a 'State', which is the representation of the current state of the quorum.
+For example, the state contains a list of participants, a list of sectors being stored, a list of wallets and balances, etc.
+The state is updated in blocks.
+Each block has one update, called a 'heartbeat', from every participant.
+Each block, every participant is required to submit a heartbeat containing a minimum amount of information.
+This information enables the quorum to:
+\begin{itemize}
+	\item Confirm that each participant is still online
+	\item Perform proof-of-storage for each participant
+	\item Confirm transactions
+	\item Prevent dishonest activity
+\end{itemize}
+
+Achieving consensus requires a solution to the Byzantine Generals Problem.
+Sia uses the solution with signed messages that is presented in the paper 'The Byzantine Generals Problem', with slight variations.
+For each block:
+\begin{enumerate}
+	\item All participants send their heartbeat to all other participants, with a signature.
+	This creates a 'signed heartbeat', which is a heartbeat followed by a list of signatures of everyone who has seen it.
+	\item Each time a participant receives a signed heartbeat that they have not seen before, they add their signature to the list of signatures and send it to all other participants.
+\end{enumerate}
+To ensure termination, time constraints are added and heartbeats are send around in steps.
+Each step lasts \stepduration{}.
+All signed heartbeats received must have a number of signatures equivalent to the current step.
+Each signature must be from a different participant in the quorum.
+During step 1 for example, a heartbeat only needs to be signed by the participant producing the heartbeat.
+If during step 1 a heartbeat is received with 2 or more signatures, this is acceptable, we only care that it has at least 1 signature.
+There are \quorumsize{} steps total.
+If a participant signs two different heartbeats from itself, that participant is dishonest and will be thrown from the network.
+Because participants releasing more than two heartbeats are treated the same as participants releasing exactly two heartbeats, honest participants do not need to share more than two heartbeats per participant.
+After the final step, all honest participants will have the same information and will be able to compile the same block.
+The step is then reset to 1 and participants repeat the process for the next block.
+
+The full algorithm:
+\begin{enumerate}
+	\item The step counter is set to 1, and increases by 1 every \stepduration{}.
+	\item Each participant creates a heartbeat, signs it, and sends it to every other participant in the quorum.
+	\item For each signed heartbeat that a participant receives
+	\begin{enumerate}
+		\item If the number of signatures on the signed heartbeat is less than the step counter, ignore.
+		\item If there are multiple signatures from the same participant, ignore.
+		\item If there are signatures from non-participants, ignore.
+		\item If the receiving participant has already signed the signed heartbeat, ignore.
+		\item If it is a heartbeat that has been seen before, ignore.
+		\item If we have already seen two other heartbeats from the creator of this heartbeat, ignore.
+		\item Add signature to the signed heartbeat and send it to all other participants in the quorum.
+	\end{enumerate}
+	\item When the step counter reaches \quorumsize{}, take all of the heartbeats and compile them into a block.
+\end{enumerate}
+
+% need to prove that the algorithm works
+
+\section{Block Compilation}
+
+\section{Entropy}
 
 \section{Overview}
 
@@ -251,60 +316,6 @@ Even controlling half of the hosts on the network, an attacker has a minimal cha
 In all interactions on Sia, it is assumed that blockchains are dishonest with 50\% probability, and that all blockchains have at least \inversemaxcorruption{} honest hosts.
 Sia also has tools to detect dishonest actions by hosts and blockchains, which result in fines and being kicked from the network.
 
-\section{Consensus Blockchains}
-
-Concensus blockchains are formed from \numhosts{} hosts all storing \storageperhost{}.
-Each blockchain hosts a set of files and wallets that are unique to that blockchain (each object only appears on a single blockchain).
-Blockchains have a 'state', which is a representation of the current status of the network.
-The state is updated in blocks, which are produced in a concensus algorithm.
-
-Blocks are composed of 'heartbeats', which is an update package from a host.
-Each block, every host must submit a heartbeat.
-Heartbeats contain storage proofs, keepalive information, and general network transactions and updates, and will be discussed in greater detail later.
-
-The blockchain algorithm assumes that only a simple majority of hosts are honest.
-Each block, honest hosts must be guaranteed to have their heartbeat included.
-Furthermore, every honest host must be guaranteed to agree on the same block.
-This is achieved by the following algorithm:
-
-\begin{enumerate}
-	\item All hosts send their heartbeats to all other hosts.
-	\item All hosts tell the other hosts which heartbeats they received, and sign that they received these heartbeats.
-	In this step, hosts will fill in gaps in each other's list of heartbeats.
-	\item All hosts tell the other hosts which heartbeats they know were seen by at least \fiftyone{} of the hosts on the network, and include the list of signatures proving that the hosts actually saw the heartbeats.
-\end{enumerate}
-
-By the end of the third step, the honest hosts will be guaranteed to have all received the same set of heartbeats that have been seen by \fiftyone{} of the hosts on the network.
-All hosts will therefore produce the same block.
-The process can then restart for the next block.
-
-% Penalties
-At this stage, a host can be indicted for giving two seperate updates to the network.
-For example, if a host gives a heartbeat to one host and a different heartbeat to another host, then the dishonest host is indicted and thrown from the swarm.
-
-If a host is absent from the block, they are penalized for being inactive.
-After being inactive for 24 hours, the host is thrown from the swarm.
-
-\section{Concensus Algorithm Proof}
-
-Assumptions:
-\begin{itemize}
-	\item 51\% of the network is honest.
-	\item All honest hosts can communicate freely. (no DOS attacks)
-	\item The network is synchronized, meaning all hosts can complete each step within a known limited timeframe, and hosts can self-correct for drift
-\end{itemize}
-
-In step 1, every honest host will get heartbeats from every other honest host.
-If \fiftyone{} hosts are honest, every honest host is guaranteed to have their heartbeat seen by at least \fiftyone{} hosts.
-
-In step 2, every host tells each other host which heartbeats they have seen, and attatch a signature that they saw the heartbeat.
-This means that any heartbeat that was seen by any honest host will be seen by every other honest host.
-
-In step 3, every host tells each other host which heartbeats they got which were seen by at least \fiftyone{} hosts.
-This is to guarantee that the heartbeat was seen by at least 1 honest host in the previous step.
-If it was seen by at least 1 honest host, then every honest host is guaranteed to have received it in this step.
-Therefore, every honest host is guaranteed to include every heartbeat that was seen by \fiftyone{} hosts in the second step.
-
 \section{Dishonest Blockchains}
 
 We assume that hosts are randomly assigned to blockchains.
@@ -330,28 +341,6 @@ If individual blockchains converge to being 60\% dishonest, with high probabilit
 \end{equation}
 
 This means that for all blockchains, we can assume that at least \inversemaxcorruption{} hosts are honest.
-
-\section{File Storage Layout}
-
-Files are stored on multiple hosts using Reed-Solomon coding, which is maximum distance separable.
-First the user picks redundancy settings, which is what volume of the hosts need to retain their piece of the file in order for the file to be recovered.
-This is m of n recovery, where n equals \numhosts.
-If m is 1, then the file will be duplicated on every single host, and can be recovered from only a single host.
-The redundancy is then \numhosts{}, meaning that a 1GB file will take \numhosts GB of storage on the Sia network.
-If m is \fiftyone, then the file can be recovered from any \fiftyone{} hosts on the network, and the redundancy will be slightly less than 2.
-A 1GB file will therefore consume slightly less than 2GB of Sia storage.
-
-Files have header data that includes the hash for each slice in the ring and the value of m.
-The value of m can be stored as a single byte.
-Each hash will be 32 bytes and there are \numhosts pieces.
-The network assumes that under any circumstances, a blockchain will have at least \inversemaxcorruption hosts, so the redundancy on the header data will be kept at \maxredundancy.
-Altogether, this means that there is 40kb of overhead for a file.
-
-Part of the heartbeat algorithm performs keepalives on hosts and verifies that they are storing their pieces as promised.
-If a host goes offline or corrupts their data, the network can use the Reed-Solomon coding to repair the file within minutes - no interaction from the user needed.
-
-It is left to the user to pick optimal settings.
-When m is small, there is a higher chance that a malicious attacker can control enough of the network to knock the file offline.
 
 \section{Proof of Access}
 
@@ -498,11 +487,6 @@ In addition to some general computational commands, scripts have system calls in
 
 Wallets consume file storage space on the network.
 Just like files are charged for consuming space, wallets are charged the same price.
-
-% wallets are charged for consuming space just like files are
-% files need to have some support for extensions. Especially protected files.
-
-\section{Files}
 
 \section{Updates}
 
