@@ -57,22 +57,21 @@ func TestRPCuploadSector(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to create sector:", err)
 	}
-	k := common.QuorumSize / 2
-	sec.SetRedundancy(k)
 
 	// upload sector to quorum
-	err = uploadSector(sec, q)
+	k := common.QuorumSize / 2
+	ring, err := uploadSector(sec, k, q)
 	if err != nil {
 		t.Fatal("Failed to upload file:", err)
 	}
 
 	// rebuild file from first k segments
-	segments := make([]common.Segment, k)
+	ring.Segs = []common.Segment{}
 	for i := 0; i < k; i++ {
-		segments[i] = shs[i].seg
+		ring.AddSegment(&shs[i].seg)
 	}
 
-	err = erasure.RebuildSector(sec, segments)
+	sec, err = erasure.RebuildSector(ring)
 	if err != nil {
 		t.Fatal("Failed to rebuild file:", err)
 	}
@@ -103,18 +102,18 @@ func TestRPCdownloadSector(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to create sector:", err)
 	}
-	sec.SetRedundancy(common.QuorumSize / 2)
 
 	// encode sector
-	segments, err := erasure.EncodeRing(sec)
+	k := common.QuorumSize / 2
+	ring, err := erasure.EncodeRing(sec, k)
 	if err != nil {
 		t.Fatal("Failed to encode sector data:", err)
 	}
 
-	// create TCPServer
+	// create RPCServer
 	rpcs, err := network.NewRPCServer(9988)
 	if err != nil {
-		t.Fatal("Failed to initialize TCPServer:", err)
+		t.Fatal("Failed to initialize RPCServer:", err)
 	}
 	defer rpcs.Close()
 
@@ -127,12 +126,13 @@ func TestRPCdownloadSector(t *testing.T) {
 			t.Fatal("Failed to initialize RPCServer:", err)
 		}
 		sh := new(ServerHandler)
-		sh.seg = segments[i]
+		sh.seg = ring.Segs[i]
 		qrpc.RegisterHandler(sh)
 	}
 
 	// download file from quorum
-	err = downloadSector(sec, q)
+	ring.Segs = []common.Segment{}
+	sec, err = downloadSector(sec.Hash, ring, q)
 	if err != nil {
 		t.Fatal("Failed to download file:", err)
 	}

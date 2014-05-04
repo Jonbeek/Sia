@@ -2,15 +2,16 @@ package main
 
 import (
 	"common"
+	"common/crypto"
 	"common/erasure"
 	"fmt"
 	"network"
 )
 
 // uploadSector splits a Sector into erasure-coded segments and distributes them across a quorum.
-func uploadSector(sec *common.Sector, quorum [common.QuorumSize]common.Address) (err error) {
+func uploadSector(sec *common.Sector, k int, quorum [common.QuorumSize]common.Address) (ring *common.Ring, err error) {
 	// create erasure-coded segments
-	ring, err := erasure.EncodeRing(sec)
+	ring, err = erasure.EncodeRing(sec, k)
 	if err != nil {
 		return
 	}
@@ -21,7 +22,7 @@ func uploadSector(sec *common.Sector, quorum [common.QuorumSize]common.Address) 
 		m := &common.RPCMessage{
 			quorum[i],
 			"ServerHandler.UploadSegment",
-			ring[i],
+			ring.Segs[i],
 			nil,
 		}
 		err = network.SendRPCMessage(m)
@@ -35,29 +36,23 @@ func uploadSector(sec *common.Sector, quorum [common.QuorumSize]common.Address) 
 
 // downloadSector retrieves the erasure-coded segments corresponding to a given Sector from a quorum.
 // It reconstructs the original data from the segments and returns the complete Sector
-func downloadSector(sec *common.Sector, quorum [common.QuorumSize]common.Address) (err error) {
+func downloadSector(hash crypto.Hash, ring *common.Ring, quorum [common.QuorumSize]common.Address) (sec *common.Sector, err error) {
 	// send requests to each member of the quorum
-	numSent := 0
-	var segs []common.Segment
 	for i := range quorum {
 		var seg common.Segment
 		m := &common.RPCMessage{
 			quorum[i],
 			"ServerHandler.DownloadSegment",
-			sec.Hash,
+			hash,
 			&seg,
 		}
 		if network.SendRPCMessage(m) == nil {
-			segs = append(segs, seg)
-			numSent++
+			ring.AddSegment(&seg)
 		}
-	}
-	if numSent < sec.GetRedundancy() {
-		return fmt.Errorf("too few hosts reachable: needed %v, reached %v", sec.GetRedundancy(), numSent)
 	}
 
 	// rebuild file
-	err = erasure.RebuildSector(sec, segs[:sec.GetRedundancy()])
+	sec, err = erasure.RebuildSector(ring)
 	return
 }
 
