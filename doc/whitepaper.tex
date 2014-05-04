@@ -244,7 +244,14 @@ The full algorithm:
 	\item When the step counter reaches \quorumsize{}, take all of the heartbeats and compile them into a block.
 \end{enumerate}
 
-% need to prove that the algorithm works
+The concern of the honest participant is getting the exact same set of heartbeats as every other honest participant in the quorum.
+If all honest participants follow this algorithm, then the premise will hold.
+If you are the first honest participant to receive a heartbeat but it has sufficient signatures compared to the step counter, then you can be sure that every other honest participant will get the heartbeat because you will send it to them.
+If you are an honest participant receiving a heartbeat for the first time in the last step, you can be sure that all other honest participants have received the heartbeat because there will be a signature from every other participant in the quorum.
+There is one exception if a dishonest participant shares more than two heartbeats.
+In this case, every honest participant is guaranteed to receive at least two of the heartbeats.
+They might not receive the others because honest participants stop sharing after they have shared two.
+This is okay however, because the action taken by an honest participant will be to throw the dishonest participant from the network, regardless of the contents or quantity of the heartbeats.
 
 \section{Block Compilation}
 
