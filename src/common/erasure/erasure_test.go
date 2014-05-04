@@ -22,31 +22,30 @@ func TestCoding(t *testing.T) {
 
 	// create sector
 	sec, err := common.NewSector(randomBytes)
-	sec.SetRedundancy(k)
-
-	// encode data into a Ring
-	ring, err := EncodeRing(sec)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// clear sector data
-	sec.Data = []byte{0x00}
+	// encode data into a Ring
+	ring, err := EncodeRing(sec, k)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// reduce data to a set of k segments
-	remainingSegments := make([]common.Segment, k)
+	// create Ring from subset of encoded segments
+	newRing := common.NewRing(k, b, len(randomBytes))
 	for i := m; i < common.QuorumSize; i++ {
-		remainingSegments[i-m] = ring[i]
+		newRing.AddSegment(&ring.Segs[i])
 	}
 
 	// recover original data
-	err = RebuildSector(sec, remainingSegments)
+	newSec, err := RebuildSector(newRing)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// compare to hash of data when first generated
-	recoveredDataHash, err := crypto.CalculateHash(sec.Data)
+	recoveredDataHash, err := crypto.CalculateHash(newSec.Data)
 	if err != nil {
 		t.Fatal(err)
 	} else if recoveredDataHash != sec.Hash {
