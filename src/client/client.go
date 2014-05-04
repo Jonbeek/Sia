@@ -7,8 +7,7 @@ import (
 	"common/erasure"
 	"encoding/gob"
 	"fmt"
-	"io"
-	"os"
+	"network"
 )
 
 // clientHandler is a MessageHandler that processes messages sent to a client.
@@ -74,10 +73,13 @@ func UploadFile(mr common.MessageRouter, file *os.File, k int, quorum [common.Qu
 	// for now we just send segment i to node i
 	// this may need to be randomized for security
 	for i := range quorum {
-		m := new(common.Message)
-		m.Destination = quorum[i]
-		m.Payload = append([]byte{0x00, byte(i)}, []byte(segments[i])...)
-		err = mr.SendMessage(m)
+		m := &common.RPCMessage{
+			quorum[i],
+			"ServerHandler.UploadSegment",
+			segments[i],
+			nil,
+		}
+		err = network.SendRPCMessage(m)
 		if err != nil {
 			return
 		}
@@ -92,16 +94,16 @@ func DownloadFile(mr common.MessageRouter, ch *clientHandler, fileHash crypto.Ha
 	// send requests to each member of the quorum
 	numSent := 0
 	for i := range quorum {
-		// send requests
-		m := new(common.Message)
-		m.Destination = quorum[i]
-		b := new(bytes.Buffer)
-		err = gob.NewEncoder(b).Encode(mr.Address())
-		if err != nil {
-			continue
+		var seg data.Segment
+		m := &common.RPCMessage{
+			quorum[i],
+			"ServerHandler.DownloadSegment",
+			sec.Hash,
+			&seg,
 		}
-		m.Payload = append([]byte{0x01}, b.Bytes()...)
-		if mr.SendMessage(m) == nil {
+		if network.SendRPCMessage(m) == nil {
+			segments = append(segments, seg.Data)
+			indices = append(indices, seg.Index)
 			numSent++
 		}
 	}
