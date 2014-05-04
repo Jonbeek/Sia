@@ -19,6 +19,13 @@ type Message struct {
 	Payload     []byte
 }
 
+type RPCMessage struct {
+	Destination Address
+	Proc        string
+	Args        interface{}
+	Reply       interface{}
+}
+
 // A MessageHandler is a function that processes a message payload.
 // A MessageHandler has an Address associated with it that is determined by a MessageRouter.
 type MessageHandler interface {
