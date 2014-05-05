@@ -5,7 +5,7 @@ type Identifier byte
 
 // An Address couples an Identifier with its network address.
 type Address struct {
-	Id   Identifier
+	ID   Identifier
 	Host string
 	Port int
 }

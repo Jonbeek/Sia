@@ -21,7 +21,7 @@ const (
 
 // Bootstrapping
 const (
-	bootstrapId   common.Identifier = 0
+	bootstrapID   common.Identifier = 0
 	bootstrapHost string            = "localhost"
 	bootstrapPort int               = 9988
 )
@@ -172,7 +172,7 @@ func (s *State) JoinSia() (err error) {
 
 	// Send the message with a joinSia type
 	m := new(common.Message)
-	m.Destination.Id = bootstrapId
+	m.Destination.ID = bootstrapID
 	m.Destination.Host = bootstrapHost
 	m.Destination.Port = bootstrapPort
 	m.Payload = append([]byte(string(joinSia)), gobParticipant...)

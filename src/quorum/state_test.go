@@ -83,7 +83,7 @@ func TestParticipantMarshalling(t *testing.T) {
 		t.Fatal(err)
 	}
 	p.publicKey = pubKey
-	p.address.Id = bootstrapId
+	p.address.ID = bootstrapID
 	p.address.Host = bootstrapHost
 	p.address.Port = bootstrapPort
 

@@ -80,7 +80,7 @@ func SendRPCMessage(m *common.RPCMessage) error {
 		return err
 	}
 	// add identifier to service name
-	name := strings.Replace(m.Proc, ".", string(m.Destination.Id)+".", 1)
+	name := strings.Replace(m.Proc, ".", string(m.Destination.ID)+".", 1)
 	return conn.Call(name, m.Args, m.Reply)
 }
 
@@ -96,6 +96,6 @@ func SendAsyncRPCMessage(m *common.RPCMessage) *rpc.Call {
 		return errCall
 	}
 	// add identifier to service name
-	name := strings.Replace(m.Proc, ".", string(m.Destination.Id)+".", 1)
+	name := strings.Replace(m.Proc, ".", string(m.Destination.ID)+".", 1)
 	return conn.Go(name, m.Args, m.Reply, d)
 }

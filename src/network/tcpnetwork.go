@@ -24,7 +24,7 @@ func (tcp *TCPServer) Address() common.Address {
 func (tcp *TCPServer) AddMessageHandler(mh common.MessageHandler) common.Address {
 	tcp.MessageHandlers = append(tcp.MessageHandlers, mh)
 	addr := tcp.addr
-	addr.Id = common.Identifier(len(tcp.MessageHandlers) - 1)
+	addr.ID = common.Identifier(len(tcp.MessageHandlers) - 1)
 	return addr
 }
 
@@ -44,7 +44,7 @@ func (tcp *TCPServer) SendMessage(m *common.Message) (err error) {
 	// the remainder is the payload
 	payloadLength := make([]byte, 4)
 	binary.PutUvarint(payloadLength, uint64(len(m.Payload)))
-	stream := append(payloadLength, byte(m.Destination.Id))
+	stream := append(payloadLength, byte(m.Destination.ID))
 	stream = append(stream, m.Payload...)
 
 	// transmit stream
