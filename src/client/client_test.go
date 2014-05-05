@@ -44,7 +44,7 @@ func TestRPCuploadSector(t *testing.T) {
 		if err != nil {
 			t.Fatal("Failed to initialize RPCServer:", err)
 		}
-		qrpc.RegisterHandler(&shs[i])
+		q[i].Id = qrpc.RegisterHandler(&shs[i])
 	}
 
 	// create sector
@@ -127,7 +127,7 @@ func TestRPCdownloadSector(t *testing.T) {
 		}
 		sh := new(ServerHandler)
 		sh.seg = ring.Segs[i]
-		qrpc.RegisterHandler(sh)
+		q[i].Id = qrpc.RegisterHandler(sh)
 	}
 
 	// download file from quorum
