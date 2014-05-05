@@ -30,11 +30,11 @@ func TestRPCSendMessage(t *testing.T) {
 
 	// create message handler and add it to the TCPServer
 	tsh := new(TestStoreHandler)
-	rpcs.RegisterHandler(tsh)
+	id := rpcs.RegisterHandler(tsh)
 
 	// send a message
 	m := &common.RPCMessage{
-		common.Address{0, "localhost", 9988},
+		common.Address{id, "localhost", 9988},
 		"TestStoreHandler.StoreMessage",
 		"hello, world!",
 		nil,

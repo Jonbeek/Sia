@@ -4,7 +4,9 @@ import (
 	"common"
 	"net"
 	"net/rpc"
+	"reflect"
 	"strconv"
+	"strings"
 )
 
 // RPCServer is a MessageRouter that communicates using RPC over TCP.
@@ -12,6 +14,7 @@ type RPCServer struct {
 	addr     common.Address
 	rpcServ  *rpc.Server
 	listener net.Listener
+	curID    common.Identifier
 }
 
 func (rpcs *RPCServer) Address() common.Address {
@@ -19,13 +22,19 @@ func (rpcs *RPCServer) Address() common.Address {
 }
 
 // RegisterHandler registers a message handler to the RPC server.
-func (rpcs *RPCServer) RegisterHandler(handler interface{}) {
-	rpcs.rpcServ.Register(handler)
+// The handler is assigned an Identifier, which is returned to the caller.
+// The Identifier is appended to the service name before registration.
+func (rpcs *RPCServer) RegisterHandler(handler interface{}) (id common.Identifier) {
+	id = rpcs.curID
+	name := reflect.Indirect(reflect.ValueOf(handler)).Type().Name() + string(id)
+	rpcs.rpcServ.RegisterName(name, handler)
+	rpcs.curID++
+	return
 }
 
 // NewRPCServer creates and initializes a server that listens for TCP connections on a specified port.
 // It then spawns a serverHandler with a specified message.
-// It is the serverHandler's responsibility to close the TCP connection.
+// It is the callers's responsibility to close the TCP connection, via RPCServer.Close().
 func NewRPCServer(port int) (rpcs *RPCServer, err error) {
 	tcpServ, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
@@ -33,9 +42,10 @@ func NewRPCServer(port int) (rpcs *RPCServer, err error) {
 	}
 
 	rpcs = &RPCServer{
-		common.Address{0, "localhost", port},
-		rpc.NewServer(),
-		tcpServ,
+		addr:     common.Address{0, "localhost", port},
+		rpcServ:  rpc.NewServer(),
+		listener: tcpServ,
+		curID:    1, // ID 0 is reserved for the RPCServer itself
 	}
 
 	go rpcs.serverHandler()
@@ -69,7 +79,9 @@ func SendRPCMessage(m *common.RPCMessage) error {
 	if err != nil {
 		return err
 	}
-	return conn.Call(m.Proc, m.Args, m.Reply)
+	// add identifier to service name
+	name := strings.Replace(m.Proc, ".", string(m.Destination.Id)+".", 1)
+	return conn.Call(name, m.Args, m.Reply)
 }
 
 // SendAsyncRPCMessage (asynchronously) delivers an RPCMessage to its recipient.
@@ -83,5 +95,7 @@ func SendAsyncRPCMessage(m *common.RPCMessage) *rpc.Call {
 		errCall.Done <- nil
 		return errCall
 	}
-	return conn.Go(m.Proc, m.Args, m.Reply, d)
+	// add identifier to service name
+	name := strings.Replace(m.Proc, ".", string(m.Destination.Id)+".", 1)
+	return conn.Go(name, m.Args, m.Reply, d)
 }
