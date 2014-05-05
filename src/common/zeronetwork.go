@@ -4,14 +4,12 @@ type ZeroNetwork struct {
 	messages []*Message
 }
 
-func (z *ZeroNetwork) Address() Address {
-	var a Address
-	return a
+func (z *ZeroNetwork) Address() (a Address) {
+	return
 }
 
-func (z *ZeroNetwork) AddMessageHandler(m MessageHandler) Address {
-	var a Address
-	return a
+func (z *ZeroNetwork) RegisterHandler(handler interface{}) (i Identifier) {
+	return
 }
 
 func (z *ZeroNetwork) SendMessage(m *Message) error {
