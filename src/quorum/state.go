@@ -26,6 +26,10 @@ var bootstrapAddress = common.Address{
 	Port: 9988,
 }
 
+// empty hash value
+var emptyEntropy = common.Entropy{}
+var emptyHash, _ = crypto.CalculateTruncatedHash(emptyEntropy[:])
+
 // Identifies other members of the quorum
 type participant struct {
 	index     byte
@@ -127,7 +131,6 @@ func (p *participant) GobDecode(gobParticipant []byte) (err error) {
 
 // Create and initialize a state object. Set everything to default.
 func CreateState(messageRouter common.MessageRouter) (s *State, err error) {
-	s = new(State)
 	// check that we have a non-nil messageSender
 	if messageRouter == nil {
 		err = fmt.Errorf("Cannot initialize with a nil messageRouter")
@@ -140,25 +143,26 @@ func CreateState(messageRouter common.MessageRouter) (s *State, err error) {
 		return
 	}
 
-	// calculate the value of an empty hash (default for storedEntropyStage2 on all hosts is a blank array)
-	emptyHash, err := crypto.CalculateTruncatedHash(s.storedEntropyStage2[:])
-	if err != nil {
-		return
+	// initialize State with default values and keypair
+	s = &State{
+		messageRouter: messageRouter,
+		self: &participant{
+			index:     255,
+			address:   messageRouter.Address(),
+			publicKey: pubKey,
+		},
+		secretKey:   secKey,
+		currentStep: 1,
+		wallets:     make(map[string]uint64),
 	}
 
-	// set state variables to their defaults
-	s.messageRouter = messageRouter
-	s.self = new(participant)
-	s.self.index = 255
-	s.self.address = messageRouter.Address()
+	// register State and store our assigned ID
 	s.self.address.ID = messageRouter.RegisterHandler(s)
-	s.self.publicKey = pubKey
-	s.secretKey = secKey
+
+	// initialize entropy stage1 to the emptyHash
 	for i := range s.previousEntropyStage1 {
 		s.previousEntropyStage1[i] = emptyHash
 	}
-	s.currentStep = 1
-	s.wallets = make(map[string]uint64)
 
 	return
 }
