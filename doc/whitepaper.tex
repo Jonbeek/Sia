@@ -1,26 +1,10 @@
-\newcommand{\numhosts}{192}
-\newcommand{\storageperhost}{256GB}
-
-\newcommand{\childrenperparent}{192}
-
-\newcommand{\fortynine}{$\frac{n}{2} - 1$}
-\newcommand{\fiftyone}{$\frac{n}{2} + 1$}
-
-\newcommand{\filechecksize}{256 bytes}
-
-\newcommand{\maxcorruption}{85\%}
-\newcommand{\inversemaxcorruption}{15\%}
-\newcommand{\maxredundancy}{6$\frac{2}{3}$}
-
-\newcommand{\maxslicesize}{1mb}
-
-% the real set of commands - above to be replaced
 \newcommand{\quorumsize}{128}
 \newcommand{\defaultM}{28}
 \newcommand{\hostincomefee}{3.9\%}
 \newcommand{\maxsegmentsize}{1mb}
 \newcommand{\participantvolume}{8gb}
 \newcommand{\stepduration}{15 seconds}
+\newcommand{\integrity}{20\%}
 
 \documentclass[twocolumn]{article}
 
@@ -249,6 +233,8 @@ In this case, every honest participant is guaranteed to receive at least two of 
 They might not receive the others because honest participants stop sharing after they have shared two.
 This is okay however, because the action taken by an honest participant will be to throw the dishonest participant from the network, regardless of the contents or quantity of the heartbeats.
 
+% participant synchonization goes here
+
 \section{Block Compilation}
 Once step \quorumsize{} is reached, the heartbeats are aggregated and block compilation occurs.
 All participants who submitted multiple heartbeats are penalized and thrown from the quorum, and their heartbeats are discarded.
@@ -362,7 +348,7 @@ After getting entropy from Aiza, the internal seed is concatenated to the extern
 This will create a secure random seed that is unique to each quorum.
 
 \section{Quorum Integrity}
-A quorum is considered to have integrity if at least 20\% of participants are honest.
+A quorum is considered to have integrity if at least \integrity{} of participants are honest.
 Sia as a network assumes that half of all participants are honest.
 Sia also assumes that participants are randomly distributed throughout the network.
 Given this, there is a 3-in-one-trillion chance that a given quorum will not have integrity, as demonstrated by this equation:
@@ -412,120 +398,84 @@ With regards to storage, only a few values matter.
 	\item Any transactions announcing an intent to become a new participant.
 \end{itemize}
 
-Each time a quorum arrives at a new block, the hash of that block is sent to all siblings, along with differences in the aggregate values.
-Blocks are sent probabilistically, with each host randomly contacting 3 participants in each sibling quorum.
-% probability
+Each time a quorum creates a new block, a meta-block is sent to all of its siblings.
+A meta-block contains the above 5 bullet points, along with a hash of the full internal block and a signature from each participant in the quorum.
+Meta-blocks are sent probabilistically, with each participant randomly contacting 3 participants in each sibling quorum.
+Assuming that each quorum has at least \integrity{} honest participants, at least 75 messages will be sent each having a \integrity{} chance of being sent to an honest participant in the other quorum, reducing the chance of failure to one in 100 million.
+It is also extremely unlikely that two quorums of only \integrity{} honest particpants will exist as siblings, increasing even further the chance of success.
 
-\section{Overview}
+It is possible that a dishonest participant or set of participants will try to announce a fake block.
+To prevent this, upon receiving a block from a sibling a quorum will send out an confirmation by performing the same algorithm.
+With high probability, an honest host will see the dishonest block and be able to conjure a proof of the dishonesty.
+If a confirmation is sent out and no accusation of dishonesty is made within 1 cycle, the block is assumed to be valid.
 
-Sia is built out of many small blockchains of \numhosts{} hosts each.
-These blockchains participate in a deterministic consensus algorithm instead of using a block mining algorithm such as proof-of-work.
-Blockchains are assembled randomly from hosts on the network - hosts cannot control which blockchain they are participating in.
-Each host must be contributing exactly \storageperhost{} to the network in order to be placed in a blockchain.
-A single machine operate as a group of hosts each contributing exactly \storageperhost{}, as long as the storage is unique.
-Blockchains will be honest as long as at least a simple majority of the hosts within the blockchain are honest.
+Together, a set of siblings quorums form a meta-quorum.
+These quorums share aggregate resources in the same exact manner, forming a meta-meta-quorum.
+This layered quorum approach continues until there is only a single most-meta-quorum.
+To simplify the vernacular, the smallest quorum is called 1Q.
+A meta-quorum is called 2Q, meta-meta 3Q, and so on.
+The largest quorum on the network is called RQ, or the "Root Quorum".
+The general term for larger quorums is meta-quorums.
 
-Each blockchain has a set of files which it tracks.
-As files are added and deleted, the network performs load-balancing between blockchains to keep the file distribution even.
+Meta-quorums need to maintain consensus, such that each quorum within the meta-quorum receives the same block.
+It is too expensive for quorums to engage in the same consensus algorithm tha participants engage in, so an alternate solution with simpler constraints is needed.
+We can assume that at least \integrity{} of all participant in each quorum is honest.
+This, with careful execution, gives us enough to trust any individual quorum.
+A random 1Q quorum is chosen each block to compile the block for the meta-quorum.
+This 1Q quorum will be a participant in the meta-quorum that it is compiling a block for, and will have the previous block as well as the current state of the meta-quorum.
+It will also, with very high probability, have all of the most recent blocks from the sibling quorums that form the meta-quorum.
+The honest participants in the quorum will be able to fill out the block and broadcast it to the meta-quorum.
+After a meta-quorum releases a block, it releases the meta-block for that block to all of its siblings.
+The exception is the root quorum, which has no siblings.
 
-Hosts wanting to join the network are put into a queue, where they wait until there is sufficient storage demand to justify creating a new blockchain.
-If there are many hosts joining the queue but few new files being added to the network, the price of storage will drop.
-If there are many files being uploaded and few hosts joining the queue, the price of storage will increase.
-The pricing algorithm tries to always keep hosts in a queue instead of putting files in a queue.
+The broadcast algorithm will work probabilistically, and is still under construction.
+To prevent dishonst blocks from being accepted, there will also be a confirmation algorithm that operates probabilistically.
+The algorithm will be designed such that the 1Q block compiler for the root quorum will not have to handle more than a few messages per participant, confirmation messages included.
 
-Blockchains are organized into a tree that manages the needs of the network.
-Parent blockchains have aggregate information about their children - such as how much data is being stored by each child.
-Only the leaf blockchains actually store files - all the other blockchains are designed to be very lightweight.
-The root blockchain determines the network price, and also knows how many new hosts there are and how much free space there is on the network.
-When the root blockchain needs to do something such as create new blockchains, it delegates the work to its children.
-Those children delegate work to their children, until the action hits the leaf layer, where it is carried out.
+% Looking for a better title to the section
+\section{Joining Sia}
+When a machine wants to join Sia as a participant or set of participants, it must first make a down payment.
+There are multiple behaviors that a participant can engage in (such as turbulence) that could DDOS Sia.
+If any of these behaviors are detected, the participant is fined.
+The participant must have a balance of coins that can be fined.
+This is why machines must make down payments before joining Sia.
+Assuming that there is no dishonest behavior, the machine can reclaim the coins upon leaving the network gracefully.
 
-The same happens in the reverse direction.
-When a leaf blockchain deletes a file, it tells its parent, who then updates its aggreagate resource.
-Parent blockchains are in charge of load-balancing their children, and they wait for their parents to load balane them.
+The machine makes the down payment on whatever quorum the machine has a balance.
+The machine can announce itself as any number of participants, so long as it can pay the full down payment for each.
+To maintain randomness on the network (say 500 dishonest participants join the network at the same time), each participant will replace a random existing participant on Sia.
+The participant that gets replaced will then either join a completely new quorum or fill in a gap where a participant has gone offline.
+If there are any quorums on Sia that are missing participants (due to inactivity or dishonesty), the displaced participant is sent to fill the gap.
+If there are no known gaps, the displaced participant is put into a queue.
+When there are \quorumsize{} participants in the queue, a new quorum is formed.
+If there are more than 2 * \quorumsize{} gaps in quorums on Sia, a quorum is sacrificed and its participants are used to fill the gaps.
 
-Using a tree of blockchains allows each host to participate in a lightweight blockchain that stores only a fraction of the information on the network.
-Additionally, each host must only perform calculations on a fraction of the network.
+% need to explain where new quorums are added and where quorums are sacrificed from.
 
-The aggregate nature of the tree allows each host and wallet to verify that their segment of the network is honest, even though they cannot see every action occuring on the network.
+\section{Remaining Features}
+A quorum cannot store the locations of all other quorums in the network, that's too much information and too much to keep track of.
+The current plan is to have a DHT where quorums can look up the addresses of other quorums.
+The DHT needs to be build with the assumption that there is a large volume of dishonesty.
 
-Wallets take space on the network, and are charged the file price for existing on the network.
-Each block, money is removed from the wallet and when the funds run out, the wallet is deleted.
-As wallets only take up a few kilobytes, the amount charged is minimal.
+The financial system has not been fully explained.
+Intra-1Q transactions are easy, however sending transactions between meta-quorums has not been explained.
+The general idea is that a meta-quorum will tell its siblings about any transactions that cross borders.
+Transaction transversal needs to be carefully constructed such that very little communcation happens through the root quorum.
 
-When wallets send money to a different blockchain, the transaction propagates through the tree.
-Information is aggregated, meaning that the parent blockchain will only say how many coins have moved between children; it will not say which wallet the coins are from or which wallet the coins are for.
-This compression means that there needs to be a way to determine which wallets incoming siacoins are for, but it also means that the parent blockchains have a low maximum amount of work they have to perform per block.
+Participants within a quorum need synchronized clocks.
+We do not yet have an algorithm to achieve this, though there is a Leslie Lamport paper that solves a very similar problem.
 
-To determine how aggregated transactions get divided, the sending blockchain messages the receiving blockchain, informing them that coins are incoming.
-The receiving blockchain then claims the coins from the parent.
+It's not explained where new quorums are added to, and where sacrifical quorums are sacrificed from.
+Most likely, for security reasons, they will be added to and sacrificed from random places.
+The meta-quorum tree will need to be balanced, however.
 
-Blockchains can look up the direct communcation address of other blockchains through a DHT.
-All leaf blockchains participate in the DHT.
-This allows blockchains to find eachother in log(n) time without sending high volumes of messages through their parents, and without needing to store the direct communication address of every blockchain in the network.
+Wallets are expected to have a scriting system built in.
+This scripting system has had very little thought put into it thus far, because it's more of an 'icing on the cake' than a vital part of Sia.
 
-Any time that a host is caught by the network performing an illegal action, the host will be fined.
-The fine will be equal to or greater than the amount of damaged caused to the network.
-To make sure that hosts can be fined, they are required to have a balance equal to or greater than the maximum possible fine - a 'security deposit'.
-When a host leaves the network, the security deposit will be released.
+The algorithms presented have not been under much scrutiny.
+We need experts to inspect the algorithms and proofs presented in this paper to verify that there are no errors in the logic or attack vectors that have not been accounted for.
 
-The security measures in Sia ensure that an attacker cannot control which blockchain its hosts are participating; they are randomly distributed.
-Sia assumes that only simple majority of the hosts on the network are honest.
-If an attacker controls \fortynine{} of the hosts on the network, the attacker has a 50\% chance of controlling a particular blockchain, and will control roughly 50\% of the blockchains on the network.
-Even controlling half of the hosts on the network, an attacker has a minimal chance of controlling more than \maxcorruption{} of the hosts in a particular blockchain.
-
-In all interactions on Sia, it is assumed that blockchains are dishonest with 50\% probability, and that all blockchains have at least \inversemaxcorruption{} honest hosts.
-Sia also has tools to detect dishonest actions by hosts and blockchains, which result in fines and being kicked from the network.
-
-\section{Script Wallets}
-
-Wallets on Sia have a balance and a set of scripts.
-These wallets are responsible for every interaction between Sia and external entities.
-The scripts manage these interactions.
-
-In addition to some general computational commands, scripts have system calls including
-
-\begin{description}
-	\item[Send(amount)] \hfill \\
-	Send money from this wallet to another wallet on the network. \\
-	Will only send money to existing wallets. \\
-	Returns 'yes' if successful, 'no' if unsuccessful.
-	\item[Rent(volume)] \hfill \\
-	Rent a volume of storage from the Sia network. \\
-	Returns a pointer to the file.
-	\item[RentProtected(volume)] \hfill \\
-	Rent a volume of storage from Sia that is write-only. \\
-	Returns a pointer t othe file.
-	\item[Release(filePointer)] \hfill \\
-	Release a file from the network. \\
-	You can only release files that you own.
-	\item[Endorse(filePointer, amount)] \hfill \\
-	Sends a volume of money to a file, which will be used to pay for the file in the future. \\
-	If the file is not protected, the file will be copied and the new file will be protected. \\
-	This amount can never be withdrawn from the file, and the file cannot be deleted until this amount is consumed.
-\end{description}
-
-Wallets consume file storage space on the network.
-Just like files are charged for consuming space, wallets are charged the same price.
-
-\section{Full Heartbeat}
-
-A full heartbeat will contain the following:
-
-\begin{itemize}
-	\item Blockchain
-	\item Parent Block
-	\item Host Id
-	\item File Proof Hash - Stage 1
-	\item File Proof String - Stage 2
-	\item Entropy Proof Hash - Stage 1
-	\item Entropy Proof String - Stage 2
-	\item Update List
-	\item Host Signature
-\end{itemize}
-
-\section{Appendix: Vocabulary}
-
+\subsection*{Appendix: Vocabulary}
 \begin{description}
 	\item[Segment] \hfill \\
 	An erasure coded piece of a physical file held by a single participant.
@@ -545,6 +495,10 @@ A full heartbeat will contain the following:
 	The status of a quorum-monitored fragment of the Sia network.
 	Every participant in the same quorum will have an identical state.
 	Every quorum has a different state, as every quorum monitors a different fragment of the Sia network.
+	\item[Meta-Quorum] \hfill \\
+	A set of quorums or meta-quorums acting in concensus.
+	\item[Root Quorum] \hfill \\
+	The highest level quorum that makes all of the major network decisions such as file price.
 
 	\item[Block] \hfill \\
 	A set of updates to the State of a particular quorum.
