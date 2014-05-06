@@ -50,7 +50,6 @@ Spreading the files over hundreds of hosts means that files can be downloaded in
 As explored in the paper, Sia should be a cheaper and superior solution to cloud storage when compared against the existing centralized alternatives.
 
 \section{Introduction}
-
 Sia is a decentralized platform for storing data on the cloud.
 The storage on Sia is block level, like an unformatted hard drive.
 This makes Sia file system agnostic - you store information on Sia by setting and requesting arrays of bits.
@@ -103,7 +102,6 @@ This network design results in some great features:
 \end{itemize}
 
 \section{Managing Sectors}
-
 When uploading, a sector can either be encrypted or public.
 Encrypted sectors are great for housing personal or private files.
 Public sectors are great for hosting embeddable web content such as images and videos.
@@ -125,9 +123,8 @@ Anybody can add to the balance of a sector at any time, whether the sector is mu
 Immutable sectors cannot be deleted from the network unless the siacoin balance fully depletes.
 
 \section{Use Cases}
-
 Sia can be used as an efficient replacement to many of today's web services.
-One obvious example it BitTorrent.
+One obvious example is BitTorrent.
 With BitTorrent, every seeder needs essentially the entire file that's being seeded, resulting in a huge global redundancy of the file.
 With Sia, a file only needs a small amount of redundancy to provide the same amount of throughput.
 Another issue is that torrents die once the last seeder disappears.
@@ -155,7 +152,6 @@ The bottleneck would be latency, which would still be around a hundred milliseco
 By moving enough of your operating system into RAM, you can avoid this problem and replace your local hard drive.
 
 \section{Economics}
-
 Sia compensates hosts using a cryptocurrency.
 This cryptocurrency, Siacoin, will be easily exchangeable for bitcoins and subsequently USD through a trustless exchange.
 When the currency launches, the mining rate will be set to 10,000 siacoins per day.
@@ -168,10 +164,12 @@ Initially, the number of coins generated will be very high, and the early adopte
 In the long run however we want the people actively contributing resources to the network to be the people that are most heavily rewarded.
 We also believe that an inflationary model will result in a currency that is much less volatile.
 
-Hosts on Sia will have two incomes: the first is the income from mining new coins, and the second is the income from rental payments.
-This creates a unique dynamic where it's entirely possible that the raw cost of storage will be greater than the network price of storage due to the additional income hosts receive from mining.
-Both incomes for hosts have a \hostincomefee{} fee which is distributed among the owners of Siastock.
+It has not been determined how newly mined coins will be distributed.
+They cannot be given to the hosts on the network, because this creates a recursive storage attack that would negatively impact performance on the network and allow attackers to mine coins they do not deserve.
+The reward for the hosts is instead payment from the people renting the storage.
+All income given to hosts has a fee, a host income fee of \hostincomefee{}.
 
+The developers look to feed themselves and reward the early backers of Sia by using a new tool called Siastock.
 Siastock is a 100\% premined currency that will be initially owned completely by the developers.
 During an IPO or a pre-IPO, some percentage of Siastock will be traded for seed money.
 Someone who owns 1\% of all Siatock will receive (1\% * \hostincomefee{}) = 0.039\% of all host income on the Sia network.
@@ -189,7 +187,6 @@ Siastock provides a guaranteed income that is equivalent a percentage of all hos
 % pricing Siastock
 
 \section{Quorums}
-
 When a machine joins the network, it joins the network as a set of participants.
 Each participant contributes exactly \participantvolume{} to the network.
 Each participant is then assigned to a random quorum on the network.
@@ -254,7 +251,6 @@ They might not receive the others because honest participants stop sharing after
 This is okay however, because the action taken by an honest participant will be to throw the dishonest participant from the network, regardless of the contents or quantity of the heartbeats.
 
 \section{Block Compilation}
-
 Once step \quorumsize{} is reached, the heartbeats are aggregated and block compilation occurs.
 All participants who submitted multiple heartbeats are penalized and thrown from the quorum, and their heartbeats are discarded.
 Then the proof-of-storage algorithm is run.
@@ -271,9 +267,8 @@ All participants are assumed to start with the same state, receive the same hear
 Therefore, all participants will end with the same new state.
 
 \section{Proof-of-Storage}
-
 Each participant is responsible for storing \participantvolume{}.
-This \participantvolume{} is divided into many arbitrarily sized segments, each of maximum length \maxsegmentsize{}.
+This \participantvolume{} is divided into many segments, each of maximum length \maxsegmentsize{}.
 Every segment stored by a participant corresponds to an equal sized segment on every other participant in the quorum.
 Together, these corresponding segments form a ring.
 Each block, one ring is randomly chosen, weighted according to size, from the quorum to be uploaded to the network.
@@ -283,7 +278,7 @@ Each participant as proof-of-storage must upload their entire segment, which can
 This means that each block, up to \quorumsize{} segments of size \maxsegmentsize{} might be uploaded in the block.
 This represents a fair amount of bandwidth, but blocks are not kept as a part of Sia, so it does not create a bloated blockchain.
 
-If a participant is not storing anything, the proof-of-storage algorithm will detect their dishonest every time.
+If a participant is not storing anything (or is only storing the hashes), the proof-of-storage algorithm will detect their dishonest every time.
 If a participant is storing only half of the data, then each block the proof-of-storage algorithm has a fifty percent chance of detecting the missing data.
 Though there are no guarantees that all corrupted data will be discovered, there is a strong guarantee that if a participant can pass the proof-of-storage test many blocks in a row, then the participant is storing almost all of the data.
 
@@ -292,7 +287,6 @@ For this reason, a participant can only be paid for the storage that is in use, 
 A pricing algorithm will ensure that this is most of the storage for all participants.
 A load balancing algorithm will ensure that all quorums have approximately the same percentage of free storage.
 
-One final addition is needed to make this algorithm work.
 A dishonest participant could wait until it received enough heartbeats during step 1 to rebuild the original file and figure out what it's own segment is supposed to look like.
 To prevent this, storage proofs take two blocks.
 In the first block, each participant must make a commitment, such that they are locked into producing only a single set of bits as their segment, but such that they cannot use the commitments from other participants to rebuild what their segment and commitment should look like.
@@ -302,15 +296,71 @@ The random string prevents dishonest participants from being able to store what 
 In the second block, the participants upload their segment.
 Their commitment can then be verified, and their segment can be verified.
 
-One potential optimization is to erasure code the hashes, which reduces the total amount of overhead per ring.
-This requires being able to identify when participants are being dishonest about their erasure coded portions of the hashes, however.
-Solutions are being explored.
+These verifications don't actually prove that the participant is storing data.
+Instead, they prove that the participant has access to the data.
+If the participant is accessing storage that is not yet being offered to Sia, it makes no difference to Sia where the storage is coming from.
+We do however want to prevent a participant from claiming to bring new storage to Sia, but then instead store the files they are supposed to have in another place on Sia.
+We also need to prevent a participant from downloading the segment they need to prove from their own quorum.
+
+First we will address recursive storage, where a participant claims to store data but instead rents out space on another quorum.
+This is unprofitable for the participant, because they are getting paid to host \participantvolume{}, but they must pay to store \participantvolume{} with redundancy.
+If participants were also rewarded with newly minted coins, the situation might occur where the newly minted coins pay for the redundancy and leave profit for the dishonest participant.
+We want to avoid this, so newly minted coins cannot be distributed to hosts who are already getting paid from another income source.
+
+Preventing a participant from downloading the whole file from their own quorum requires a different tactic.
+The information necessary to recover data is already available in the local quorum, it only needs to be downloaded.
+Furthermore, Sia has a policy of being always available, which means a dishonest participant can download a sector at any time and figure out what they need.
+This behavior is prevented by making downloads more expensive than the reward for having the data.
+The actual cost of a download is unknown, and we do not want to manipulate the price, so the cost of a download is manipulated in a very specific way.
+
+Each block, a participant uploads one segment.
+A segment is 64kb, or 1 / 131,072th of the data that the participant is supposed to be storing.
+For successfully proving that they have the block, the participant will be rewarded for hosting \participantvolume{} for the duration of one block.
+The cost of downloading the file for the proof needs to be equivalent or greater than the reward for storing the file.
+Depending on what the reward is, this cost can be calculated.
+
+Which ring will be uploaded for proving storage may be known by the dishonest participant before it is known by the honest participants (up to one full block early).
+So the premium cannot be added to just the ring that participants are required to prove.
+Instead, all downloads have this cost as a deductible.
+By the next block, honest participants will know which sector was required for storage proofs.
+Any sectors that were downloaded which were not used in proofs can be refunded their deductible.
+In rare cases, honest clients will download a sector that is being used for storage proofs, and will not be refunded.
+This is unavoidable, but is rare and is not even very expensive (on the order of fractions of a cent).
+Furthermore, it can happen a maximum of once per block per quorum.
+A client downloading many sectors at once will only be at risk of overpaying for at most one.
+
+(Please give me feedback for this section, I realize it's complicated and difficult to read.)
+
+\section{Delegation}
+Sectors are stored on Sia with redundancy.
+A dishonest set of participants can collaborate and store the file at a reduced redundancy while pretending to store the file at high redundancy.
+This problem is unavoidable as long as the network is allowed to be self repairing.
+A potential solution would be to encrypt each segment with a different algorithm, meaning that dishonest participants cannot reduce the redundancy.
+The downside is that honest participants cannot automatically repair the file if segments are lost.
+
+One solution being explored is the idea of 'false redundancy penalties.'
+Hosts are supposed to be randomly distributed, meaning that even in the case of disasters like power outages or earthquakes, each quorum should lose at most one participant.
+If multiple participants disappear from a quorum at the same time, the network will treat them as 'falsely redundant.'
+This would allow the network to levy heavy penalties and fines, but would not help a consumer to recover lost data.
+Other solutions are also being considered.
 
 \section{Random Number Generation}
+Random numbers are important to Sia, an attacker who can manipulate the random numbers produced in quorums and throughout Sia can launch other attacks against Sia as well.
+Random number generation is done in two stages.
+The first stage is the internal stage, where participants engage in an algorithm that produces a nearly-random value.
+The second stage grabs entropy from an explicit external source - Aiza - to solidify randomness.
 
-\section{Pricing}
+Each block, each participant generates a random string locally and submits it with their heartbeat.
+During block compilation, all of the random strings are concatenated and hashed again to produce a unique random seed.
+This is the internal step.
+The goal of the internal step is to produce a random seed that is unique to each quorum.
+A single honest participant will make it computationally infeasible for a dishonest set of hosts to control what seed is produced.
+Though they can manipulate their own entropy to avoid certain seeds, the only goal is to make sure that the internal seed is not the same as the internal seed of any other quorum.
 
-\section{Load Balancing}
+After the internal seed is determined, an external seed is acquired from Aiza, a cryptocurrency designed to generate secure public random numbers.
+Every quorum will be receiving the same external seed, but each quorum needs a unique set of random values, which is why the internal step is used.
+After getting entropy from Aiza, the internal seed is concatenated to the external seed and their union is hashed.
+This will create a secure random seed that is unique to each quorum.
 
 \section{Overview}
 
@@ -398,70 +448,6 @@ If individual blockchains converge to being 60\% dishonest, with high probabilit
 \end{equation}
 
 This means that for all blockchains, we can assume that at least \inversemaxcorruption{} hosts are honest.
-
-\section{Proof of Access}
-
-Each heartbeat, a host has to provide a proof that they have access to the file pieces that they are storing.
-Each block, a random \filechecksize{} segment of the storage stack is chosen to be included in the heartbeat.
-This segment will correspond to a portion of a file in a file ring.
-Each host will include their portion of the file in their heartbeat, which means that in the block there is enough information to fully reconstruct a small portion of the file.
-This will also reveal which hosts have the wrong data.
-
-Only \filechecksize{} is requested each block because requesting more would greatly increase bandwidth requirements per block.
-This small amount is sufficient because it is randomly selected.
-If a host is missing a substantial portion of the file, it will only be a matter of time before some part of the missing portion is randomly selected.
-This does mean that tiny corrupted sections of file can go undetected for a long time, but even small corruptions will eventually be detected and are unlikely to prevent file recovery.
-
-We can assume that a malicious host will receive all of the honest heartbeats before submitting their own.
-This means that, given sufficient redundnacy, a malicious host will be able to rebuild their piece of the file every step from the other heartbeats, can cna perform proof of access without actually storing anything.
-To prevent that, this process is broken up across two stages.
-
-In the first stage, hosts only submit the hash of the chosen segment prepended with their id.
-This forces hosts to lock in what their file piece is before they see any information revealed from the other hosts.
-In the second stage, hosts reveal what string produced the hash.
-If they reveal a string that does not hash to the string submitted in stage 1, the host is considered corrupt.
-
-% Penalties
-If a host submits a second stage string that does not match their first stage hash, they are thrown from the swarm.
-
-If a host submits a second stage string that is discovered as corrupt during decoding, an appeal is started.
-The host must upload the entire slice that corresponds to the corrupted segment uploaded in the heartbeat.
-The other hosts upload their chunks of the header data for that slice, which will contain the hash of the slice that the host is supposed to have.
-If the slice matches the hash, and the segment uploaded matches the slice, then the piece is determined originally corrupt.
-The host is aquitted, and the file itself is fined to pay for the bandwidth used during the appeal process.
-
-Otherwise, the host treated as not having submitted a heartbeat.
-
-If, during the appeal process, the blockchain is discovered dishonest, or a section of hosts is discovered dishonest, then the blockchain enters a panic state.
-
-\section{Proof of Storage}
-
-Storage is considered valid on the network if it follows two constraints:
-
-\begin{itemize}
-	\item It costs money to host files on the network.
-	\item The storage is unique to the network.
-\end{itemize}
-
-The assumption for the first bullet point is that if a file costs money to upload, nobody will upload files that are not useful to them in some way.
-A host will not upload a fake file to himself or the network if the act of doing so forces the host to operate at a net loss.
-The second bullet point means that the host is not using Sia as it's source of storage, or that the host is not using a source that uses Sia as a source for storage.
-
-The first point is protected by randomly collecting together swarms.
-Any swarm will be composed of random sets of nodes, and will not have more than \maxcorruption{} dishonest hosts.
-This means that any host attempting to use themselves as exclusive storage will have to host their files on at least \inversemaxcorruption{} honest hosts.
-As long as the profit from mining on \maxcorruption{} of a fake file does not exceed the loss of paying for hosting on the \inversemaxcorruption honest hosts, there will be no incentive to do fake mining in this manner.
-Therefore, a hard cap will be placed on the amount of coins that can be mined to satisfy this condition.
-
-The second point is protected by the cost of downloads on the network.
-Downloading a file costs money, and if you are to complete the proof of access steps in the heartbeat, you need to download a fraction of the file each heartbeat.
-As long as the download system is constructed such that the cost of downloading repeatedly to perform heartbeat access proofs is greater than the reward from mining, this attack will not be a problem.
-The system for pricing downloads has currently not been created, but it will be created with this constraint in mind.
-
-% game theory stuff about why it's not beneficial for an incomplete minority to collaborate until they hit a critical mass
-\begin{center}
-Game theory stuff here
-\end{center}
 
 \section{The Problem of Delegation}
 
