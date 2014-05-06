@@ -1,18 +1,10 @@
-\newcommand{\numhosts}{192}
-\newcommand{\storageperhost}{256GB}
-
-\newcommand{\childrenperparent}{192}
-
-\newcommand{\fortynine}{$\frac{n}{2} - 1$}
-\newcommand{\fiftyone}{$\frac{n}{2} + 1$}
-
-\newcommand{\filechecksize}{256 bytes}
-
-\newcommand{\maxcorruption}{85\%}
-\newcommand{\inversemaxcorruption}{15\%}
-\newcommand{\maxredundancy}{6$\frac{2}{3}$}
-
-\newcommand{\maxslicesize}{1mb}
+\newcommand{\quorumsize}{128}
+\newcommand{\defaultM}{28}
+\newcommand{\hostincomefee}{3.9\%}
+\newcommand{\maxsegmentsize}{1mb}
+\newcommand{\participantvolume}{8gb}
+\newcommand{\stepduration}{15 seconds}
+\newcommand{\integrity}{20\%}
 
 \documentclass[twocolumn]{article}
 
@@ -23,451 +15,497 @@
 
 \author{
 {\rm David Vorick}\\
-Rensselaer Polytechnic Institute
+Nebulous Labs
 \and
-{\rm Colin Rice}\\
-Rensselaer Polytechnic Institute
+{\rm Luke Champine}\\
+Nebulous Labs
 }
 
 \maketitle
 
 \subsection*{Abstract}
-Sia is a decentralized platform for computer storage.
-Host computers contribute storage and bandwidth in return for Sia's internal cryptocurrency - Siacoin.
-In addition to receiving compensation from the users, host computers also mine siacoins in proportion to the volume of storage they contribute.
-Clients acquire siacoins (either by being hosts or through a currency exchange) to exchange for storage space and download bandwidth on the Sia network.
-The cost of renting storage is set using a supply and demand algorithm.
-Sia is a cryptosystem that is secure with only a simple majority of honest hosts.
-Sia is built out of many small blockchains arranged in a tree structure.
-Blockchains operate using a concensus algorithm instead of proof-of-work.
-To join a blockchain, you must have proof-of-storage equivalent to \storageperhost{}.
+Sia is a decentralized platform for computer storage acting as a marketplace for storage.
+On the supply side, host computers contribute storage in return for Sia's internal cryptocurrency - Siacoin.
+On the demand side, consumers use Siacoin to rent storage space.
+The price of storage is set by a market making algorithm that is sensitive to the volume of supply and demand.
+Files on Sia are distributed to a large number of randomly selected hosts.
+Erasure Coding is used to give the files redundancy, enabling files to be spread over hundreds of machines with highly reliable network redundancies as low as 1.2.
+Spreading the files over hundreds of hosts means that files can be downloaded in parallel from hundreds of places and achieve high throughput.
+As explored in the paper, Sia should be a cheaper and superior solution to cloud storage when compared against the existing centralized alternatives.
 
 \section{Introduction}
+Sia is a decentralized platform for storing data on the cloud.
+The storage on Sia is block level, like an unformatted hard drive.
+This makes Sia file system agnostic - you store information on Sia by setting and requesting arrays of bits.
+It is very easy to put a file system such as NTFS or ext4 on top of Sia.
+It is expected that the average user will not interact directly with Sia, but rather with an application such as a music player that streams directly from Sia.
 
-Sia is a decentralized platform for storing data on the internet.
-With only a few kilobytes of overhead, any file can be stored on the Sia network.
-Sia supports anonymity, and guaruantees uptime for the files.
-Files can be fetched with only a few hundred milliseconds of latency.
-Files are random-access, meaning a piece of the file can be downloaded without fetching the whole file.
-All files are seeded by \numhosts{} peers, meaning files can be uploaded and downloaded at high speed.
-Sia minimizes file redundancy while maximizing speed and security, making Sia competitive with centralized services.
+Because Sia operates at the block level, it does not make as much sense to talk about files being stored on Sia.
+Instead we talk about sectors of storage, a sector being a logical set of bits stored on Sia.
+Files can be stored within sectors, across multiple sectors, or any other way that a file can be translated into a series of bits.
+Sia is random access, which means you can download any part of a sector without needed to download the whole sector.
 
-Files are stored by hosts in exchange for Siacoins.
-The price of storage is set algorithmically according to supply and demand.
-Siacoins are mined on the Sia network and are the only currency that can be used to purchase Sia storage.
-This constraint provides stability to the price of the siacoin - the price of the coin is tethered to the price of Sia storage.
-Siacoin is a superset of Bitcoin.
+Each sector is given to \quorumsize{} machines that monitor the health of the sector.
+If any of these machines goes offline, it is replaced by the network, keeping the sector available and in good health.
+The sector is broken into \quorumsize{} segments, of which M are redundant, where M is chosen by the uploader.
+Any M machines can go offline at the same time and the sector will still be recoverable - this is because Reed-Solomon coding is used.
+If a machine goes offline or fails, it will be replaced by a new machine within a few hours, bringing the sector back up to its original redundancy.
+Having a sector split between \quorumsize{} machines and being able to tolerate M faults every day means that even in scenarios of high paranoia M can be relatively small.
 
-Files can be stored in two modes.
+Reed-Solomon codes are maximum-distance separable.
+This means that redundancy is maximally efficient.
+For example, take a 100mb sector that gets broken up into 128 pieces with M=28.
+You have 100 non-redundant pieces and 28 redundant pieces.
+Of these, ANY 28 pieces can be lost and the full sector can still be recovered.
+Together, all 128 pieces consume 128mb of physical storage.
+The default value for M on Sia is \defaultM{}.
+
+Each sector is stored on \quorumsize{} machines, and the sector can be downloaded in parallel from all of them.
+This allows Sia to obtain very high throughput for downloads, even if each machine is only offering a little bandwidth.
+Additionally, for situations requiring reduced latency, only the closest \quorumsize{} - M machines need to be contacted.
+Because a random set of machines are hosting each sector, the closest \quorumsize{} - M machines are likely to be very close when M is large, regardless of the location of the downloader.
+
+Each sector stored on Sia is accompanied by approximately 40kb of overhead that allows the network to monitor and error-check the sector.
+Multiple files can be stored on a single sector; 40kb is not a minimum file size it is a minimum sector size.
+Each sector is broken into \quorumsize{} segments after redundancy is added.
+The maximum size of a segment is limited to \maxsegmentsize.
+The maximum size of a sector therefore depends on the value of M, a larger M means a smaller maximum sector size.
+Sectors are just a way for the network to orgainze, even though the maximum sector size is small, files and information can be stored across many sectors.
+Optimizing for smaller sectors means that each file is stored on that many more machines, which means the benefits of parallel downloads are increased.
+
+Another property of Sia is that it becomes very difficult to censor data.
+Forcefully taking sectors off of the network requires corrupting or destroying more than M of the \quorumsize{} segments that compose the sector.
+Because sectors on Sia are randomly distributed among a global set of hosts, it is very difficult for a single entity (even as powerful as the NSA) to attack a sufficient number of machines to corrupt a segment, especially when M is set to be large.
+
+This network design results in some great features:
 \begin{itemize}
-	\item Mutable - the contents of the file can be changed by anyone with permission.
-	The original contents of the file are permanently lost after a change is made.
-	Most files will be mutable.
-	\item Immutable - once uploaded, the file can never be altered, and the size of the file is constant.
-	At the end of the file, there is a pointer to another file, which can contain information about updates to the original file.
-	This pointer can be null.
-	Immutable files are appropriate for public and shared data and media - if you use a public file, you want to be sure that the uploader won't replace it with something else.
+	\item High Speed
+	\item Low Latency
+	\item High Robustness and Security
+	\item Low Overhead
 \end{itemize}
 
-Files have a balance of siacoins, which is used to pay the hosts that store the file.
-Each block, a volume of siacoins is removed from the balance according to the current price of storage.
-When the balance runs out, the file is deleted.
-Anybody can increase the balance at any time by sending more siacoins to the file.
-There is no way to remove a file from the network aside from waiting until the balance depletes.
-There is no way to extract coins from the balance - once sent to a file, siacoins are locked into a single purpose.
-These constraints protect against censorship.
+\section{Managing Sectors}
+When uploading, a sector can either be encrypted or public.
+Encrypted sectors are great for housing personal or private files.
+Public sectors are great for hosting embeddable web content such as images and videos.
+Any sector can be downloaded by anybody, and a sector may end up on any malicious machine.
+The best way to protect a file or sector is to use client-side encryption.
 
-Sia can be used as a more efficient replacement for many of todays services.
-These services include Bittorrent, Bitcoin, and file lockers such as MediaFire.
-On fast connections, Sia could be used as a replacement for hard drives - computers would only need enough local storage to boot and connect to the internet.
+Sectors can also be mutable or immutable.
+The contents of a mutable sector can be altered at any time, but only by authorized parties.
+Authorization is done using public key cryptography.
+It is expected that most sectors will be mutable.
+Immutable sectors cannot be altered after they have been uploaded.
+This is achieved by authorizing nobody to edit a file.
+Immutable sectors are appropriate for public and/or shared data - if you use a public sector, you want assurance that the data will be the same every time you access it.
 
-One major advantage of Sia is that all shared files only need to be hosted once, yet no central service needs to be trusted or depended on.
-Another advantage of Sia is that you only need to rent as much storage as you are actively using - more storage can be rented on-the-fly.
+Each sector is associated with a balance of siacoins, which is used to pay for the storage that the sector consumes.
+Each block, a volume of siacoins is subtracted from the sector balance according to the current price of storage.
+When the balance runs out, the sector is deleted, and space on the network is cleared for new data.
+Anybody can add to the balance of a sector at any time, whether the sector is mutable or immutable.
+Immutable sectors cannot be deleted from the network unless the siacoin balance fully depletes.
 
-\section{Overview}
+\section{Use Cases}
+Sia can be used as an efficient replacement to many of today's web services.
+One obvious example is BitTorrent.
+With BitTorrent, every seeder needs essentially the entire file that's being seeded, resulting in a huge global redundancy of the file.
+With Sia, a file only needs a small amount of redundancy to provide the same amount of throughput.
+Another issue is that torrents die once the last seeder disappears.
+The half life of a torrent can be as low as a few months.
+With Sia, a file will stay around as long as the sectors are paid for.
+Because anyone can pay for a sector, anyone can secure the longevity of a file on Sia without needing to go through the hassle of seeding it continuously.
+Sia is not free, but neither is BitTorrent.
+The cost of BitTorrent is seeding files, which consumes hard drive space and bandwidth.
+Anybody with both of these resources can participant in Sia and gain Siacoins, enabling them to also download from Sia.
+Sia is a comprehensive replacement for BitTorrent.
 
-Sia is built out of many small blockchains of \numhosts{} hosts each.
-These blockchains participate in a deterministic consensus algorithm instead of using a block mining algorithm such as proof-of-work.
-Blockchains are assembled randomly from hosts on the network - hosts cannot control which blockchain they are participating in.
-Each host must be contributing exactly \storageperhost{} to the network in order to be placed in a blockchain.
-A single machine operate as a group of hosts each contributing exactly \storageperhost{}, as long as the storage is unique.
-Blockchains will be honest as long as at least a simple majority of the hosts within the blockchain are honest.
+Sia makes sense as the storage layer for any streaming application.
+This includes content embedded into web pages.
+By embedding images and videos into Sia instead of hosting them on a centralized server, you can achieve lower storage costs, lower bandwidth costs, higher throughput, and equivalent (or even reduced) latencies.
+Sia automatically acts as a CDN, meaning users across the world receive similar service to local users.
+Sia could also be used for non-streaming applications, such as for save data in a video game, or even for loading new areas in a video game.
 
-The proof-of-storage algorithm makes use of the fact that data is redundant - each host is storing different Reed-Solomon coded pieces of the files uploaded to the network.
-By gathering file pieces from each host, the network can use the pieces to check for honesty and corruption simultaneously.
+Sia is also elastic, meaning you only need to rent exactly as much storage as you are currently using.
+Instead of needing to plan for the future and buying a 1TB drive, if you are only consuming 650GB then you can rent exactly 650GB of Sia storage.
+You can expand the volume of storage you are renting at any time, within minutes.
 
-Each blockchain has a set of files which it tracks.
-As files are added and deleted, the network performs load-balancing between blockchains to keep the file distribution even.
+On sufficiently fast connections, Sia could potentially be used as a replacement for hard drives.
+The throughput on Sia can potentially exceed a gigabit per second, which is nearly as much throughput as an SSD.
+The bottleneck would be latency, which would still be around a hundred milliseconds per request (except for sectors with very high redundancy).
+By moving enough of your operating system into RAM, you can avoid this problem and replace your local hard drive.
 
-Hosts wanting to join the network are put into a queue, where they wait until there is sufficient storage demand to justify creating a new blockchain.
-If there are many hosts joining the queue but few new files being added to the network, the price of storage will drop.
-If there are many files being uploaded and few hosts joining the queue, the price of storage will increase.
-The pricing algorithm tries to always keep hosts in a queue instead of putting files in a queue.
+\section{Economics}
+Sia compensates hosts using a cryptocurrency.
+This cryptocurrency, Siacoin, will be easily exchangeable for bitcoins and subsequently USD through a trustless exchange.
+When the currency launches, the mining rate will be set to 10,000 siacoins per day.
+The number of coins mined will decrease daily until the 4 year mark, at which point the network will mine coins such that the annual inflation rate is kept permanently at 5\%.
+This means that there is no cap to the number of siacoins that will be produced.
+No coins will be premined.
 
-% I need help writing this paragraph
-Blockchains are organized into a tree that manages the needs of the network.
-Parent blockchains have aggregate information about their children - such as how much data is being stored by each child.
-Only the leaf blockchains actually store files - all the other blockchains are designed to be very lightweight.
-The root blockchain determines the network price, and also knows how many new hosts there are and how much free space there is on the network.
-When the root blockchain needs to do something such as create new blockchains, it delegates the work to its children.
-Those children delegate work to their children, until the action hits the leaf layer, where it is carried out.
+An inflationary model has been chosen for Siacoin to emphasize the current hosts on the network as opposed to the early adopters.
+Initially, the number of coins generated will be very high, and the early adopters will be rewarded.
+In the long run however we want the people actively contributing resources to the network to be the people that are most heavily rewarded.
+We also believe that an inflationary model will result in a currency that is much less volatile.
 
-% This one too
-The same happens in the reverse direction.
-When a leaf blockchain deletes a file, it tells its parent, who then updates its aggreagate resource.
-Parent blockchains are in charge of load-balancing their children, and they wait for their parents to load balane them.
+It has not been determined how newly mined coins will be distributed.
+They cannot be given to the hosts on the network, because this creates a recursive storage attack that would negatively impact performance on the network and allow attackers to mine coins they do not deserve.
+The reward for the hosts is instead payment from the people renting the storage.
+All income given to hosts has a fee, a host income fee of \hostincomefee{}.
 
-Using a tree of blockchains allows each host to participate in a lightweight blockchain that stores only a fraction of the information on the network.
-Additionally, each host must only perform calculations on a fraction of the network.
+The developers look to feed themselves and reward the early backers of Sia by using a new tool called Siastock.
+Siastock is a 100\% premined currency that will be initially owned completely by the developers.
+During an IPO or a pre-IPO, some percentage of Siastock will be traded for seed money.
+Someone who owns 1\% of all Siatock will receive (1\% * \hostincomefee{}) = 0.039\% of all host income on the Sia network.
+This model of developer and backer revenue has been chosen instead of premining because it enables us to make Sia inflationary while still having a guaranteed income.
+It also makes it clearer exactly how much value is going towards the developers and stock owners.
 
-The aggregate nature of the tree allows each host and wallet to verify that their segment of the network is honest, even though they cannot see every action occuring on the network.
+The only way to access the storage on Sia is to use siacoins.
+The storage on Sia has a certain value, and the only way to access that value is to use Siacoin.
+If the price of Siacoin drops significantly, access to Sia resources becomes very cheap, which should in turn increase the demand for Siacoin and bring the price back up.
+The internal value of Sia, combined with the fact that this value can only be accessed using Siacoin gives Siacoin an internal value that is roughly equivalent to the value of all the resources on Sia.
+Siastock provides a guaranteed income that is equivalent a percentage of all host income in siacoins, Siastock also has an internal value.
 
-Wallets take space on the network, and are charged the file price for existing on the network.
-Each block, money is removed from the wallet and when the funds run out, the wallet is deleted.
-As wallets only take up a few kilobytes, the amount charged is minimal.
+% price ups and downs
+% pricing Siacoin
+% pricing Siastock
 
-When wallets send money to a different blockchain, the transaction propagates through the tree.
-Information is aggregated, meaning that the parent blockchain will only say how many coins have moved between children; it will not say which wallet the coins are from or which wallet the coins are for.
-This compression means that there needs to be a way to determine which wallets incoming siacoins are for, but it also means that the parent blockchains have a low maximum amount of work they have to perform per block.
+\section{Quorums}
+When a machine joins the network, it joins the network as a set of participants.
+Each participant contributes exactly \participantvolume{} to the network.
+Each participant is then assigned to a random quorum on the network.
+A quorum is a set of \quorumsize{} participants acting in consensus.
+Each quorum has a 'State', which is the representation of the current state of the quorum.
+For example, the state contains a list of participants, a list of sectors being stored, a list of wallets and balances, etc.
+The state is updated in blocks.
+Each block has one update, called a 'heartbeat', from every participant.
+Each block, every participant is required to submit a heartbeat containing a minimum amount of information.
+This information enables the quorum to:
+\begin{itemize}
+	\item Confirm that each participant is still online
+	\item Perform proof-of-storage for each participant
+	\item Confirm transactions
+	\item Prevent dishonest activity
+\end{itemize}
 
-To determine how aggregated transactions get divided, the sending blockchain messages the receiving blockchain, informing them that coins are incoming.
-The receiving blockchain then claims the coins from the parent.
-
-Blockchains can look up the direct communcation address of other blockchains through a DHT.
-All leaf blockchains participate in the DHT.
-This allows blockchains to find eachother in log(n) time without sending high volumes of messages through their parents, and without needing to store the direct communication address of every blockchain in the network.
-
-Any time that a host is caught by the network performing an illegal action, the host will be fined.
-The fine will be equal to or greater than the amount of damaged caused to the network.
-To make sure that hosts can be fined, they are required to have a balance equal to or greater than the maximum possible fine - a 'security deposit'.
-When a host leaves the network, the security deposit will be released.
-
-The security measures in Sia ensure that an attacker cannot control which blockchain its hosts are participating; they are randomly distributed.
-Sia assumes that only simple majority of the hosts on the network are honest.
-If an attacker controls \fortynine{} of the hosts on the network, the attacker has a 50\% chance of controlling a particular blockchain, and will control roughly 50\% of the blockchains on the network.
-Even controlling half of the hosts on the network, an attacker has a minimal chance of controlling more than \maxcorruption{} of the hosts in a particular blockchain.
-
-In all interactions on Sia, it is assumed that blockchains are dishonest with 50\% probability, and that all blockchains have at least \inversemaxcorruption{} honest hosts.
-Sia also has tools to detect dishonest actions by hosts and blockchains, which result in fines and being kicked from the network.
-
-\section{Consensus Blockchains}
-
-Concensus blockchains are formed from \numhosts{} hosts all storing \storageperhost{}.
-Each blockchain hosts a set of files and wallets that are unique to that blockchain (each object only appears on a single blockchain).
-Blockchains have a 'state', which is a representation of the current status of the network.
-The state is updated in blocks, which are produced in a concensus algorithm.
-
-Blocks are composed of 'heartbeats', which is an update package from a host.
-Each block, every host must submit a heartbeat.
-Heartbeats contain storage proofs, keepalive information, and general network transactions and updates, and will be discussed in greater detail later.
-
-The blockchain algorithm assumes that only a simple majority of hosts are honest.
-Each block, honest hosts must be guaranteed to have their heartbeat included.
-Furthermore, every honest host must be guaranteed to agree on the same block.
-This is achieved by the following algorithm:
-
+Achieving consensus requires a solution to the Byzantine Generals Problem.
+Sia uses the solution with signed messages that is presented in the paper 'The Byzantine Generals Problem', with slight variations.
+For each block:
 \begin{enumerate}
-	\item All hosts send their heartbeats to all other hosts.
-	\item All hosts tell the other hosts which heartbeats they received, and sign that they received these heartbeats.
-	In this step, hosts will fill in gaps in each other's list of heartbeats.
-	\item All hosts tell the other hosts which heartbeats they know were seen by at least \fiftyone{} of the hosts on the network, and include the list of signatures proving that the hosts actually saw the heartbeats.
+	\item All participants send their heartbeat to all other participants, with a signature.
+	This creates a 'signed heartbeat', which is a heartbeat followed by a list of signatures of everyone who has seen it.
+	\item Each time a participant receives a signed heartbeat that they have not seen before, they add their signature to the list of signatures and send it to all other participants.
+\end{enumerate}
+To ensure termination, time constraints are added and heartbeats are send around in steps.
+Each step lasts \stepduration{}.
+All signed heartbeats received must have a number of signatures equivalent to the current step.
+Each signature must be from a different participant in the quorum.
+During step 1 for example, a heartbeat only needs to be signed by the participant producing the heartbeat.
+If during step 1 a heartbeat is received with 2 or more signatures, this is acceptable, we only care that it has at least 1 signature.
+There are \quorumsize{} steps total.
+If a participant signs two different heartbeats from itself, that participant is dishonest and will be thrown from the network.
+Because participants releasing more than two heartbeats are treated the same as participants releasing exactly two heartbeats, honest participants do not need to share more than two heartbeats per participant.
+After the final step, all honest participants will have the same information and will be able to compile the same block.
+The step is then reset to 1 and participants repeat the process for the next block.
+
+The full algorithm:
+\begin{enumerate}
+	\item The step counter is set to 1, and increases by 1 every \stepduration{}.
+	\item Each participant creates a heartbeat, signs it, and sends it to every other participant in the quorum.
+	\item For each signed heartbeat that a participant receives
+	\begin{enumerate}
+		\item If the number of signatures on the signed heartbeat is less than the step counter, ignore.
+		\item If there are multiple signatures from the same participant, ignore.
+		\item If there are signatures from non-participants, ignore.
+		\item If it is a heartbeat that has been seen before, ignore.
+		\item If we have already seen two other heartbeats from the creator of this heartbeat, ignore.
+		\item Add signature to the signed heartbeat and send it to all other participants in the quorum.
+	\end{enumerate}
+	\item When the step counter reaches \quorumsize{}, take all of the heartbeats and compile them into a block.
 \end{enumerate}
 
-By the end of the third step, the honest hosts will be guaranteed to have all received the same set of heartbeats that have been seen by \fiftyone{} of the hosts on the network.
-All hosts will therefore produce the same block.
-The process can then restart for the next block.
+The concern of the honest participant is getting the exact same set of heartbeats as every other honest participant in the quorum.
+If all honest participants follow this algorithm, then the premise will hold.
+If you are the first honest participant to receive a heartbeat but it has sufficient signatures compared to the step counter, then you can be sure that every other honest participant will get the heartbeat because you will send it to them.
+If you are an honest participant receiving a heartbeat for the first time in the last step, you can be sure that all other honest participants have received the heartbeat because there will be a signature from every other participant in the quorum.
+There is one exception if a dishonest participant shares more than two heartbeats.
+In this case, every honest participant is guaranteed to receive at least two of the heartbeats.
+They might not receive the others because honest participants stop sharing after they have shared two.
+This is okay however, because the action taken by an honest participant will be to throw the dishonest participant from the network, regardless of the contents or quantity of the heartbeats.
 
-% Penalties
-At this stage, a host can be indicted for giving two seperate updates to the network.
-For example, if a host gives a heartbeat to one host and a different heartbeat to another host, then the dishonest host is indicted and thrown from the swarm.
+% participant synchonization goes here
 
-If a host is absent from the block, they are penalized for being inactive.
-After being inactive for 24 hours, the host is thrown from the swarm.
+\section{Block Compilation}
+Once step \quorumsize{} is reached, the heartbeats are aggregated and block compilation occurs.
+All participants who submitted multiple heartbeats are penalized and thrown from the quorum, and their heartbeats are discarded.
+Then the proof-of-storage algorithm is run.
+This extracts the data for the proof-of-storage from each heartbeat and verifies that the participant is honest about their storage.
+Each participant must also submit information relating to random number generation, which is also parsed and verified as honest.
+Any participant that fails the storage proofs and/or random number proofs are thrown from the network and their heartbeats are discarded.
 
-\section{Concensus Algorithm Proof}
+All that remains to be parsed is transactions.
+Before processing the transactions, the honest heartbeats are sorted into a random order.
+The shuffle algorithm (explained more fully in section 'Random Number Generation') uses a deterministic seed from the previous block, such that all participants will arrive at the same random ordering.
+Then, heartbeats are processed one at a time, taking the transactions from within the heartbeat and processing them one at a time.
+If a transaction is invalid or is a double spend, that transaction is ignored.
+All participants are assumed to start with the same state, receive the same heartbeats, and process the heartbeats in the same order.
+Therefore, all participants will end with the same new state.
 
-Assumptions:
-\begin{itemize}
-	\item 51\% of the network is honest.
-	\item All honest hosts can communicate freely. (no DOS attacks)
-	\item The network is synchronized, meaning all hosts can complete each step within a known limited timeframe, and hosts can self-correct for drift
-\end{itemize}
+\section{Proof-of-Storage}
+Each participant is responsible for storing \participantvolume{}.
+This \participantvolume{} is divided into many segments, each of maximum length \maxsegmentsize{}.
+Every segment stored by a participant corresponds to an equal sized segment on every other participant in the quorum.
+Together, these corresponding segments form a ring.
+Each block, one ring is randomly chosen, weighted according to size, from the quorum to be uploaded to the network.
 
-In step 1, every honest host will get heartbeats from every other honest host.
-If \fiftyone{} hosts are honest, every honest host is guaranteed to have their heartbeat seen by at least \fiftyone{} hosts.
+Each participant has the hash of every segment that forms the ring.
+Each participant as proof-of-storage must upload their entire segment, which can then be hashed and verified.
+This means that each block, up to \quorumsize{} segments of size \maxsegmentsize{} might be uploaded in the block.
+This represents a fair amount of bandwidth, but blocks are not kept as a part of Sia, so it does not create a bloated blockchain.
 
-In step 2, every host tells each other host which heartbeats they have seen, and attatch a signature that they saw the heartbeat.
-This means that any heartbeat that was seen by any honest host will be seen by every other honest host.
+If a participant is not storing anything (or is only storing the hashes), the proof-of-storage algorithm will detect their dishonest every time.
+If a participant is storing only half of the data, then each block the proof-of-storage algorithm has a fifty percent chance of detecting the missing data.
+Though there are no guarantees that all corrupted data will be discovered, there is a strong guarantee that if a participant can pass the proof-of-storage test many blocks in a row, then the participant is storing almost all of the data.
 
-In step 3, every host tells each other host which heartbeats they got which were seen by at least \fiftyone{} hosts.
-This is to guarantee that the heartbeat was seen by at least 1 honest host in the previous step.
-If it was seen by at least 1 honest host, then every honest host is guaranteed to have received it in this step.
-Therefore, every honest host is guaranteed to include every heartbeat that was seen by \fiftyone{} hosts in the second step.
+This algorithm only works if the participants are already storing something.
+For this reason, a participant can only be paid for the storage that is in use, and can only mine on the storage that is in use.
+A pricing algorithm will ensure that this is most of the storage for all participants.
+A load balancing algorithm will ensure that all quorums have approximately the same percentage of free storage.
 
-\section{Dishonest Blockchains}
+A dishonest participant could wait until it received enough heartbeats during step 1 to rebuild the original file and figure out what it's own segment is supposed to look like.
+To prevent this, storage proofs take two blocks.
+In the first block, each participant must make a commitment, such that they are locked into producing only a single set of bits as their segment, but such that they cannot use the commitments from other participants to rebuild what their segment and commitment should look like.
+This commitment is done by prepending a random string to the segment and then hashing the result.
+This random string is generated by the previous block and is the same for all participants.
+The random string prevents dishonest participants from being able to store what the commitment is supposed to look like, and forces participants to store the entire segment if they are to be able to produce a correct commitment.
+In the second block, the participants upload their segment.
+Their commitment can then be verified, and their segment can be verified.
 
-We assume that hosts are randomly assigned to blockchains.
-In a network where honest hosts only have a simple majority, an attacker can have the majority in many individual blockchains.
+These verifications don't actually prove that the participant is storing data.
+Instead, they prove that the participant has access to the data.
+If the participant is accessing storage that is not yet being offered to Sia, it makes no difference to Sia where the storage is coming from.
+We do however want to prevent a participant from claiming to bring new storage to Sia, but then instead store the files they are supposed to have in another place on Sia.
+We also need to prevent a participant from downloading the segment they need to prove from their own quorum.
 
-We can assume that all blockchains will have at least \inversemaxcorruption{} honest hosts given that half of the hosts on the network are honest.
+First we will address recursive storage, where a participant claims to store data but instead rents out space on another quorum.
+This is unprofitable for the participant, because they are getting paid to host \participantvolume{}, but they must pay to store \participantvolume{} with redundancy.
+If participants were also rewarded with newly minted coins, the situation might occur where the newly minted coins pay for the redundancy and leave profit for the dishonest participant.
+We want to avoid this, so newly minted coins cannot be distributed to participants who are already getting paid from another income source.
 
+Preventing a participant from downloading the whole file from their own quorum requires a different tactic.
+The information necessary to recover data is already available in the local quorum, it only needs to be downloaded.
+Furthermore, Sia has a policy of being always available, which means a dishonest participant can download a sector at any time and figure out what they need.
+This behavior is prevented by making downloads more expensive than the reward for having the data.
+The actual cost of a download is unknown, and we do not want to manipulate the price, so the cost of a download is manipulated in a very specific way.
+
+Each block, a participant uploads one segment.
+A segment is 64kb, or 1 / 131,072th of the data that the participant is supposed to be storing.
+For successfully proving that they have the block, the participant will be rewarded for hosting \participantvolume{} for the duration of one block.
+The cost of downloading the file for the proof needs to be equivalent or greater than the reward for storing the file.
+Depending on what the reward is, this cost can be calculated.
+
+Which ring will be uploaded for proving storage may be known by the dishonest participant before it is known by the honest participants (up to one full block early).
+So the premium cannot be added to just the ring that participants are required to prove.
+Instead, all downloads have this cost as a deductible.
+By the next block, honest participants will know which sector was required for storage proofs.
+Any sectors that were downloaded which were not used in proofs can be refunded their deductible.
+In rare cases, honest clients will download a sector that is being used for storage proofs, and will not be refunded.
+This is unavoidable, but is rare and is not even very expensive (on the order of fractions of a cent).
+Furthermore, it can happen a maximum of once per block per quorum.
+A client downloading many sectors at once will only be at risk of overpaying for at most one.
+
+(Please give me feedback for this section, I realize it's complicated and difficult to read.)
+
+\section{Delegation}
+Sectors are stored on Sia with redundancy.
+A dishonest set of participants can collaborate and store the file at a reduced redundancy while pretending to store the file at high redundancy.
+This problem is unavoidable as long as the network is allowed to be self repairing.
+A potential solution would be to encrypt each segment with a different algorithm, meaning that dishonest participants cannot reduce the redundancy.
+The downside is that honest participants cannot automatically repair the file if segments are lost.
+
+One solution being explored is the idea of 'false redundancy penalties.'
+Hosts are supposed to be randomly distributed, meaning that even in the case of disasters like power outages or earthquakes, each quorum should lose at most one participant.
+If multiple participants disappear from a quorum at the same time, the network will treat them as 'falsely redundant.'
+This would allow the network to levy heavy penalties and fines, but would not help a consumer to recover lost data.
+Other solutions are also being considered.
+
+\section{Random Number Generation}
+Random numbers are important to Sia, an attacker who can manipulate the random numbers produced in quorums and throughout Sia can launch other attacks against Sia as well.
+Random number generation is done in two stages.
+The first stage is the internal stage, where participants engage in an algorithm that produces a nearly-random value.
+The second stage grabs entropy from an explicit external source - Aiza - to solidify randomness.
+
+Each block, each participant generates a random string locally and submits it with their heartbeat.
+During block compilation, all of the random strings are concatenated and hashed again to produce a unique random seed.
+This is the internal step.
+The goal of the internal step is to produce a random seed that is unique to each quorum.
+A single honest participant will make it computationally infeasible for a dishonest set of participants to control what seed is produced.
+Though they can manipulate their own entropy to avoid certain seeds, the only goal is to make sure that the internal seed is not the same as the internal seed of any other quorum.
+
+After the internal seed is determined, an external seed is acquired from Aiza, a cryptocurrency designed to generate secure public random numbers.
+Every quorum will be receiving the same external seed, but each quorum needs a unique set of random values, which is why the internal step is used.
+After getting entropy from Aiza, the internal seed is concatenated to the external seed and their union is hashed.
+This will create a secure random seed that is unique to each quorum.
+
+\section{Quorum Integrity}
+A quorum is considered to have integrity if at least \integrity{} of participants are honest.
+Sia as a network assumes that half of all participants are honest.
+Sia also assumes that participants are randomly distributed throughout the network.
+Given this, there is a 3-in-one-trillion chance that a given quorum will not have integrity, as demonstrated by this equation:
 \begin{equation}
-\sum_{i=163}^{192} {192 \choose i} \; 0.5^{i} \; 0.5^{192-i} = 3.869\times10^{-24}
+\sum_{i=102}^{128} {128 \choose i} \; 0.5^{i} \; 0.5^{128-i} = 3.889\times10^{-12}
+\end{equation}
+If only 45\% of the network is dishonest, the probability is even more favorable:
+\begin{equation}
+\sum_{i=102}^{128} {128 \choose i} \; 0.45^{i} \; 0.55^{128-i} = 9.415\times10^{-16}
 \end{equation}
 
-If dishonest hosts have a majority in a blockchain, they can push honest hosts offline by preventing the honest heartbeats from getting the signatures required to be put in a block.
-This allows, in one block, or spread through many blocks, a dishonest blockchain to push off all of the honest hosts.
+Quorums that are more than half dishonest become vulnerable to an attack where honest participants can be evicted from a quorum for inactivity by not being in the block that is composed of the majority of the participants.
+Every time that a participant is evicted from the network for inactivity, it is assumed that dishonest participants have maliciously forced the eviction.
+Steps must then be taken to restore quorum integrity, lest all of the honest participants are evicted and only dishonest participants remain.
+For each participant kicked from the network for inactivity, two are forcibly removed from the quorum.
+Then all three get replaced with new participants.
+Assuming that only honest participants get dropped, kicking two random participants and replacing them with random participants will set the equilibrium to 2/3 dishonest participants.
+This is not great, but it maintains integrity in the quorum.
 
-To protect against this type of attack, each time a host is dropped from the network, 3 additional hosts are randomly selected to be dropped from the network.
-Assuming worst case, this means that for each honest host, the next three hosts that get dropped will be half honest and half dishonest, for a total expected drop of 2.5 honest hosts and 1.5 dishonest hosts, or an expected ratio of 60\% honest hosts getting dropped.
-Assuming that the network is half honest, the individual blockchain will converge to 60\% dishonest.
+If dishonest participants continually shove out honest participants, the quorum enters a state of 'turbulence'.
+Presently there is nothing in the protocol to discourage dishonest participants from causing high levels of turbulence, though there are plans to implement something that makes turbulence expensive to the whole quorum.
+We are not sure what the best solution is.
 
-If individual blockchains converge to being 60\% dishonest, with high probability no blockchain will have less than \inversemaxcorruption{} honest hosts.
+It should be noted that a quorum which is 2/3 dishonest is at risk of file loss.
+If all dishonest participants leave the quorum at the same time, they will be fined heavily however all files with less than 3 full redundancy will be lost from the quorum.
+This is also considered a weak point, and solutions are being considered that would enable a self repairing file to be spread out over multiple quorums.
 
-\begin{equation}
-\sum_{i=163}^{192} {192 \choose i} \; 0.6^{i} \; 0.4^{192-i} = 5.392\times10^{-14}
-\end{equation}
+A high-level, non-self-repairing solution exists for files that must endure extreme attacks, though it is not discussed in this paper.
+Because storage has legitimate utility and value, I find it unlikely that an attacker would get up to a full 1/2 of the network - there are too many parties that would be interested in contributing.
+Unlike Bitcoin, there are no mining pools, which means the risk of one pool gaining too much power does not exist.
+Nonetheless, we still attempt to make the protocol secure in the face of a full 50\% attack.
 
-This means that for all blockchains, we can assume that at least \inversemaxcorruption{} hosts are honest.
+\section{Quorum Communication}
+Sia consists of many quorums each performing local consensus algorithms.
+Each sets the same price for storage, and when a new participant is added to the network the quorums must collaborate to ensure it is placed randomly.
+For efficiency, quorums are organized into a tree structure.
+At the lowest level of the tree, each quorum has several siblings.
+Quorums only report aggregate values to their siblings.
+For example, a quorum will report how much storage is being rented, how many participants are active, and the total balance of all the wallets in the quorum.
 
-\section{File Storage Layout}
-
-Each blockchain has \numhosts{} and \storageperhost{} per host.
-Each \storageperhost{} block of data is split up into many smaller pieces, which are to be called slices.
-Slices have no minimum file size, but have a maximum file size of \maxslicesize.
-The collection of slices on a single block of data is called a stack.
-
-The slices in each stack correcspond to each other.
-For example, if the third slice on one host is 45kb, then the third slice on every single host is also 45kb.
-These inter-host sets of congruent slices are called rings.
-
-Files are stored on multiple hosts using Reed-Solomon coding, which is maximum distance separable.
-First the user picks redundancy settings, which is what volume of the hosts need to retain their piece of the file in order for the file to be recovered.
-This is m of n recovery, where n equals \numhosts.
-If m is 1, then the file will be duplicated on every single host, and can be recovered from only a single host.
-The redundancy is then \numhosts{}, meaning that a 1GB file will take \numhosts GB of storage on the Sia network.
-If m is \fiftyone, then the file can be recovered from any \fiftyone{} hosts on the network, and the redundancy will be slightly less than 2.
-A 1GB file will therefore consume slightly less than 2GB of Sia storage.
-
-Files have header data that includes the hash for each slice in the ring and the value of m.
-The value of m can be stored as a single byte.
-Each hash will be 32 bytes and there are \numhosts pieces.
-The network assumes that under any circumstances, a blockchain will have at least \inversemaxcorruption hosts, so the redundancy on the header data will be kept at \maxredundancy.
-Altogether, this means that there is 40kb of overhead for a file.
-
-Part of the heartbeat algorithm performs keepalives on hosts and verifies that they are storing their pieces as promised.
-If a host goes offline or corrupts their data, the network can use the Reed-Solomon coding to repair the file within minutes - no interaction from the user needed.
-
-It is left to the user to pick optimal settings.
-When m is small, there is a higher chance that a malicious attacker can control enough of the network to knock the file offline.
-
-\section{Proof of Access}
-
-Each heartbeat, a host has to provide a proof that they have access to the file pieces that they are storing.
-Each block, a random \filechecksize{} segment of the storage stack is chosen to be included in the heartbeat.
-This segment will correspond to a portion of a file in a file ring.
-Each host will include their portion of the file in their heartbeat, which means that in the block there is enough information to fully reconstruct a small portion of the file.
-This will also reveal which hosts have the wrong data.
-
-Only \filechecksize{} is requested each block because requesting more would greatly increase bandwidth requirements per block.
-This small amount is sufficient because it is randomly selected.
-If a host is missing a substantial portion of the file, it will only be a matter of time before some part of the missing portion is randomly selected.
-This does mean that tiny corrupted sections of file can go undetected for a long time, but even small corruptions will eventually be detected and are unlikely to prevent file recovery.
-
-We can assume that a malicious host will receive all of the honest heartbeats before submitting their own.
-This means that, given sufficient redundnacy, a malicious host will be able to rebuild their piece of the file every step from the other heartbeats, can cna perform proof of access without actually storing anything.
-To prevent that, this process is broken up across two stages.
-
-In the first stage, hosts only submit the hash of the chosen segment prepended with their id.
-This forces hosts to lock in what their file piece is before they see any information revealed from the other hosts.
-In the second stage, hosts reveal what string produced the hash.
-If they reveal a string that does not hash to the string submitted in stage 1, the host is considered corrupt.
-
-% Penalties
-If a host submits a second stage string that does not match their first stage hash, they are thrown from the swarm.
-
-If a host submits a second stage string that is discovered as corrupt during decoding, an appeal is started.
-The host must upload the entire slice that corresponds to the corrupted segment uploaded in the heartbeat.
-The other hosts upload their chunks of the header data for that slice, which will contain the hash of the slice that the host is supposed to have.
-If the slice matches the hash, and the segment uploaded matches the slice, then the piece is determined originally corrupt.
-The host is aquitted, and the file itself is fined to pay for the bandwidth used during the appeal process.
-
-Otherwise, the host treated as not having submitted a heartbeat.
-
-If, during the appeal process, the blockchain is discovered dishonest, or a section of hosts is discovered dishonest, then the blockchain enters a panic state.
-
-\section{Proof of Storage}
-
-Storage is considered valid on the network if it follows two constraints:
-
+With regards to storage, only a few values matter.
 \begin{itemize}
-	\item It costs money to host files on the network.
-	\item The storage is unique to the network.
+	\item The number of participants in the quorum.
+	\item The total balance of all sectors on the quorum.
+	\item The total number of sectors in use on the quorum.
+	\item All transactions attempting to rent storage from Sia.
+	\item Any transactions announcing an intent to become a new participant.
 \end{itemize}
 
-The assumption for the first bullet point is that if a file costs money to upload, nobody will upload files that are not useful to them in some way.
-A host will not upload a fake file to himself or the network if the act of doing so forces the host to operate at a net loss.
-The second bullet point means that the host is not using Sia as it's source of storage, or that the host is not using a source that uses Sia as a source for storage.
+Each time a quorum creates a new block, a meta-block is sent to all of its siblings.
+A meta-block contains the above 5 bullet points, along with a hash of the full internal block and a signature from each participant in the quorum.
+Meta-blocks are sent probabilistically, with each participant randomly contacting 3 participants in each sibling quorum.
+Assuming that each quorum has at least \integrity{} honest participants, at least 75 messages will be sent each having a \integrity{} chance of being sent to an honest participant in the other quorum, reducing the chance of failure to one in 100 million.
+It is also extremely unlikely that two quorums of only \integrity{} honest particpants will exist as siblings, increasing even further the chance of success.
 
-The first point is protected by randomly collecting together swarms.
-Any swarm will be composed of random sets of nodes, and will not have more than \maxcorruption{} dishonest hosts.
-This means that any host attempting to use themselves as exclusive storage will have to host their files on at least \inversemaxcorruption{} honest hosts.
-As long as the profit from mining on \maxcorruption{} of a fake file does not exceed the loss of paying for hosting on the \inversemaxcorruption honest hosts, there will be no incentive to do fake mining in this manner.
-Therefore, a hard cap will be placed on the amount of coins that can be mined to satisfy this condition.
+It is possible that a dishonest participant or set of participants will try to announce a fake block.
+To prevent this, upon receiving a block from a sibling a quorum will send out an confirmation by performing the same algorithm.
+With high probability, an honest host will see the dishonest block and be able to conjure a proof of the dishonesty.
+If a confirmation is sent out and no accusation of dishonesty is made within 1 cycle, the block is assumed to be valid.
 
-The second point is protected by the cost of downloads on the network.
-Downloading a file costs money, and if you are to complete the proof of access steps in the heartbeat, you need to download a fraction of the file each heartbeat.
-As long as the download system is constructed such that the cost of downloading repeatedly to perform heartbeat access proofs is greater than the reward from mining, this attack will not be a problem.
-The system for pricing downloads has currently not been created, but it will be created with this constraint in mind.
+Together, a set of siblings quorums form a meta-quorum.
+These quorums share aggregate resources in the same exact manner, forming a meta-meta-quorum.
+This layered quorum approach continues until there is only a single most-meta-quorum.
+To simplify the vernacular, the smallest quorum is called 1Q.
+A meta-quorum is called 2Q, meta-meta 3Q, and so on.
+The largest quorum on the network is called RQ, or the "Root Quorum".
+The general term for larger quorums is meta-quorums.
 
-% game theory stuff about why it's not beneficial for an incomplete minority to collaborate until they hit a critical mass
-\begin{center}
-Game theory stuff here
-\end{center}
+Meta-quorums need to maintain consensus, such that each quorum within the meta-quorum receives the same block.
+It is too expensive for quorums to engage in the same consensus algorithm tha participants engage in, so an alternate solution with simpler constraints is needed.
+We can assume that at least \integrity{} of all participant in each quorum is honest.
+This, with careful execution, gives us enough to trust any individual quorum.
+A random 1Q quorum is chosen each block to compile the block for the meta-quorum.
+This 1Q quorum will be a participant in the meta-quorum that it is compiling a block for, and will have the previous block as well as the current state of the meta-quorum.
+It will also, with very high probability, have all of the most recent blocks from the sibling quorums that form the meta-quorum.
+The honest participants in the quorum will be able to fill out the block and broadcast it to the meta-quorum.
+After a meta-quorum releases a block, it releases the meta-block for that block to all of its siblings.
+The exception is the root quorum, which has no siblings.
 
-\section{The Problem of Delegation}
+The broadcast algorithm will work probabilistically, and is still under construction.
+To prevent dishonst blocks from being accepted, there will also be a confirmation algorithm that operates probabilistically.
+The algorithm will be designed such that the 1Q block compiler for the root quorum will not have to handle more than a few messages per participant, confirmation messages included.
 
-These proofs have a weak vulnerability; malicious hosts can collaborate and remove redundancy from the file.
-Files have a redundancy so that they can be repaired if their hosts go offline.
-A group of collaborating hosts can remove the redundancy from their file and store a single nonredundant copy.
-When one of the group needs to do a proof on the file, the group builds the piece they need out of the pieces they have.
+% Looking for a better title to the section
+\section{Joining Sia}
+When a machine wants to join Sia as a participant or set of participants, it must first make a down payment.
+There are multiple behaviors that a participant can engage in (such as turbulence) that could DDOS Sia.
+If any of these behaviors are detected, the participant is fined.
+The participant must have a balance of coins that can be fined.
+This is why machines must make down payments before joining Sia.
+Assuming that there is no dishonest behavior, the machine can reclaim the coins upon leaving the network gracefully.
 
-This is unhealthy for the network; if a single host goes offline, every host that is supposed to have redundant pieces of the file in the collaborating group will lose the file.
-This will result in penalties for the hosts, but also results in a much higher liklihood of corruption of the file.
+The machine makes the down payment on whatever quorum the machine has a balance.
+The machine can announce itself as any number of participants, so long as it can pay the full down payment for each.
+To maintain randomness on the network (say 500 dishonest participants join the network at the same time), each participant will replace a random existing participant on Sia.
+The participant that gets replaced will then either join a completely new quorum or fill in a gap where a participant has gone offline.
+If there are any quorums on Sia that are missing participants (due to inactivity or dishonesty), the displaced participant is sent to fill the gap.
+If there are no known gaps, the displaced participant is put into a queue.
+When there are \quorumsize{} participants in the queue, a new quorum is formed.
+If there are more than 2 * \quorumsize{} gaps in quorums on Sia, a quorum is sacrificed and its participants are used to fill the gaps.
 
-It is not certain that this can be avoided, though hopefully it can be discouraged.
+% need to explain where new quorums are added and where quorums are sacrificed from.
 
-\section{False Redundancy}
+\section{Remaining Features}
+A quorum cannot store the locations of all other quorums in the network, that's too much information and too much to keep track of.
+The current plan is to have a DHT where quorums can look up the addresses of other quorums.
+The DHT needs to be build with the assumption that there is a large volume of dishonesty.
 
-The network expects that hosts will go offline in a randomly distributed manner.
-There are penalties if hosts go offline simultaneously, and they are called 'false redundancy penalties.'
-There are two priciple ways that hosts would go down simultaneously.
-The first is if they are delegating files.
-The second is if all of the hosts are in the same geographic location, and some disaster like a power outage happens.
+The financial system has not been fully explained.
+Intra-1Q transactions are easy, however sending transactions between meta-quorums has not been explained.
+The general idea is that a meta-quorum will tell its siblings about any transactions that cross borders.
+Transaction transversal needs to be carefully constructed such that very little communcation happens through the root quorum.
 
-There may be other situations that cause hosts to go offline together.
-All such situations are viewed by the network as unacceptable and are penalized.
+Participants within a quorum need synchronized clocks.
+We do not yet have an algorithm to achieve this, though there is a Leslie Lamport paper that solves a very similar problem.
 
-The severities of these penalties have not been decided.
-It has also not been determined how to measure false redundancy.
+It's not explained where new quorums are added to, and where sacrifical quorums are sacrificed from.
+Most likely, for security reasons, they will be added to and sacrificed from random places.
+The meta-quorum tree will need to be balanced, however.
 
-\begin{center}
-Pentalty stuff here
-\end{center}
+Wallets are expected to have a scriting system built in.
+This scripting system has had very little thought put into it thus far, because it's more of an 'icing on the cake' than a vital part of Sia.
 
-\section{Entropy}
+The algorithms presented have not been under much scrutiny.
+We need experts to inspect the algorithms and proofs presented in this paper to verify that there are no errors in the logic or attack vectors that have not been accounted for.
 
-Each block, a random file segment must be selected.
-This means that the blockchain needs an unpredictable way to produce entropy, otherwise a dishonest host could look ahead and only store the pieces that it knows will be "randomly" selected.
-Each block, every host will be required to produce a random string that is 32 bytes in length.
-There are no requirements on how this is to be done, but it is assumed that honest hosts will have a legitamate method for producing random strings.
-
-Just like the proof of access, the random strings will have two stages.
-In the first stage, only the hash of the randomly generated string will be revealed.
-In the second stage, the actual random string will be revealed, and then all of the random strings will be appended deterministically and then hashed to produce the final random string for the block.
-
-By determining entropy this way, we guarantee that if even a single host produces a random string, the final string will also be random.
-
-This method of generating entropy is vulnerable to an attack: dishonest hosts can intentionally withdraw from the network to influence the outcome of the random number.
-The way to prevent this is to make sure that the penalty for missing a heartbeat is more expenive than favorably generating entropy for a potential 80\% of dishonest hosts.
-There will be a penalty for missing heartbeats, and it will sufficiently satisfy this attack prevention mechanism.
-
-\begin{center}
-Pentalty stuff here
-\end{center}
-
-\section{Script Wallets}
-
-Wallets on Sia have a balance and a set of scripts.
-These wallets are responsible for every interaction between Sia and external entities.
-The scripts manage these interactions.
-
-In addition to some general computational commands, scripts have system calls including
-
+\subsection*{Appendix: Vocabulary}
 \begin{description}
-	\item[Send(amount)] \hfill \\
-	Send money from this wallet to another wallet on the network. \\
-	Will only send money to existing wallets. \\
-	Returns 'yes' if successful, 'no' if unsuccessful.
-	\item[Rent(volume)] \hfill \\
-	Rent a volume of storage from the Sia network. \\
-	Returns a pointer to the file.
-	\item[RentProtected(volume)] \hfill \\
-	Rent a volume of storage from Sia that is write-only. \\
-	Returns a pointer t othe file.
-	\item[Release(filePointer)] \hfill \\
-	Release a file from the network. \\
-	You can only release files that you own.
-	\item[Endorse(filePointer, amount)] \hfill \\
-	Sends a volume of money to a file, which will be used to pay for the file in the future. \\
-	If the file is not protected, the file will be copied and the new file will be protected. \\
-	This amount can never be withdrawn from the file, and the file cannot be deleted until this amount is consumed.
+	\item[Segment] \hfill \\
+	An erasure coded piece of a physical file held by a single participant.
+	\item[Sector] \hfill \\
+	A logical block of data stored on a quorum.
+	This logical block is composed of a set of equal sized erasure coded segments, one segment held by each participant in the quorum housing the Sector.
+	\item[Ring] \hfill \\
+	A physical block of erasure coded data.
+	A ring is every segment for a particular file in a quorum.
+	A ring is what the data looks like after it has been erasure coded; a sector is what the data looks like before it has been erasure coded.
+	
+	\item[Participant] \hfill \\
+	A network-connected computer offering a discreet and nonflexible volume of storage to the network.
+	\item[Quorum] \hfill \\
+	A set of randomly chosen particpants working in consenses to monitor a fragment of the Sia network.
+	\item[State] \hfill \\
+	The status of a quorum-monitored fragment of the Sia network.
+	Every participant in the same quorum will have an identical state.
+	Every quorum has a different state, as every quorum monitors a different fragment of the Sia network.
+	\item[Meta-Quorum] \hfill \\
+	A set of quorums or meta-quorums acting in concensus.
+	\item[Root Quorum] \hfill \\
+	The highest level quorum that makes all of the major network decisions such as file price.
+
+	\item[Block] \hfill \\
+	A set of updates to the State of a particular quorum.
+	\item[Heartbeat] \hfill \\
+	A set of updates from a single participant in a quorum.
+	A block is actually just a list of heartbeats, one from every participant in the quorum that the block acts upon.
 \end{description}
 
-Wallets consume file storage space on the network.
-Just like files are charged for consuming space, wallets are charged the same price.
-
-% wallets are charged for consuming space just like files are
-% files need to have some support for extensions. Especially protected files.
-
-\section{Files}
-
-\section{Updates}
-
-An update is a message to the network that needs to be processed.
-Messages can include money sends, file rents, or announcements of new hosts.
-Hosts are incentivised to include all updates into their heartbeats, because updates include small monetary compensation.
-The compensation comes from the entity submitting the update.
-This means that only entities with wallets on the local blockchain can submit updates.
-
-% need to talk about uploading and downloading files, and perhaps fast-process updates.
-% I think all of this should come after defining the tree though.
-
-\section{Full Heartbeat}
-
-A full heartbeat will contain the following:
-
-\begin{itemize}
-	\item Blockchain
-	\item Parent Block
-	\item Host Id
-	\item File Proof Hash - Stage 1
-	\item File Proof String - Stage 2
-	\item Entropy Proof Hash - Stage 1
-	\item Entropy Proof String - Stage 2
-	\item Update List
-	\item Host Signature
-\end{itemize}
-
-\section{A Tree of Blockchains}
-
-Blockchains are organized into a tree shape, where \childrenperparent{} blockchains share a parent blockchain.
-The parent blockchains do not handle updates or store files, and are composed of a random set of hosts chosen from among their children.
-Parents of parents are also composed of random child hosts, but they are composed of a different set of hosts from the leafs - no host ever participates in more than a single leaf blockchain and a single parent blockchain.
-
-The tree is how hosts can be confident that their siacoins are real and confirmed without needing to know every transaction on the network.
-Each parent keeps track of the aggregate balance of all the children.
-
-\section{Aggregate Transactions}
-
-\section{Blockchain Certifications}
-
-\section{Blookchain DHT}
-
-\section{Economic Model}
-
-Siacoins are generated at a rate of twenty thousand per day.
-The number of siacoins being produced will increase by 5\% per year, therefore exactly 1 year from the launch date, approximately twenty one thousand coins will be produced each day.
-% an exact equation needs to be determined
-
-The goal of the Siacoin is to be a non-volatile currency.
-The permanent inflationary nature of the Siacoin makes it less attractive to speculation, which is what drives the volatility of Bitcoin.
-Additionally, the inflation means that over time the cruft of the network will be cleared out.
-
-To fight high frequency trading, a network transaction fee of 1\% will be instituted.
-All transactions using Siacoin will be charged 1\%.
-This 1\% is tossed from the network.
-
-\section{Conclusion}
-
 \end{document}
+
