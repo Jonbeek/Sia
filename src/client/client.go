@@ -1,72 +1,17 @@
 package main
 
 import (
-	"bytes"
 	"common"
 	"common/crypto"
 	"common/erasure"
-	"encoding/gob"
 	"fmt"
-	"io"
-	"os"
+	"network"
 )
 
-// clientHandler is a MessageHandler that processes messages sent to a client.
-// It uses a channel to signal that it has finished processing.
-type clientHandler struct {
-	segments []string
-	indices  []uint8
-	k, b     int
-	done     chan struct{}
-}
-
-func (ch *clientHandler) SetAddress(addr *common.Address) {
-	return
-}
-
-func (ch *clientHandler) HandleMessage(payload []byte) {
-	// first byte contains the message type
-	switch payload[0] {
-	case 0:
-		ch.indices = append(ch.indices, uint8(payload[1]))
-		ch.segments = append(ch.segments, string(payload[2:]))
-		if len(ch.segments) == ch.k {
-			ch.done <- struct{}{}
-		}
-	}
-}
-
-// UploadFile splits a file into erasure-coded segments and distributes them across a quorum.
-// k is the number of non-redundant segments.
-// The file is padded to satisfy the erasure-coding requirements that:
-//     len(fileData) = k*bytesPerSegment, and:
-//     bytesPerSegment % 64 = 0
-func UploadFile(mr common.MessageRouter, file *os.File, k int, quorum [common.QuorumSize]common.Address) (bytesPerSegment int, err error) {
-	// read file
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return
-	}
-	if fileInfo.Size() > int64(common.QuorumSize*common.MaxSegmentSize) {
-		err = fmt.Errorf("File exceeds maximum per-quorum size")
-		return
-	}
-	fileData := make([]byte, fileInfo.Size())
-	_, err = io.ReadFull(file, fileData)
-	if err != nil {
-		return
-	}
-
-	// calculate EncodeRing parameters, padding file if necessary
-	bytesPerSegment = len(fileData) / k
-	if bytesPerSegment%64 != 0 {
-		bytesPerSegment += 64 - (bytesPerSegment % 64)
-		padding := k*bytesPerSegment - len(fileData)
-		fileData = append(fileData, bytes.Repeat([]byte{0x00}, padding)...)
-	}
-
+// uploadSector splits a Sector into erasure-coded segments and distributes them across a quorum.
+func uploadSector(sec *common.Sector, k int, quorum [common.QuorumSize]common.Address) (ring *common.Ring, err error) {
 	// create erasure-coded segments
-	segments, err := erasure.EncodeRing(k, bytesPerSegment, fileData)
+	ring, err = erasure.EncodeRing(sec, k)
 	if err != nil {
 		return
 	}
@@ -74,10 +19,13 @@ func UploadFile(mr common.MessageRouter, file *os.File, k int, quorum [common.Qu
 	// for now we just send segment i to node i
 	// this may need to be randomized for security
 	for i := range quorum {
-		m := new(common.Message)
-		m.Destination = quorum[i]
-		m.Payload = append([]byte{0x00, byte(i)}, []byte(segments[i])...)
-		err = mr.SendMessage(m)
+		m := &common.RPCMessage{
+			quorum[i],
+			"ServerHandler.UploadSegment",
+			ring.Segs[i],
+			nil,
+		}
+		err = network.SendRPCMessage(m)
 		if err != nil {
 			return
 		}
@@ -86,38 +34,25 @@ func UploadFile(mr common.MessageRouter, file *os.File, k int, quorum [common.Qu
 	return
 }
 
-// DownloadFile retrieves the erasure-coded segments corresponding to a given file from a quorum.
-// It reconstructs the original file from the segments using erasure.RebuildSector().
-func DownloadFile(mr common.MessageRouter, ch *clientHandler, fileHash crypto.Hash, length int, k int, quorum [common.QuorumSize]common.Address) (data []byte, err error) {
+// downloadSector retrieves the erasure-coded segments corresponding to a given Sector from a quorum.
+// It reconstructs the original data from the segments and returns the complete Sector
+func downloadSector(hash crypto.Hash, ring *common.Ring, quorum [common.QuorumSize]common.Address) (sec *common.Sector, err error) {
 	// send requests to each member of the quorum
-	numSent := 0
 	for i := range quorum {
-		// send requests
-		m := new(common.Message)
-		m.Destination = quorum[i]
-		b := new(bytes.Buffer)
-		err = gob.NewEncoder(b).Encode(mr.Address())
-		if err != nil {
-			continue
+		var seg common.Segment
+		m := &common.RPCMessage{
+			quorum[i],
+			"ServerHandler.DownloadSegment",
+			hash,
+			&seg,
 		}
-		m.Payload = append([]byte{0x01}, b.Bytes()...)
-		if mr.SendMessage(m) == nil {
-			numSent++
+		if network.SendRPCMessage(m) == nil {
+			ring.AddSegment(&seg)
 		}
 	}
-	if numSent < k {
-		err = fmt.Errorf("too few hosts reachable: needed %v, reached %v", k, numSent)
-		return
-	}
-
-	// wait for responses
-	<-ch.done
 
 	// rebuild file
-	data, err = erasure.RebuildSector(ch.k, ch.b, ch.segments[:ch.k], ch.indices[:ch.k])
-	// remove padding
-	data = data[:length]
-
+	sec, err = erasure.RebuildSector(ring)
 	return
 }
 

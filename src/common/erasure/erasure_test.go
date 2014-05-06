@@ -9,54 +9,46 @@ import (
 // Basic test for reed-solomon coding, verifies that standard input
 // will produce the correct results.
 func TestCoding(t *testing.T) {
-	k := common.QuorumSize - 2
+	// set encoding parameters
+	k := common.QuorumSize / 2
 	m := common.QuorumSize - k
-	bytesPerSegment := 1024
+	b := 1024
 
-	randomBytes, err := crypto.RandomByteSlice(bytesPerSegment * k)
+	// create sector data
+	randomBytes, err := crypto.RandomByteSlice(b * k)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// get hash of original file
-	randomBytesHash, err := crypto.CalculateHash(randomBytes)
+	// create sector
+	sec, err := common.NewSector(randomBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// encode original file into a data ring
-	ringSegments, err := EncodeRing(k, bytesPerSegment, randomBytes)
+	// encode data into a Ring
+	ring, err := EncodeRing(sec, k)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// verify that first k segments are still original data
-	originalDataHash, err := crypto.CalculateHash(randomBytes)
-	if err != nil {
-		t.Fatal(err)
-	} else if originalDataHash != randomBytesHash {
-		t.Fatal("original data was modified after caling EncodeRing!")
-	}
-
-	// reduce file to a set of k segments and print those segments out
-	remainingSegments := make([]string, k)
-	segmentIndicies := make([]uint8, k)
+	// create Ring from subset of encoded segments
+	newRing := common.NewRing(k, b, len(randomBytes))
 	for i := m; i < common.QuorumSize; i++ {
-		remainingSegments[i-m] = ringSegments[i]
-		segmentIndicies[i-m] = uint8(i)
+		newRing.AddSegment(&ring.Segs[i])
 	}
 
 	// recover original data
-	recoveredData, err := RebuildSector(k, bytesPerSegment, remainingSegments, segmentIndicies)
+	newSec, err := RebuildSector(newRing)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// compare to hash of data when first generated
-	recoveredDataHash, err := crypto.CalculateHash(recoveredData)
+	recoveredDataHash, err := crypto.CalculateHash(newSec.Data)
 	if err != nil {
 		t.Fatal(err)
-	} else if recoveredDataHash != randomBytesHash {
+	} else if recoveredDataHash != sec.Hash {
 		t.Fatal("recovered data is different from original data")
 	}
 

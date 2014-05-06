@@ -5,7 +5,7 @@ type Identifier byte
 
 // An Address couples an Identifier with its network address.
 type Address struct {
-	Id   Identifier
+	ID   Identifier
 	Host string
 	Port int
 }
@@ -17,6 +17,13 @@ type Address struct {
 type Message struct {
 	Destination Address
 	Payload     []byte
+}
+
+type RPCMessage struct {
+	Destination Address
+	Proc        string
+	Args        interface{}
+	Reply       interface{}
 }
 
 // A MessageHandler is a function that processes a message payload.
