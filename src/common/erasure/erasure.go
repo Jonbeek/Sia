@@ -15,59 +15,64 @@ package erasure
 import "C"
 
 import (
+	"bytes"
 	"common"
 	"fmt"
 	"unsafe"
 )
 
-// EncodeRing takes data and produces a set of common.QuorumSize pieces that include redundancy.
-// 'k' indiciates the number of non-redundant segments, and 'bytesPerSegment' indicates the size of each segment.
-// 'originalData' must be 'k' * 'bytesPerSegment' in size, and should be padded before calling 'EncodeRing'.
+// EncodeRing takes a Sector and encodes it as a Ring: a set of common.QuorumSize Segments that include redundancy.
+// k is the number of non-redundant segments, and b is the size of each segment. b is calculated from k.
+// The erasure-coding algorithm requires that the original data must be k*b in size, so it is padded here as needed.
 //
-// The return value is a set of strings common.QuorumSize in length.
-// Each string is bytesPerSegment large.
-// The first 'k' strings are the original data split up.
-// The remaining strings are newly generated redundant data.
-func EncodeRing(k int, bytesPerSegment int, originalData []byte) (segmentdData []string, err error) {
-	// check that 'k' is legal
+// The return value is a Ring.
+// The first k Segments of the Ring are the original data split up.
+// The remaining Segments are newly generated redundant data.
+func EncodeRing(sec *common.Sector, k int) (ring *common.Ring, err error) {
+	// check for legal size of k
 	if k <= 0 || k >= common.QuorumSize {
 		err = fmt.Errorf("k must be greater than 0 and smaller than %v", common.QuorumSize)
 		return
 	}
 
-	// check that bytesPerSegment is not too big or small
-	if bytesPerSegment < common.MinSegmentSize || bytesPerSegment > common.MaxSegmentSize {
-		err = fmt.Errorf("bytesPerSegment must be greater than %v and smaller than %v", common.MinSegmentSize, common.MaxSegmentSize)
+	// calculate b
+	b := len(sec.Data) / k
+	if b%64 != 0 {
+		b += 64 - (b % 64)
+	}
+
+	// check for legal size of b
+	if b < common.MinSegmentSize || b > common.MaxSegmentSize {
+		err = fmt.Errorf("b must be greater than %v and smaller than %v", common.MinSegmentSize, common.MaxSegmentSize)
 		return
 	}
 
-	// check that bytesPerSegment is divisible by 64
-	if bytesPerSegment%64 != 0 {
-		err = fmt.Errorf("bytesPerSegment must be divisible by 64")
-		return
-	}
+	// store encoding parameters in ring
+	ring = common.NewRing(k, b, len(sec.Data))
 
-	// check that originalData is the correct size
-	if len(originalData) != bytesPerSegment*k {
-		err = fmt.Errorf("originalData incorrectly padded, must be of size 'bytesPerSegment' * %v - 'm'", common.QuorumSize)
-		return
-	}
+	// pad data as needed
+	padding := k*b - len(sec.Data)
+	paddedData := append(sec.Data, bytes.Repeat([]byte{0x00}, padding)...)
 
-	// call c library to encode data
+	// call the encoding function
 	m := common.QuorumSize - k
-	redundantChunk := C.encodeRedundancy(C.int(k), C.int(m), C.int(bytesPerSegment), (*C.char)(unsafe.Pointer(&originalData[0])))
-	redundantString := C.GoStringN(redundantChunk, C.int(m*bytesPerSegment))
+	redundantChunk := C.encodeRedundancy(C.int(k), C.int(m), C.int(b), (*C.char)(unsafe.Pointer(&paddedData[0])))
+	redundantBytes := C.GoBytes(unsafe.Pointer(redundantChunk), C.int(m*b))
 
-	segmentdData = make([]string, common.QuorumSize)
-
-	// split originalData into segmentdData
+	// split paddedData into ring
 	for i := 0; i < k; i++ {
-		segmentdData[i] = string(originalData[i*bytesPerSegment : i*bytesPerSegment+bytesPerSegment])
+		ring.AddSegment(&common.Segment{
+			paddedData[i*b : (i+1)*b],
+			uint8(i),
+		})
 	}
 
-	// split redundantString into segmentdData
+	// split redundantString into ring
 	for i := k; i < common.QuorumSize; i++ {
-		segmentdData[i] = redundantString[(i-k)*bytesPerSegment : ((i-k)*bytesPerSegment)+bytesPerSegment]
+		ring.AddSegment(&common.Segment{
+			redundantBytes[(i-k)*b : (i-k+1)*b],
+			uint8(i),
+		})
 	}
 
 	// free the memory allocated by the C file
@@ -76,57 +81,57 @@ func EncodeRing(k int, bytesPerSegment int, originalData []byte) (segmentdData [
 	return
 }
 
-// RebuildSector takes a set of 'k' strings, each 'bytesPerSegment' in size, and recovers the original data.
-// 'k' must be equal to the number of non-redundant segments when the file was originally built.
+// RebuildSector takes a Ring and returns a Sector containing the original data.
+// The Ring's k value must be equal to the number of non-redundant segments when the file was originally built.
 // Because recovery is just a bunch of matrix operations, there is no way to tell if the data has been corrupted
-// or if an incorrect value of 'k' has been chosen. This error checking must happen before calling RebuildSector.
-// The set of 'untaintedSegments' will have corresponding indicies from when they were encoded.
-// There is no way to tell what the indicies are, so they must be supplied in the 'segmentIndicies' slice.
-// This must be a uint8 because the C library uses a char.
-//
-// The output is a single byteslice that is equivalent to the data used when initially calling EncodeRing()
-func RebuildSector(k int, bytesPerSegment int, untaintedSegments []string, segmentIndicies []uint8) (originalData []byte, err error) {
-	// check for legal size of k and m
+// or if an incorrect value of k has been chosen. This error checking must happen before calling RebuildSector.
+// Each Segment's Data must have the correct Index from when it was encoded.
+func RebuildSector(ring *common.Ring) (sec *common.Sector, err error) {
+	k, b := ring.GetRedundancy(), ring.GetBytesPerSegment()
+	if k == 0 && b == 0 {
+		err = fmt.Errorf("could not rebuild using uninitialized encoding parameters")
+		return
+	}
+
+	// check for legal size of k
 	m := common.QuorumSize - k
 	if k > common.QuorumSize || k < 1 {
 		err = fmt.Errorf("k must be greater than 0 but smaller than %v", common.QuorumSize)
 		return
 	}
 
-	// check for legal size of bytesPerSegment
-	if bytesPerSegment < common.MinSegmentSize || bytesPerSegment > common.MaxSegmentSize {
-		err = fmt.Errorf("bytesPerSegment must be greater than %v and smaller than %v", common.MinSegmentSize, common.MaxSegmentSize)
+	// check for legal size of b
+	if b < common.MinSegmentSize || b > common.MaxSegmentSize {
+		err = fmt.Errorf("b must be greater than %v and smaller than %v", common.MinSegmentSize, common.MaxSegmentSize)
 		return
 	}
 
-	// check that input data is correct number of slices.
-	if len(untaintedSegments) != k {
-		err = fmt.Errorf("there must be k elements in untaintedSegments")
+	// check for correct number of segments
+	if len(ring.Segs) < k {
+		err = fmt.Errorf("insufficient segments: expected at least %v, got %v", k, len(ring.Segs))
 		return
 	}
 
-	// check that input indicies are correct number of indicies
-	if len(segmentIndicies) != k {
-		err = fmt.Errorf("there must be k elements in segmentIndicies")
-		return
-	}
-
-	// move all data into a single slice for C
-	originalData = make([]byte, 0, k*bytesPerSegment)
-	for _, segment := range untaintedSegments {
-		byteSlice := []byte(segment)
+	// move all data into a single slice
+	var segmentData []byte
+	var segmentIndices []uint8
+	for i := 0; i < k; i++ {
+		byteSlice := ring.Segs[i].Data
 
 		// verify that each string is the correct length
-		if len(byteSlice) != bytesPerSegment {
-			err = fmt.Errorf("at least 1 of 'untaintedSegments' is the wrong length")
+		if len(byteSlice) != b {
+			err = fmt.Errorf("at least 1 Segment's Data field is the wrong length")
 			return
 		}
 
-		originalData = append(originalData, byteSlice...)
+		segmentData = append(segmentData, byteSlice...)
+		segmentIndices = append(segmentIndices, ring.Segs[i].Index)
+
 	}
+	// call the recovery function
+	C.recoverData(C.int(k), C.int(m), C.int(b), (*C.uchar)(unsafe.Pointer(&segmentData[0])), (*C.uchar)(unsafe.Pointer(&segmentIndices[0])))
 
-	// call the recovery option
-	C.recoverData(C.int(k), C.int(m), C.int(bytesPerSegment), (*C.uchar)(unsafe.Pointer(&originalData[0])), (*C.uchar)(unsafe.Pointer(&segmentIndicies[0])))
-
+	// remove padding introduced by EncodeRing()
+	sec, err = common.NewSector(segmentData[:ring.GetLength()])
 	return
 }

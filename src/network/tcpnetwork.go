@@ -9,13 +9,13 @@ import (
 
 // TCPServer is a MessageSender that communicates over TCP.
 type TCPServer struct {
-	Addr            common.Address
+	addr            common.Address
 	MessageHandlers []common.MessageHandler
-	Listener        net.Listener
+	listener        net.Listener
 }
 
 func (tcp *TCPServer) Address() common.Address {
-	return tcp.Addr
+	return tcp.addr
 }
 
 // AddMessageHandler adds a MessageHandler to the MessageHandlers slice.
@@ -23,8 +23,8 @@ func (tcp *TCPServer) Address() common.Address {
 // an Address incorporating the identifier.
 func (tcp *TCPServer) AddMessageHandler(mh common.MessageHandler) common.Address {
 	tcp.MessageHandlers = append(tcp.MessageHandlers, mh)
-	addr := tcp.Addr
-	addr.Id = common.Identifier(len(tcp.MessageHandlers) - 1)
+	addr := tcp.addr
+	addr.ID = common.Identifier(len(tcp.MessageHandlers) - 1)
 	return addr
 }
 
@@ -44,7 +44,7 @@ func (tcp *TCPServer) SendMessage(m *common.Message) (err error) {
 	// the remainder is the payload
 	payloadLength := make([]byte, 4)
 	binary.PutUvarint(payloadLength, uint64(len(m.Payload)))
-	stream := append(payloadLength, byte(m.Destination.Id))
+	stream := append(payloadLength, byte(m.Destination.ID))
 	stream = append(stream, m.Payload...)
 
 	// transmit stream
@@ -60,17 +60,16 @@ func (tcp *TCPServer) SendMessage(m *common.Message) (err error) {
 // It then spawns a serverHandler with a specified message.
 // It is the serverHandler's responsibility to close the TCP connection.
 func NewTCPServer(port int) (tcp *TCPServer, err error) {
-	tcp = new(TCPServer)
 	tcpServ, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
 		return
 	}
 
-	// initialize struct fields
-	tcp.Addr = common.Address{0, "localhost", port}
-	// MessageHandlers[0] is reserved for the MessageHandler of the TCPServer
-	tcp.MessageHandlers = make([]common.MessageHandler, 1)
-	tcp.Listener = tcpServ
+	tcp = &TCPServer{
+		common.Address{0, "localhost", port},
+		make([]common.MessageHandler, 1),
+		tcpServ,
+	}
 
 	go tcp.serverHandler()
 	return
@@ -79,13 +78,13 @@ func NewTCPServer(port int) (tcp *TCPServer, err error) {
 // Close closes the connection associated with the TCP server.
 // This causes tcpServ.Accept() to return an err, ending the serverHandler process
 func (tcp *TCPServer) Close() {
-	tcp.Listener.Close()
+	tcp.listener.Close()
 }
 
 // serverHandler accepts incoming connections and spawns a clientHandler for each.
 func (tcp *TCPServer) serverHandler() {
 	for {
-		conn, err := tcp.Listener.Accept()
+		conn, err := tcp.listener.Accept()
 		if err != nil {
 			return
 		} else {

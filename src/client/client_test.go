@@ -1,53 +1,32 @@
 package main
 
 import (
-	"bytes"
 	"common"
 	"common/crypto"
 	"common/erasure"
-	"io/ioutil"
 	"network"
-	"os"
 	"testing"
 )
 
-// serverHandler is a MessageHandler that processes messages sent to a server.
-// It uses a channel to signal that it has finished processing.
-type serverHandler struct {
-	mr    common.MessageRouter
-	index byte
-	data  []byte
-	done  chan struct{}
+type ServerHandler struct {
+	seg common.Segment
 }
 
-func (sh *serverHandler) SetAddress(addr *common.Address) {
-	return
+func (sh *ServerHandler) UploadSegment(seg common.Segment, arb *struct{}) error {
+	sh.seg = seg
+	return nil
 }
 
-func (sh *serverHandler) HandleMessage(payload []byte) {
-	// first byte contains the message type
-	switch payload[0] {
-	case 0: // store segment
-		sh.index = payload[1]
-		sh.data = payload[2:]
-	case 1: // reply to sender with segment
-		var err error
-		m := new(common.Message)
-		m.Destination, err = common.UnmarshalAddress(payload[1:])
-		if err != nil {
-			return
-		}
-		m.Payload = append([]byte{0x00, sh.index}, sh.data...)
-		sh.mr.SendMessage(m)
-	}
-	sh.done <- struct{}{}
+func (sh *ServerHandler) DownloadSegment(hash crypto.Hash, seg *common.Segment) error {
+	*seg = sh.seg
+	return nil
 }
 
-// TestTCPUploadFile tests the NewTCPServer and UploadFile functions.
-// NewTCPServer must properly initialize a TCP server.
-// UploadFile must succesfully distribute a file among a quorum.
-// The uploaded file must be successfully reconstructed.
-func TestTCPUploadFile(t *testing.T) {
+// TestRPCUploadSector tests the NewTCPServer and uploadFile functions.
+// NewRPCServer must properly initialize a RPC server.
+// uploadSector must succesfully distribute a Sector among a quorum.
+// The uploaded Sector must be successfully reconstructed.
+func TestRPCuploadSector(t *testing.T) {
 	// create TCPServer
 	tcp, err := network.NewTCPServer(9988)
 	if err != nil {
@@ -57,149 +36,114 @@ func TestTCPUploadFile(t *testing.T) {
 
 	// create quorum
 	var q [common.QuorumSize]common.Address
-	var shs [common.QuorumSize]serverHandler
+	var shs [common.QuorumSize]ServerHandler
 	for i := 0; i < common.QuorumSize; i++ {
 		q[i] = common.Address{0, "localhost", 9000 + i}
-		qtcp, err := network.NewTCPServer(9000 + i)
-		defer qtcp.Close()
+		qrpc, err := network.NewRPCServer(9000 + i)
+		defer qrpc.Close()
 		if err != nil {
-			t.Fatal("Failed to initialize TCPServer:", err)
+			t.Fatal("Failed to initialize RPCServer:", err)
 		}
-		shs[i].done = make(chan struct{}, 1)
-		q[i].Id = qtcp.AddMessageHandler(&shs[i]).Id
+		q[i].ID = qrpc.RegisterHandler(&shs[i])
 	}
 
-	// create file
-	file, err := os.Create("InputFile")
-	if err != nil {
-		t.Fatal("Failed to create file \"InputFile\"")
-	}
-	defer file.Close()
-	defer os.Remove("InputFile")
-
-	fileData, err := crypto.RandomByteSlice(70000)
+	// create sector
+	secData, err := crypto.RandomByteSlice(70000)
 	if err != nil {
 		t.Fatal("Could not generate test data:", err)
 	}
 
-	err = ioutil.WriteFile("InputFile", fileData, 0644)
+	sec, err := common.NewSector(secData)
 	if err != nil {
-		t.Fatal("Failed to write to file InputFile:", err)
+		t.Fatal("Failed to create sector:", err)
 	}
 
-	// calculate hash
-	origHash, err := crypto.CalculateHash(fileData)
-	if err != nil {
-		t.Fatal("Failed to calculate hash:", err)
-	}
-
-	// upload file to quorum
+	// upload sector to quorum
 	k := common.QuorumSize / 2
-	b, err := UploadFile(tcp, file, k, q)
+	ring, err := uploadSector(sec, k, q)
 	if err != nil {
 		t.Fatal("Failed to upload file:", err)
 	}
 
-	// wait for all participants to complete
-	for i := range shs {
-		<-shs[i].done
-	}
-
 	// rebuild file from first k segments
-	segments := make([]string, k)
-	indices := make([]uint8, k)
+	ring.Segs = []common.Segment{}
 	for i := 0; i < k; i++ {
-		segments[i] = string(shs[i].data)
-		indices[i] = uint8(shs[i].index)
+		ring.AddSegment(&shs[i].seg)
 	}
 
-	rebuiltData, err := erasure.RebuildSector(k, b, segments, indices)
+	sec, err = erasure.RebuildSector(ring)
 	if err != nil {
 		t.Fatal("Failed to rebuild file:", err)
 	}
-	// remove padding
-	rebuiltData = rebuiltData[:len(fileData)]
 
 	// check hash
-	rebuiltHash, err := crypto.CalculateHash(rebuiltData)
+	rebuiltHash, err := crypto.CalculateHash(sec.Data)
 	if err != nil {
 		t.Fatal("Failed to calculate hash:", err)
 	}
 
-	if origHash != rebuiltHash {
+	if sec.Hash != rebuiltHash {
 		t.Fatal("Failed to recover file: hashes do not match")
 	}
 }
 
-// NewTCPServer must properly initialize a TCP server.
-// DownloadFile must successfully retrieve a file from a quorum.
-// The downloaded file must match the original file.
-func TestTCPDownloadFile(t *testing.T) {
-	// create file
-	fileData, err := crypto.RandomByteSlice(70000)
+// TestRPCdownloadSector tests the NewRPCServer and downloadSector functions.
+// NewRPCServer must properly initialize a RPC server.
+// downloadSector must successfully retrieve a Sector from a quorum.
+// The downloaded Sector must match the original Sector.
+func TestRPCdownloadSector(t *testing.T) {
+	// create sector
+	secData, err := crypto.RandomByteSlice(70000)
 	if err != nil {
 		t.Fatal("Could not generate test data:", err)
 	}
 
-	// calculate hash
-	origHash, err := crypto.CalculateHash(fileData)
+	sec, err := common.NewSector(secData)
 	if err != nil {
-		t.Fatal("Failed to calculate hash:", err)
+		t.Fatal("Failed to create sector:", err)
 	}
 
-	// encode file
+	// encode sector
 	k := common.QuorumSize / 2
-	bytesPerSegment := len(fileData) / k
-	if bytesPerSegment%64 != 0 {
-		bytesPerSegment += 64 - (bytesPerSegment % 64)
-		padding := k*bytesPerSegment - len(fileData)
-		fileData = append(fileData, bytes.Repeat([]byte{0x00}, padding)...)
-	}
-	segments, err := erasure.EncodeRing(k, bytesPerSegment, fileData)
+	ring, err := erasure.EncodeRing(sec, k)
 	if err != nil {
-		t.Fatal("Failed to encode file data:", err)
+		t.Fatal("Failed to encode sector data:", err)
 	}
 
-	// create TCPServer
-	tcp, err := network.NewTCPServer(9988)
+	// create RPCServer
+	rpcs, err := network.NewRPCServer(9988)
 	if err != nil {
-		t.Fatal("Failed to initialize TCPServer:", err)
+		t.Fatal("Failed to initialize RPCServer:", err)
 	}
-	defer tcp.Close()
-	ch := new(clientHandler)
-	ch.k, ch.b = k, bytesPerSegment
-	ch.done = make(chan struct{}, 1)
-	tcp.AddMessageHandler(ch)
+	defer rpcs.Close()
 
 	// create quorum
 	var q [common.QuorumSize]common.Address
-	var shs [common.QuorumSize]serverHandler
 	for i := 0; i < common.QuorumSize; i++ {
 		q[i] = common.Address{0, "localhost", 9000 + i}
-		qtcp, err := network.NewTCPServer(9000 + i)
+		qrpc, err := network.NewRPCServer(9000 + i)
 		if err != nil {
-			t.Fatal("Failed to initialize TCPServer:", err)
+			t.Fatal("Failed to initialize RPCServer:", err)
 		}
-		shs[i].mr = qtcp
-		shs[i].index = byte(i)
-		shs[i].data = []byte(segments[i])
-		shs[i].done = make(chan struct{}, 1)
-		q[i].Id = qtcp.AddMessageHandler(&shs[i]).Id
+		sh := new(ServerHandler)
+		sh.seg = ring.Segs[i]
+		q[i].ID = qrpc.RegisterHandler(sh)
 	}
 
 	// download file from quorum
-	downData, err := DownloadFile(tcp, ch, origHash, 70000, k, q)
+	ring.Segs = []common.Segment{}
+	sec, err = downloadSector(sec.Hash, ring, q)
 	if err != nil {
 		t.Fatal("Failed to download file:", err)
 	}
 
 	// check hash
-	rebuiltHash, err := crypto.CalculateHash(downData)
+	rebuiltHash, err := crypto.CalculateHash(sec.Data)
 	if err != nil {
 		t.Fatal("Failed to calculate hash:", err)
 	}
 
-	if origHash != rebuiltHash {
+	if sec.Hash != rebuiltHash {
 		t.Fatal("Failed to recover file: hashes do not match")
 	}
 }
