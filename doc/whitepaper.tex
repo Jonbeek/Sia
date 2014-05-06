@@ -233,7 +233,6 @@ The full algorithm:
 		\item If the number of signatures on the signed heartbeat is less than the step counter, ignore.
 		\item If there are multiple signatures from the same participant, ignore.
 		\item If there are signatures from non-participants, ignore.
-		\item If the receiving participant has already signed the signed heartbeat, ignore.
 		\item If it is a heartbeat that has been seen before, ignore.
 		\item If we have already seen two other heartbeats from the creator of this heartbeat, ignore.
 		\item Add signature to the signed heartbeat and send it to all other participants in the quorum.
@@ -362,6 +361,42 @@ Every quorum will be receiving the same external seed, but each quorum needs a u
 After getting entropy from Aiza, the internal seed is concatenated to the external seed and their union is hashed.
 This will create a secure random seed that is unique to each quorum.
 
+\section{Quorum Integrity}
+A quorum is considered to have integrity if at least 20\% of hosts are honest.
+Sia as a network assumes that half of all participants are honest.
+Sia also assumes that participants are randomly distributed throughout the network.
+Given this, there is a 3-in-one-trillion chance that a given quorum will not have integrity, as demonstrated by this equation:
+\begin{equation}
+\sum_{i=102}^{128} {128 \choose i} \; 0.5^{i} \; 0.5^{128-i} = 3.889\times10^{-12}
+\end{equation}
+If only 45\% of the network is dishonest, the probability is even more favorable:
+\begin{equation}
+\sum_{i=102}^{128} {128 \choose i} \; 0.45^{i} \; 0.55^{128-i} = 9.415\times10^{-16}
+\end{equation}
+In all interactions, quorums assume that the opposing quorum is composed of at least 20\% honest hosts, and each quorum assumes that itself is composed of at least 20\% honest hosts.
+This bound can probably be relaxed even further however, because the probability of having two quorums that are each only 20\% honest is exceedingly close to zero.
+
+\section{Quorum Communication}
+Sia consists of many quorums each performing local consensus algorithms.
+Each sets the same price for storage, and when a new participant is added to the network the quorums must collaborate to ensure it is placed randomly.
+For efficiency, quorums are organized into a tree structure.
+At the lowest level of the tree, each quorum has several siblings.
+Quorums only report aggregate values to their siblings.
+For example, a quorum will report how much storage is being rented, how many participants are active, and the total balance of all the wallets in the quorum.
+
+With regards to storage, only a few values matter.
+\begin{itemize}
+	\item The number of participants in the quorum.
+	\item The total balance of all sectors on the quorum.
+	\item The total number of sectors in use on the quorum.
+	\item All transactions attempting to rent storage from Sia.
+	\item Any transactions announcing an intent to become a new participant.
+\end{itemize}
+
+Each time a quorum arrives at a new block, the hash of that block is sent to all siblings, along with differences in the aggregate values.
+Blocks are sent probabilistically, with each host randomly contacting 3 participants in each sibling quorum.
+% probability
+
 \section{Overview}
 
 Sia is built out of many small blockchains of \numhosts{} hosts each.
@@ -423,62 +458,6 @@ Even controlling half of the hosts on the network, an attacker has a minimal cha
 In all interactions on Sia, it is assumed that blockchains are dishonest with 50\% probability, and that all blockchains have at least \inversemaxcorruption{} honest hosts.
 Sia also has tools to detect dishonest actions by hosts and blockchains, which result in fines and being kicked from the network.
 
-\section{Dishonest Blockchains}
-
-We assume that hosts are randomly assigned to blockchains.
-In a network where honest hosts only have a simple majority, an attacker can have the majority in many individual blockchains.
-
-We can assume that all blockchains will have at least \inversemaxcorruption{} honest hosts given that half of the hosts on the network are honest.
-
-\begin{equation}
-\sum_{i=163}^{192} {192 \choose i} \; 0.5^{i} \; 0.5^{192-i} = 3.869\times10^{-24}
-\end{equation}
-
-If dishonest hosts have a majority in a blockchain, they can push honest hosts offline by preventing the honest heartbeats from getting the signatures required to be put in a block.
-This allows, in one block, or spread through many blocks, a dishonest blockchain to push off all of the honest hosts.
-
-To protect against this type of attack, each time a host is dropped from the network, 3 additional hosts are randomly selected to be dropped from the network.
-Assuming worst case, this means that for each honest host, the next three hosts that get dropped will be half honest and half dishonest, for a total expected drop of 2.5 honest hosts and 1.5 dishonest hosts, or an expected ratio of 60\% honest hosts getting dropped.
-Assuming that the network is half honest, the individual blockchain will converge to 60\% dishonest.
-
-If individual blockchains converge to being 60\% dishonest, with high probability no blockchain will have less than \inversemaxcorruption{} honest hosts.
-
-\begin{equation}
-\sum_{i=163}^{192} {192 \choose i} \; 0.6^{i} \; 0.4^{192-i} = 5.392\times10^{-14}
-\end{equation}
-
-This means that for all blockchains, we can assume that at least \inversemaxcorruption{} hosts are honest.
-
-\section{The Problem of Delegation}
-
-These proofs have a weak vulnerability; malicious hosts can collaborate and remove redundancy from the file.
-Files have a redundancy so that they can be repaired if their hosts go offline.
-A group of collaborating hosts can remove the redundancy from their file and store a single nonredundant copy.
-When one of the group needs to do a proof on the file, the group builds the piece they need out of the pieces they have.
-
-This is unhealthy for the network; if a single host goes offline, every host that is supposed to have redundant pieces of the file in the collaborating group will lose the file.
-This will result in penalties for the hosts, but also results in a much higher liklihood of corruption of the file.
-
-It is not certain that this can be avoided, though hopefully it can be discouraged.
-
-\section{False Redundancy}
-
-The network expects that hosts will go offline in a randomly distributed manner.
-There are penalties if hosts go offline simultaneously, and they are called 'false redundancy penalties.'
-There are two priciple ways that hosts would go down simultaneously.
-The first is if they are delegating files.
-The second is if all of the hosts are in the same geographic location, and some disaster like a power outage happens.
-
-There may be other situations that cause hosts to go offline together.
-All such situations are viewed by the network as unacceptable and are penalized.
-
-The severities of these penalties have not been decided.
-It has also not been determined how to measure false redundancy.
-
-\begin{center}
-Pentalty stuff here
-\end{center}
-
 \section{Script Wallets}
 
 Wallets on Sia have a balance and a set of scripts.
@@ -510,17 +489,6 @@ In addition to some general computational commands, scripts have system calls in
 Wallets consume file storage space on the network.
 Just like files are charged for consuming space, wallets are charged the same price.
 
-\section{Updates}
-
-An update is a message to the network that needs to be processed.
-Messages can include money sends, file rents, or announcements of new hosts.
-Hosts are incentivised to include all updates into their heartbeats, because updates include small monetary compensation.
-The compensation comes from the entity submitting the update.
-This means that only entities with wallets on the local blockchain can submit updates.
-
-% need to talk about uploading and downloading files, and perhaps fast-process updates.
-% I think all of this should come after defining the tree though.
-
 \section{Full Heartbeat}
 
 A full heartbeat will contain the following:
@@ -536,15 +504,6 @@ A full heartbeat will contain the following:
 	\item Update List
 	\item Host Signature
 \end{itemize}
-
-\section{A Tree of Blockchains}
-
-Blockchains are organized into a tree shape, where \childrenperparent{} blockchains share a parent blockchain.
-The parent blockchains do not handle updates or store files, and are composed of a random set of hosts chosen from among their children.
-Parents of parents are also composed of random child hosts, but they are composed of a different set of hosts from the leafs - no host ever participates in more than a single leaf blockchain and a single parent blockchain.
-
-The tree is how hosts can be confident that their siacoins are real and confirmed without needing to know every transaction on the network.
-Each parent keeps track of the aggregate balance of all the children.
 
 \section{Appendix: Vocabulary}
 
