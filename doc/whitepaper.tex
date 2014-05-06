@@ -304,7 +304,7 @@ We also need to prevent a participant from downloading the segment they need to 
 First we will address recursive storage, where a participant claims to store data but instead rents out space on another quorum.
 This is unprofitable for the participant, because they are getting paid to host \participantvolume{}, but they must pay to store \participantvolume{} with redundancy.
 If participants were also rewarded with newly minted coins, the situation might occur where the newly minted coins pay for the redundancy and leave profit for the dishonest participant.
-We want to avoid this, so newly minted coins cannot be distributed to hosts who are already getting paid from another income source.
+We want to avoid this, so newly minted coins cannot be distributed to participants who are already getting paid from another income source.
 
 Preventing a participant from downloading the whole file from their own quorum requires a different tactic.
 The information necessary to recover data is already available in the local quorum, it only needs to be downloaded.
@@ -353,7 +353,7 @@ Each block, each participant generates a random string locally and submits it wi
 During block compilation, all of the random strings are concatenated and hashed again to produce a unique random seed.
 This is the internal step.
 The goal of the internal step is to produce a random seed that is unique to each quorum.
-A single honest participant will make it computationally infeasible for a dishonest set of hosts to control what seed is produced.
+A single honest participant will make it computationally infeasible for a dishonest set of participants to control what seed is produced.
 Though they can manipulate their own entropy to avoid certain seeds, the only goal is to make sure that the internal seed is not the same as the internal seed of any other quorum.
 
 After the internal seed is determined, an external seed is acquired from Aiza, a cryptocurrency designed to generate secure public random numbers.
@@ -362,7 +362,7 @@ After getting entropy from Aiza, the internal seed is concatenated to the extern
 This will create a secure random seed that is unique to each quorum.
 
 \section{Quorum Integrity}
-A quorum is considered to have integrity if at least 20\% of hosts are honest.
+A quorum is considered to have integrity if at least 20\% of participants are honest.
 Sia as a network assumes that half of all participants are honest.
 Sia also assumes that participants are randomly distributed throughout the network.
 Given this, there is a 3-in-one-trillion chance that a given quorum will not have integrity, as demonstrated by this equation:
@@ -373,8 +373,27 @@ If only 45\% of the network is dishonest, the probability is even more favorable
 \begin{equation}
 \sum_{i=102}^{128} {128 \choose i} \; 0.45^{i} \; 0.55^{128-i} = 9.415\times10^{-16}
 \end{equation}
-In all interactions, quorums assume that the opposing quorum is composed of at least 20\% honest hosts, and each quorum assumes that itself is composed of at least 20\% honest hosts.
-This bound can probably be relaxed even further however, because the probability of having two quorums that are each only 20\% honest is exceedingly close to zero.
+
+Quorums that are more than half dishonest become vulnerable to an attack where honest participants can be evicted from a quorum for inactivity by not being in the block that is composed of the majority of the participants.
+Every time that a participant is evicted from the network for inactivity, it is assumed that dishonest participants have maliciously forced the eviction.
+Steps must then be taken to restore quorum integrity, lest all of the honest participants are evicted and only dishonest participants remain.
+For each participant kicked from the network for inactivity, two are forcibly removed from the quorum.
+Then all three get replaced with new participants.
+Assuming that only honest participants get dropped, kicking two random participants and replacing them with random participants will set the equilibrium to 2/3 dishonest participants.
+This is not great, but it maintains integrity in the quorum.
+
+If dishonest participants continually shove out honest participants, the quorum enters a state of 'turbulence'.
+Presently there is nothing in the protocol to discourage dishonest participants from causing high levels of turbulence, though there are plans to implement something that makes turbulence expensive to the whole quorum.
+We are not sure what the best solution is.
+
+It should be noted that a quorum which is 2/3 dishonest is at risk of file loss.
+If all dishonest participants leave the quorum at the same time, they will be fined heavily however all files with less than 3 full redundancy will be lost from the quorum.
+This is also considered a weak point, and solutions are being considered that would enable a self repairing file to be spread out over multiple quorums.
+
+A high-level, non-self-repairing solution exists for files that must endure extreme attacks, though it is not discussed in this paper.
+Because storage has legitimate utility and value, I find it unlikely that an attacker would get up to a full 1/2 of the network - there are too many parties that would be interested in contributing.
+Unlike Bitcoin, there are no mining pools, which means the risk of one pool gaining too much power does not exist.
+Nonetheless, we still attempt to make the protocol secure in the face of a full 50\% attack.
 
 \section{Quorum Communication}
 Sia consists of many quorums each performing local consensus algorithms.
