@@ -22,7 +22,7 @@ func (tsh *TestStoreHandler) StoreMessage(message string, arb *struct{}) error {
 // The RPC must sucessfully store a message.
 func TestRPCSendMessage(t *testing.T) {
 	// create RPCServer and add a message handler
-	rpcs, err := NewRPCServer(9988)
+	rpcs, err := NewRPCServer(9987)
 	if err != nil {
 		t.Fatal("Failed to initialize TCPServer:", err)
 	}
@@ -34,7 +34,7 @@ func TestRPCSendMessage(t *testing.T) {
 
 	// send a message
 	m := &common.Message{
-		common.Address{id, "localhost", 9988},
+		common.Address{id, "localhost", 9987},
 		"TestStoreHandler.StoreMessage",
 		"hello, world!",
 		nil,

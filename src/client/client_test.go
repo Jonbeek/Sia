@@ -28,7 +28,7 @@ func (sh *ServerHandler) DownloadSegment(hash crypto.Hash, seg *common.Segment) 
 // The uploaded Sector must be successfully reconstructed.
 func TestRPCuploadSector(t *testing.T) {
 	// create RPCServer
-	rpcs, err := network.NewRPCServer(9988)
+	rpcs, err := network.NewRPCServer(9985)
 	if err != nil {
 		t.Fatal("Failed to initialize RPCServer:", err)
 	}
@@ -111,7 +111,7 @@ func TestRPCdownloadSector(t *testing.T) {
 	}
 
 	// create RPCServer
-	rpcs, err := network.NewRPCServer(9988)
+	rpcs, err := network.NewRPCServer(9985)
 	if err != nil {
 		t.Fatal("Failed to initialize RPCServer:", err)
 	}
