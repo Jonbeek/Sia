@@ -22,17 +22,17 @@ func (sh *ServerHandler) DownloadSegment(hash crypto.Hash, seg *common.Segment) 
 	return nil
 }
 
-// TestRPCUploadSector tests the NewTCPServer and uploadFile functions.
+// TestRPCUploadSector tests the NewRPCServer and uploadFile functions.
 // NewRPCServer must properly initialize a RPC server.
 // uploadSector must succesfully distribute a Sector among a quorum.
 // The uploaded Sector must be successfully reconstructed.
 func TestRPCuploadSector(t *testing.T) {
-	// create TCPServer
-	tcp, err := network.NewTCPServer(9988)
+	// create RPCServer
+	rpcs, err := network.NewRPCServer(9988)
 	if err != nil {
-		t.Fatal("Failed to initialize TCPServer:", err)
+		t.Fatal("Failed to initialize RPCServer:", err)
 	}
-	defer tcp.Close()
+	defer rpcs.Close()
 
 	// create quorum
 	var q [common.QuorumSize]common.Address
@@ -60,7 +60,7 @@ func TestRPCuploadSector(t *testing.T) {
 
 	// upload sector to quorum
 	k := common.QuorumSize / 2
-	ring, err := uploadSector(sec, k, q)
+	ring, err := uploadSector(rpcs, sec, k, q)
 	if err != nil {
 		t.Fatal("Failed to upload file:", err)
 	}
@@ -132,7 +132,7 @@ func TestRPCdownloadSector(t *testing.T) {
 
 	// download file from quorum
 	ring.Segs = []common.Segment{}
-	sec, err = downloadSector(sec.Hash, ring, q)
+	sec, err = downloadSector(rpcs, sec.Hash, ring, q)
 	if err != nil {
 		t.Fatal("Failed to download file:", err)
 	}

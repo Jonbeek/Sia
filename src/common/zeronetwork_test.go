@@ -11,13 +11,15 @@ func TestZeroNetwork(t *testing.T) {
 		t.Fatal("NewZeroNetwork cannot return nil")
 	}
 
-	m := new(Message)
-	m.Destination = zeroNet.Address()
-	m.Payload = make([]byte, 1)
-	m.Payload[0] = 3
+	m := &Message{
+		zeroNet.Address(),
+		"",
+		nil,
+		nil,
+	}
 
 	err := zeroNet.SendMessage(m)
 	if err != nil {
-		t.Fatal("ZeroNetwork.SendMessage cannot return and error")
+		t.Fatal("ZeroNetwork.SendMessage cannot fail")
 	}
 }

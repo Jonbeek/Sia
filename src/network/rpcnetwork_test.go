@@ -33,13 +33,13 @@ func TestRPCSendMessage(t *testing.T) {
 	id := rpcs.RegisterHandler(tsh)
 
 	// send a message
-	m := &common.RPCMessage{
+	m := &common.Message{
 		common.Address{id, "localhost", 9988},
 		"TestStoreHandler.StoreMessage",
 		"hello, world!",
 		nil,
 	}
-	err = SendRPCMessage(m)
+	err = rpcs.SendMessage(m)
 	if err != nil {
 		t.Fatal("Failed to send message:", err)
 	}
@@ -50,7 +50,7 @@ func TestRPCSendMessage(t *testing.T) {
 
 	// send a message asynchronously
 	tsh.message = ""
-	async := SendAsyncRPCMessage(m)
+	async := rpcs.SendAsyncMessage(m)
 	<-async.Done
 	if async.Error != nil {
 		t.Fatal("Failed to send message:", async.Error)

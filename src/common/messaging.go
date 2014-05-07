@@ -10,33 +10,20 @@ type Address struct {
 	Port int
 }
 
-// Messages are for sending things over the network.
-// Each message has a single destination, and it is
-// the job of the network package to route a message
-// to its intended destination.
+// A Message is for sending requests over the network.
+// It consists of an Address and an RPC. It is the MessageRouter's job to
+// route a message to its intended destination.
 type Message struct {
-	Destination Address
-	Payload     []byte
-}
-
-type RPCMessage struct {
-	Destination Address
-	Proc        string
-	Args        interface{}
-	Reply       interface{}
-}
-
-// A MessageHandler is a function that processes a message payload.
-// A MessageHandler has an Address associated with it that is determined by a MessageRouter.
-type MessageHandler interface {
-	SetAddress(*Address)
-	HandleMessage([]byte)
+	Dest Address
+	Proc string
+	Args interface{}
+	Resp interface{}
 }
 
 // A MessageRouter both transmits outgoing messages and processes incoming messages.
-// It allows MessageHandlers to be associated with a given Identifier.
+// It dispenses Identifiers to objects that register themselves on the server.
 type MessageRouter interface {
 	Address() Address
-	AddMessageHandler(MessageHandler) Address
+	RegisterHandler(interface{}) Identifier
 	SendMessage(*Message) error
 }

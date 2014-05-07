@@ -100,12 +100,12 @@ func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 	if err != nil {
 		return
 	}
-	sh.heartbeatHash, err = crypto.CalculateTruncatedHash([]byte(gobHb))
+	sh.heartbeatHash, err = crypto.CalculateTruncatedHash(gobHb)
 	if err != nil {
 		return
 	}
 
-	// fill out sigantures
+	// fill out signatures
 	sh.signatures = make([]crypto.Signature, 1)
 	signedHb, err := crypto.Sign(s.secretKey, string(sh.heartbeatHash[:]))
 	if err != nil {
@@ -113,50 +113,34 @@ func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 	}
 	sh.signatures[0] = signedHb.Signature
 	sh.signatories = make([]byte, 1)
-	sh.signatories[0] = s.participantIndex
+	sh.signatories[0] = s.self.index
 	return
 }
 
 // Takes a signed heartbeat and broadcasts it to the quorum
 func (s *State) announceSignedHeartbeat(sh *signedHeartbeat) (err error) {
-	msh, err := sh.GobEncode()
-	if err != nil {
-		return
-	}
-
-	payload := append([]byte(string(incomingSignedHeartbeat)), msh...)
-	s.broadcast(payload)
+	s.broadcast(&common.Message{
+		Proc: "State.HandleSignedHeartbeat",
+		Args: *sh,
+		Resp: nil,
+	})
 	return
 }
 
-// handleSignedHeartbeat takes the payload of an incoming message of type
+// HandleSignedHeartbeat takes the payload of an incoming message of type
 // 'incomingSignedHeartbeat' and verifies it according to rules established by
 // the specification.
-//
-// The return code is currently purely for the testing suite, the numbers
-// have been chosen arbitrarily
-func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
-	// covert payload to SignedHeartbeat
-	sh := new(signedHeartbeat)
-	err := sh.GobDecode(payload)
-	if err != nil {
-		log.Infoln("Received bad message SignedHeartbeat: ", err)
-		returnCode = 11
-		return
-	}
-
+func (s *State) HandleSignedHeartbeat(sh signedHeartbeat, arb *struct{}) error {
 	// Check that the slices of signatures and signatories are of the same length
 	if len(sh.signatures) != len(sh.signatories) {
 		log.Infoln("SignedHeartbeat has mismatched signatures")
-		returnCode = 1
-		return
+		return fmt.Errorf("SignedHeartbeat has mismatched signatures")
 	}
 
 	// check that there are not too many signatures and signatories
 	if len(sh.signatories) > common.QuorumSize {
 		log.Infoln("Received an over-signed signedHeartbeat")
-		returnCode = 12
-		return
+		return fmt.Errorf("Received an over-signed signedHeartbeat")
 	}
 
 	s.stepLock.Lock() // prevents a benign race condition; is here to follow best practices
@@ -171,16 +155,14 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 			// now continue to rest of function
 		} else {
 			log.Infoln("Received an out-of-sync SignedHeartbeat")
-			returnCode = 2
-			return
+			return fmt.Errorf("Received an out-of-sync SignedHeartbeat")
 		}
 	}
 
 	// Check bounds on first signatory
 	if int(sh.signatories[0]) >= common.QuorumSize {
 		log.Infoln("Received an out of bounds index")
-		returnCode = 9
-		return
+		return fmt.Errorf("Received an out of bounds index")
 	}
 
 	// we are starting to read from memory, initiate locks
@@ -189,25 +171,22 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 	defer s.participantsLock.RUnlock()
 	defer s.heartbeatsLock.Unlock()
 
-	// check that first sigatory is a participant
+	// check that first signatory is a participant
 	if s.participants[sh.signatories[0]] == nil {
 		log.Infoln("Received heartbeat from non-participant")
-		returnCode = 10
-		return
+		return fmt.Errorf("Received heartbeat from non-participant")
 	}
 
 	// Check if we have already received this heartbeat
 	_, exists := s.heartbeats[sh.signatories[0]][sh.heartbeatHash]
 	if exists {
-		returnCode = 8
-		return
+		return nil
 	}
 
 	// Check if we already have two heartbeats from this host
 	if len(s.heartbeats[sh.signatories[0]]) >= 2 {
 		log.Infoln("Received many invalid heartbeats from one host")
-		returnCode = 13
-		return
+		return fmt.Errorf("Received many invalid heartbeats from one host")
 	}
 
 	// iterate through the signatures and make sure each is legal
@@ -218,22 +197,19 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 		// Check bounds on the signatory
 		if int(signatory) >= common.QuorumSize {
 			log.Infoln("Received an out of bounds index")
-			returnCode = 9
-			return
+			return fmt.Errorf("Received an out of bounds index")
 		}
 
 		// Verify that the signatory is a participant in the quorum
 		if s.participants[signatory] == nil {
 			log.Infoln("Received a heartbeat signed by an invalid signatory")
-			returnCode = 4
-			return
+			return fmt.Errorf("Received a heartbeat signed by an invalid signatory")
 		}
 
 		// Verify that the signatory has only been seen once in the current SignedHeartbeat
 		if previousSignatories[signatory] {
 			log.Infoln("Received a double-signed heartbeat")
-			returnCode = 5
-			return
+			return fmt.Errorf("Received a double-signed heartbeat")
 		}
 
 		// record that we've seen this signatory in the current SignedHeartbeat
@@ -241,18 +217,16 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 
 		// verify the signature
 		signedMessage.Signature = sh.signatures[i]
-		time.Sleep(15 * time.Millisecond) // dirty partial fix for a bug of terrible consequences
 		verification, err := crypto.Verify(s.participants[signatory].publicKey, signedMessage)
 		if err != nil {
 			log.Fatalln(err)
-			return
+			return err
 		}
 
 		// check status of verification
 		if !verification {
 			log.Infoln("Received invalid signature in SignedHeartbeat")
-			returnCode = 6
-			return
+			return fmt.Errorf("Received invalid signature in SignedHeartbeat")
 		}
 
 		// throwing the signature into the message here makes code cleaner in the loop
@@ -264,23 +238,23 @@ func (s *State) handleSignedHeartbeat(payload []byte) (returnCode int) {
 	s.heartbeats[sh.signatories[0]][sh.heartbeatHash] = sh.heartbeat
 
 	// Sign the stack of signatures and send it to all hosts
-	signedMessage, err = crypto.Sign(s.secretKey, signedMessage.Message)
+	signedMessage, err := crypto.Sign(s.secretKey, signedMessage.Message)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	// add our signature to the signedHeartbeat
 	sh.signatures = append(sh.signatures, signedMessage.Signature)
-	sh.signatories = append(sh.signatories, s.participantIndex)
+	sh.signatories = append(sh.signatories, s.self.index)
 
 	// broadcast the message to the quorum
-	err = s.announceSignedHeartbeat(sh)
+	err = s.announceSignedHeartbeat(&sh)
 	if err != nil {
 		log.Fatalln(err)
+		return err
 	}
 
-	returnCode = 0
-	return
+	return nil
 }
 
 func (sh *signedHeartbeat) GobEncode() (gobSignedHeartbeat []byte, err error) {
@@ -341,7 +315,7 @@ func (shb *signedHeartbeat) GobDecode(gobSignedHeartbeat []byte) (err error) {
 	return
 }
 
-// participants are processed in a random order each block, determied by the
+// participants are processed in a random order each block, determined by the
 // entropy for the block. participantOrdering() deterministically picks that
 // order, using entropy from the state.
 func (s *State) participantOrdering() (participantOrdering [common.QuorumSize]byte) {

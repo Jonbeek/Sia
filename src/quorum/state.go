@@ -20,14 +20,19 @@ const (
 )
 
 // Bootstrapping
-const (
-	bootstrapID   common.Identifier = 0
-	bootstrapHost string            = "localhost"
-	bootstrapPort int               = 9988
-)
+var bootstrapAddress = common.Address{
+	ID:   0,
+	Host: "localhost",
+	Port: 9988,
+}
+
+// empty hash value
+var emptyEntropy = common.Entropy{}
+var emptyHash, _ = crypto.CalculateTruncatedHash(emptyEntropy[:])
 
 // Identifies other members of the quorum
 type participant struct {
+	index     byte
 	address   common.Address
 	publicKey crypto.PublicKey
 }
@@ -40,7 +45,6 @@ type State struct {
 	participants     [common.QuorumSize]*participant // list of participants
 	participantsLock sync.RWMutex                    // write-locks for compile only
 	self             *participant                    // ourselves
-	participantIndex byte                            // our participant index
 	secretKey        crypto.SecretKey                // our secret key
 
 	// Heartbeat Variables
@@ -127,7 +131,6 @@ func (p *participant) GobDecode(gobParticipant []byte) (err error) {
 
 // Create and initialize a state object. Set everything to default.
 func CreateState(messageRouter common.MessageRouter) (s *State, err error) {
-	s = new(State)
 	// check that we have a non-nil messageSender
 	if messageRouter == nil {
 		err = fmt.Errorf("Cannot initialize with a nil messageRouter")
@@ -140,42 +143,38 @@ func CreateState(messageRouter common.MessageRouter) (s *State, err error) {
 		return
 	}
 
-	// calculate the value of an empty hash (default for storedEntropyStage2 on all hosts is a blank array)
-	emptyHash, err := crypto.CalculateTruncatedHash(s.storedEntropyStage2[:])
-	if err != nil {
-		return
+	// initialize State with default values and keypair
+	s = &State{
+		messageRouter: messageRouter,
+		self: &participant{
+			index:     255,
+			address:   messageRouter.Address(),
+			publicKey: pubKey,
+		},
+		secretKey:   secKey,
+		currentStep: 1,
+		wallets:     make(map[string]uint64),
 	}
 
-	// set state variables to their defaults
-	s.messageRouter = messageRouter
-	s.self = new(participant)
-	s.self.address = messageRouter.AddMessageHandler(s)
-	s.self.publicKey = pubKey
-	s.secretKey = secKey
+	// register State and store our assigned ID
+	s.self.address.ID = messageRouter.RegisterHandler(s)
+
+	// initialize entropy stage1 to the emptyHash
 	for i := range s.previousEntropyStage1 {
 		s.previousEntropyStage1[i] = emptyHash
 	}
-	s.participantIndex = 255
-	s.currentStep = 1
-	s.wallets = make(map[string]uint64)
 
 	return
 }
 
 // Announce ourself to the bootstrap address, who will announce us to the quorum
 func (s *State) JoinSia() (err error) {
-	// Marshal our participant object
-	gobParticipant, err := s.self.GobEncode()
-	if err != nil {
-		return err
+	m := &common.Message{
+		Dest: bootstrapAddress,
+		Proc: "State.HandleJoinSia",
+		Args: *s.self,
+		Resp: nil,
 	}
-
-	// Send the message with a joinSia type
-	m := new(common.Message)
-	m.Destination.ID = bootstrapID
-	m.Destination.Host = bootstrapHost
-	m.Destination.Port = bootstrapPort
-	m.Payload = append([]byte(string(joinSia)), gobParticipant...)
 	err = s.messageRouter.SendMessage(m)
 	return
 }
@@ -183,46 +182,22 @@ func (s *State) JoinSia() (err error) {
 // Called by the MessageRouter in case of an address change
 func (s *State) SetAddress(addr *common.Address) {
 	s.participantsLock.Lock()
-	s.participants[s.participantIndex].address = *addr
+	s.participants[s.self.index].address = *addr
 	s.participantsLock.Unlock()
 
 	// now notifiy everyone else in the quorum that the address has changed:
 	// that will consist of a 'moved locations' message that has been signed
 }
 
-// receives a message and determines what function will handle it.
-func (s *State) HandleMessage(m []byte) {
-	// message type is stored in the first byte, switch on this type
-	switch m[0] {
-	case joinSia:
-		s.handleJoinSia(m[1:])
-	case newParticipant:
-		s.addNewParticipant(m[1:])
-	case addressChangeNotification:
-		s.updateParticipant(m[1:])
-	case incomingSignedHeartbeat:
-		go s.handleSignedHeartbeat(m[1:])
-	default:
-		log.Infoln("Got message of unrecognized type")
-	}
-}
-
 // Adds a new participants, and then announces them with their index
-// Currently not safe - particiapnts need to be added during compile()
-func (s *State) handleJoinSia(payload []byte) (err error) {
-	// unmarshal the new participant
-	p := new(participant)
-	err = p.GobDecode(payload)
-	if err != nil {
-		return
-	}
-
+// Currently not safe - participants need to be added during compile()
+func (s *State) HandleJoinSia(p participant, arb *struct{}) (err error) {
 	// find index for participant
 	s.participantsLock.Lock()
 	i := 0
 	for i = 0; i < common.QuorumSize; i++ {
 		if s.participants[i] == nil {
-			s.participants[i] = p
+			s.participants[i] = &p
 			break
 		}
 	}
@@ -230,16 +205,16 @@ func (s *State) handleJoinSia(payload []byte) (err error) {
 
 	// see if the quorum is full
 	if i == common.QuorumSize {
-		return
+		return fmt.Errorf("failed to add participant")
 	}
 
+	p.index = byte(i)
 	// now announce a new participant at index i
-	var header [3]byte
-	header[0] = byte(newParticipant)
-	header[1] = byte(i)
-	header[2] = byte(0)
-	payload = append(header[:], payload...)
-	s.broadcast(payload)
+	s.broadcast(&common.Message{
+		Proc: "State.AddNewParticipant",
+		Args: p,
+		Resp: nil,
+	})
 	return
 }
 
@@ -250,20 +225,7 @@ func (s *State) updateParticipant(msp []byte) {
 }
 
 // Add a participant to the state, tell the participant about ourselves
-func (s *State) addNewParticipant(payload []byte) (err error) {
-	// extract index and participant object from payload
-	participantIndex := payload[0]
-	if participantIndex >= byte(common.QuorumSize) {
-		err = fmt.Errorf("participantIndex out of range")
-		return
-	}
-	sendSelf := payload[1]
-	p := new(participant)
-	err = p.GobDecode(payload[2:])
-	if err != nil {
-		return
-	}
-
+func (s *State) AddNewParticipant(p participant, arb *struct{}) (err error) {
 	// for this participant, make the heartbeat map and add the default heartbeat
 	hb := new(heartbeat)
 	emptyHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
@@ -273,52 +235,41 @@ func (s *State) addNewParticipant(payload []byte) (err error) {
 	hb.entropyStage1 = emptyHash
 	s.heartbeatsLock.Lock()
 	s.participantsLock.Lock()
-	s.heartbeats[participantIndex] = make(map[crypto.TruncatedHash]*heartbeat)
-	s.heartbeats[participantIndex][emptyHash] = hb
+	s.heartbeats[p.index] = make(map[crypto.TruncatedHash]*heartbeat)
+	s.heartbeats[p.index][emptyHash] = hb
 	s.heartbeatsLock.Unlock()
 
 	compare := p.compare(s.self)
 	if compare == true {
 		// add our self object to the correct index in participants
-		s.participants[participantIndex] = s.self
-		s.participantIndex = participantIndex
+		s.self.index = p.index
+		s.participants[p.index] = s.self
 		s.tickingLock.Lock()
 		s.ticking = true
 		s.tickingLock.Unlock()
 		go s.tick()
 	} else {
 		// add the participant to participants
-		s.participants[participantIndex] = p
+		s.participants[p.index] = &p
 
-		// tell the new guy about ourselves, unless we are the new guy
-		if sendSelf == 0 {
-			m := new(common.Message)
-			m.Destination = p.address
-			var header [3]byte
-			header[0] = newParticipant
-			header[1] = s.participantIndex
-			header[2] = byte(1)
-			gobParticipant, serr := s.self.GobEncode()
-			err = serr // prevents a 'shadowed err' problem
-			if err != nil {
-				return
-			}
-			m.Payload = append(header[:], gobParticipant...)
-			s.messageRouter.SendMessage(m)
-		}
+		// tell the new guy about ourselves
+		s.messageRouter.SendMessage(&common.Message{
+			Dest: p.address,
+			Proc: "State.AddNewParticipant",
+			Args: s.self,
+			Resp: nil,
+		})
 	}
 	s.participantsLock.Unlock()
 	return
 }
 
-// Takes a payload and sends it in a message to every participant in the quorum
-func (s *State) broadcast(payload []byte) {
+// Takes a Message and broadcasts it to every participant in the quorum
+func (s *State) broadcast(m *common.Message) {
 	s.participantsLock.RLock()
 	for i := range s.participants {
 		if s.participants[i] != nil {
-			m := new(common.Message)
-			m.Payload = payload
-			m.Destination = s.participants[i].address
+			m.Dest = s.participants[i].address
 			err := s.messageRouter.SendMessage(m)
 			if err != nil {
 				log.Infoln(err)

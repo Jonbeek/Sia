@@ -83,9 +83,7 @@ func TestParticipantMarshalling(t *testing.T) {
 		t.Fatal(err)
 	}
 	p.publicKey = pubKey
-	p.address.ID = bootstrapID
-	p.address.Host = bootstrapHost
-	p.address.Port = bootstrapPort
+	p.address = bootstrapAddress
 
 	mp, err := p.GobEncode()
 	if err != nil {
@@ -129,8 +127,8 @@ func TestCreateState(t *testing.T) {
 	}
 
 	// sanity check the default values
-	if s.participantIndex != 255 {
-		t.Error("s.participantIndex initialized to ", s.participantIndex)
+	if s.self.index != 255 {
+		t.Error("s.self.index initialized to ", s.self.index)
 	}
 	if s.currentStep != 1 {
 		t.Error("s.currentStep should be initialized to 1!")
@@ -160,7 +158,7 @@ func TestJoinQuorum(t *testing.T) {
 	if m == nil {
 		t.Fatal("message 0 never received")
 	}
-	s0.HandleMessage(m.Payload)
+	s0.HandleJoinSia(m.Args.(participant), nil)
 
 	// Verify that a broadcast message went out indicating a new participant
 
@@ -169,7 +167,7 @@ func TestJoinQuorum(t *testing.T) {
 	if m == nil {
 		t.Fatal("message 1 never received")
 	}
-	s0.HandleMessage(m.Payload)
+	s0.AddNewParticipant(m.Args.(participant), nil)
 
 	// Verify that we started ticking
 	s0.tickingLock.Lock()
@@ -178,9 +176,9 @@ func TestJoinQuorum(t *testing.T) {
 	}
 	s0.tickingLock.Unlock()
 
-	// Verify that s0.participantIndex updated
-	if s0.participantIndex == 255 {
-		t.Error("Bootstrapping failed to update State.participantIndex")
+	// Verify that s0.self.index updated
+	if s0.self.index == 255 {
+		t.Error("Bootstrapping failed to update State.self.index")
 	}
 
 	// Create a new state to bootstrap
@@ -193,11 +191,14 @@ func TestJoinQuorum(t *testing.T) {
 	// Verify message for correctness
 
 	// Deliver message to bootstrap
-	s0.HandleMessage(z.RecentMessage(2).Payload)
+	m = z.RecentMessage(2)
+	s0.HandleJoinSia(m.Args.(participant), nil)
 
 	// Deliver the broadcasted messages
-	s0.HandleMessage(z.RecentMessage(3).Payload)
-	s1.HandleMessage(z.RecentMessage(4).Payload)
+	m = z.RecentMessage(3)
+	s0.AddNewParticipant(m.Args.(participant), nil)
+	m = z.RecentMessage(4)
+	s1.AddNewParticipant(m.Args.(participant), nil)
 
 	// Verify the messages made it
 	s1.tickingLock.Lock()

@@ -73,21 +73,21 @@ func (rpcs *RPCServer) serverHandler() {
 	}
 }
 
-// SendRPCMessage (synchronously) delivers an RPCMessage to its recipient and returns any errors.
-func SendRPCMessage(m *common.RPCMessage) error {
-	conn, err := rpc.Dial("tcp", net.JoinHostPort(m.Destination.Host, strconv.Itoa(m.Destination.Port)))
+// SendRPCMessage (synchronously) delivers a Message to its recipient and returns any errors.
+func (rpcs *RPCServer) SendMessage(m *common.Message) error {
+	conn, err := rpc.Dial("tcp", net.JoinHostPort(m.Dest.Host, strconv.Itoa(m.Dest.Port)))
 	if err != nil {
 		return err
 	}
 	// add identifier to service name
-	name := strings.Replace(m.Proc, ".", string(m.Destination.ID)+".", 1)
-	return conn.Call(name, m.Args, m.Reply)
+	name := strings.Replace(m.Proc, ".", string(m.Dest.ID)+".", 1)
+	return conn.Call(name, m.Args, m.Resp)
 }
 
-// SendAsyncRPCMessage (asynchronously) delivers an RPCMessage to its recipient.
+// SendAsyncRPCMessage (asynchronously) delivers a Message to its recipient.
 // It returns a *Call, which contains the fields "Done channel" and "Error error".
-func SendAsyncRPCMessage(m *common.RPCMessage) *rpc.Call {
-	conn, err := rpc.Dial("tcp", net.JoinHostPort(m.Destination.Host, strconv.Itoa(m.Destination.Port)))
+func (rpcs *RPCServer) SendAsyncMessage(m *common.Message) *rpc.Call {
+	conn, err := rpc.Dial("tcp", net.JoinHostPort(m.Dest.Host, strconv.Itoa(m.Dest.Port)))
 	d := make(chan *rpc.Call, 1)
 	if err != nil {
 		// make a dummy *Call
@@ -96,6 +96,6 @@ func SendAsyncRPCMessage(m *common.RPCMessage) *rpc.Call {
 		return errCall
 	}
 	// add identifier to service name
-	name := strings.Replace(m.Proc, ".", string(m.Destination.ID)+".", 1)
-	return conn.Go(name, m.Args, m.Reply, d)
+	name := strings.Replace(m.Proc, ".", string(m.Dest.ID)+".", 1)
+	return conn.Go(name, m.Args, m.Resp, d)
 }

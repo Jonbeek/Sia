@@ -10,7 +10,7 @@ func establishQuorum() {
 	var port int
 	print("Port number: ")
 	fmt.Scanf("%d", &port)
-	networkServer, err := network.NewTCPServer(port)
+	networkServer, err := network.NewRPCServer(port)
 	if err != nil {
 		println(err)
 		return
