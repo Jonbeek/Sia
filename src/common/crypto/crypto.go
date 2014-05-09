@@ -8,6 +8,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/gob"
+	"fmt"
 	"math/big"
 )
 
@@ -55,7 +56,17 @@ func (pk0 *PublicKey) Compare(pk1 *PublicKey) bool {
 }
 
 func (pk *PublicKey) GobEncode() (gobPk []byte, err error) {
+	if pk == nil {
+		err = fmt.Errorf("Cannot encode a nil value")
+		return
+	}
+
 	epk := (*ecdsa.PublicKey)(pk)
+	if epk.X == nil || epk.Y == nil {
+		err = fmt.Errorf("Cannot encode a nil value")
+		return
+	}
+
 	w := new(bytes.Buffer)
 	encoder := gob.NewEncoder(w)
 	err = encoder.Encode(epk.X)
