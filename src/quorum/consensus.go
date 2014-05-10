@@ -107,7 +107,7 @@ func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 
 	// fill out signatures
 	sh.signatures = make([]crypto.Signature, 1)
-	signedHb, err := crypto.Sign(s.secretKey, string(sh.heartbeatHash[:]))
+	signedHb, err := s.secretKey.Sign(sh.heartbeatHash[:])
 	if err != nil {
 		return
 	}
@@ -191,7 +191,7 @@ func (s *State) HandleSignedHeartbeat(sh signedHeartbeat, arb *struct{}) error {
 
 	// iterate through the signatures and make sure each is legal
 	var signedMessage crypto.SignedMessage // grows each iteration
-	signedMessage.Message = string(sh.heartbeatHash[:])
+	signedMessage.Message = sh.heartbeatHash[:]
 	previousSignatories := make(map[byte]bool) // which signatories have already signed
 	for i, signatory := range sh.signatories {
 		// Check bounds on the signatory
@@ -217,11 +217,7 @@ func (s *State) HandleSignedHeartbeat(sh signedHeartbeat, arb *struct{}) error {
 
 		// verify the signature
 		signedMessage.Signature = sh.signatures[i]
-		verification, err := crypto.Verify(s.participants[signatory].publicKey, signedMessage)
-		if err != nil {
-			log.Fatalln(err)
-			return err
-		}
+		verification := s.participants[signatory].publicKey.Verify(&signedMessage)
 
 		// check status of verification
 		if !verification {
@@ -231,14 +227,19 @@ func (s *State) HandleSignedHeartbeat(sh signedHeartbeat, arb *struct{}) error {
 
 		// throwing the signature into the message here makes code cleaner in the loop
 		// and after we sign it to send it to everyone else
-		signedMessage.Message = signedMessage.CombinedMessage()
+		newMessage, err := signedMessage.CombinedMessage()
+		signedMessage.Message = newMessage
+		if err != nil {
+			log.Infoln("Error while combining a signed message")
+			return err
+		}
 	}
 
 	// Add heartbeat to list of seen heartbeats
 	s.heartbeats[sh.signatories[0]][sh.heartbeatHash] = sh.heartbeat
 
 	// Sign the stack of signatures and send it to all hosts
-	signedMessage, err := crypto.Sign(s.secretKey, signedMessage.Message)
+	signedMessage, err := s.secretKey.Sign(signedMessage.Message)
 	if err != nil {
 		log.Fatalln(err)
 	}

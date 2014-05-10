@@ -14,12 +14,10 @@ func TestPublicKeyCompare(t *testing.T) {
 	}
 
 	// compare when one public key is nil
-	pubKey, _, err := CreateKeyPair()
+	pk0, _, err := CreateKeyPair()
 	if err != nil {
 		t.Fatal(err)
 	}
-	pk0 = new(PublicKey)
-	*pk0 = pubKey
 	compare = pk0.Compare(pk1)
 	if compare {
 		t.Error("Comparing a nil public key returns true")
@@ -30,12 +28,10 @@ func TestPublicKeyCompare(t *testing.T) {
 	}
 
 	// compare unequal public keys
-	pubKey, _, err = CreateKeyPair()
+	pk1, _, err = CreateKeyPair()
 	if err != nil {
 		t.Fatal(err)
 	}
-	pk1 = new(PublicKey)
-	*pk1 = pubKey
 	compare = pk0.Compare(pk1)
 	if compare {
 		t.Error("Arbitray public keys being compared as identical")
@@ -77,7 +73,7 @@ func TestPublicKeyEncoding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	compare := pk.Compare(&pubKey)
+	compare := pk.Compare(pubKey)
 	if !compare {
 		t.Error("Encoded and then decoded key not equal")
 	}

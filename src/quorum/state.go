@@ -34,7 +34,7 @@ var emptyHash, _ = crypto.CalculateTruncatedHash(emptyEntropy[:])
 type participant struct {
 	index     byte
 	address   common.Address
-	publicKey crypto.PublicKey
+	publicKey *crypto.PublicKey
 }
 
 // The state provides persistence to the consensus algorithms. Every participant
@@ -80,7 +80,7 @@ func (p0 *participant) compare(p1 *participant) bool {
 	}
 
 	// return false if the public keys are not equivalent
-	compare := p0.publicKey.Compare(&p1.publicKey)
+	compare := p0.publicKey.Compare(p1.publicKey)
 	if compare != true {
 		return false
 	}
@@ -90,7 +90,11 @@ func (p0 *participant) compare(p1 *participant) bool {
 
 func (p *participant) GobEncode() (gobParticipant []byte, err error) {
 	// Error checking for nil values
-	epk := ecdsa.PublicKey(p.publicKey)
+	if p.publicKey == nil {
+		err = fmt.Errorf("Cannot encode nil value p.publicKey")
+		return
+	}
+	epk := (*ecdsa.PublicKey)(p.publicKey)
 	if epk.X == nil {
 		err = fmt.Errorf("Cannot encode nil value p.publicKey.X")
 		return

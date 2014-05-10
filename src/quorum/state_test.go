@@ -98,7 +98,7 @@ func TestParticipantMarshalling(t *testing.T) {
 		t.Error("up.address != p.address")
 	}
 
-	compare := up.publicKey.Compare(&p.publicKey)
+	compare := up.publicKey.Compare(p.publicKey)
 	if compare != true {
 		t.Error("up.PublicKey != p.PublicKey")
 	}
