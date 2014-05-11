@@ -21,7 +21,7 @@ const (
 
 // Bootstrapping
 var bootstrapAddress = common.Address{
-	ID:   0,
+	ID:   1,
 	Host: "localhost",
 	Port: 9988,
 }
