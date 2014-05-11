@@ -81,7 +81,7 @@ This is achieved by authorizing nobody, including the uploader.
 Immutable sectors are appropriate for static content such as media, where there is an expectation that the data will not change.
 
 Each sector is associated with a balance of siacoins.
-Siacoins are periodically subtracted from this balance and dividing equally among the sector's hosts.
+Siacoins are periodically subtracted from this balance and divided equally among the sector's hosts.
 When the balance reaches zero, the sector is marked for deletion.
 Anybody can add to the balance of a sector at any time.
 It should be noted that immutable sectors will only be removed from the network when their balance fully depletes.
@@ -139,10 +139,10 @@ Sia uses the solution with signed messages that is presented in the paper ``The 
 For each block:
 \begin{enumerate}
 	\item All participants send their heartbeat to all other participants, with a signature.
-	This creates a \textit{signed heartbeat} - a heartbeat followed by a list of signatures of everyone who has seen it.
+	This creates a \textit{signed heartbeat} - a heartbeat followed by a list of signatures from everyone who has seen it.
 	\item Each time a participant receives a signed heartbeat that they have not seen before, they add their signature to the list of signatures and send it to all other participants.
 \end{enumerate}
-To ensure termination, time constraints are added, and heartbeats are send around in steps.
+To ensure termination, time constraints are added, and heartbeats are sent around in steps.
 Each step lasts \stepduration{}.
 All signed heartbeats received must have a number of signatures equivalent to the current step.
 Each signature must be from a different participant in the quorum.
