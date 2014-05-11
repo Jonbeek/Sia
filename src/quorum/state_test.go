@@ -7,10 +7,8 @@ import (
 )
 
 func TestParticipantCompare(t *testing.T) {
-	var p0 *participant
-	var p1 *participant
-	p0 = nil
-	p1 = nil
+	var p0 *Participant
+	var p1 *Participant
 
 	// compare nil values
 	compare := p0.compare(p1)
@@ -19,7 +17,7 @@ func TestParticipantCompare(t *testing.T) {
 	}
 
 	// compare when one is nil
-	p0 = new(participant)
+	p0 = new(Participant)
 	compare = p0.compare(p1)
 	if compare == true {
 		t.Error("Comparing a zero participant to a nil participant should return false")
@@ -30,25 +28,35 @@ func TestParticipantCompare(t *testing.T) {
 	}
 
 	// initialize each participant with a public key
-	p1 = new(participant)
+	p1 = new(Participant)
 	pubKey, _, err := crypto.CreateKeyPair()
 	if err != nil {
 		t.Fatal(err)
 	}
-	p0.publicKey = pubKey
 	p1.publicKey = pubKey
+	p0.publicKey = new(crypto.PublicKey)
+	*p0.publicKey = *p1.publicKey
 
 	// compare initialized participants
 	compare = p0.compare(p1)
-	if compare == false {
+	if !compare {
 		t.Error("Comparing two zero participants should return true")
 	}
 	compare = p1.compare(p0)
-	if compare == false {
+	if !compare {
 		t.Error("Comparing two zero participants should return true")
 	}
 
-	// compare when address are not equal (piecewise for each component of address
+	// compare when address are not equal
+	p1.address.Port = 9987
+	compare = p0.compare(p1)
+	if compare {
+		t.Error("Comparing two participants with different addresses should return false")
+	}
+	compare = p1.compare(p0)
+	if compare {
+		t.Error("Comparing two zero participants with different addresses should return false")
+	}
 
 	// compare when public keys are not equivalent
 	pubKey, _, err = crypto.CreateKeyPair()
@@ -66,16 +74,18 @@ func TestParticipantCompare(t *testing.T) {
 	}
 }
 
-func TestParticipantMarshalling(t *testing.T) {
-	// zero case marshalling
-	p := new(participant)
-	up := new(participant)
+func TestParticipantEncoding(t *testing.T) {
+	// Try nil values
+	var p *Participant
 	_, err := p.GobEncode()
+	if err == nil {
+		t.Error("Encoded nil participant without error")
+	}
+	p = new(Participant)
+	_, err = p.GobEncode()
 	if err == nil {
 		t.Fatal("Should not be able to encode nil values")
 	}
-
-	// bad input for marshalling and unmarshalling
 
 	// Make a bootstrap participant
 	pubKey, _, err := crypto.CreateKeyPair()
@@ -85,11 +95,12 @@ func TestParticipantMarshalling(t *testing.T) {
 	p.publicKey = pubKey
 	p.address = bootstrapAddress
 
-	mp, err := p.GobEncode()
+	up := new(Participant)
+	ep, err := p.GobEncode()
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = up.GobDecode(mp)
+	err = up.GobDecode(ep)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +114,12 @@ func TestParticipantMarshalling(t *testing.T) {
 		t.Error("up.PublicKey != p.PublicKey")
 	}
 
-	// fuzzing
+	// try to decode into nil participant
+	up = nil
+	err = up.GobDecode(ep)
+	if err == nil {
+		t.Error("decoded into nil participant without error")
+	}
 }
 
 // Create a state, check the defaults
@@ -133,9 +149,6 @@ func TestCreateState(t *testing.T) {
 	if s.currentStep != 1 {
 		t.Error("s.currentStep should be initialized to 1!")
 	}
-	if s.wallets == nil {
-		t.Error("s.wallets was not initialized")
-	}
 }
 
 // Bootstrap a state to the network, then another
@@ -158,7 +171,7 @@ func TestJoinQuorum(t *testing.T) {
 	if m == nil {
 		t.Fatal("message 0 never received")
 	}
-	s0.HandleJoinSia(m.Args.(participant), nil)
+	s0.HandleJoinSia(m.Args.(Participant), nil)
 
 	// Verify that a broadcast message went out indicating a new participant
 
@@ -167,7 +180,7 @@ func TestJoinQuorum(t *testing.T) {
 	if m == nil {
 		t.Fatal("message 1 never received")
 	}
-	s0.AddNewParticipant(m.Args.(participant), nil)
+	s0.AddNewParticipant(m.Args.(Participant), nil)
 
 	// Verify that we started ticking
 	s0.tickingLock.Lock()
@@ -192,13 +205,13 @@ func TestJoinQuorum(t *testing.T) {
 
 	// Deliver message to bootstrap
 	m = z.RecentMessage(2)
-	s0.HandleJoinSia(m.Args.(participant), nil)
+	s0.HandleJoinSia(m.Args.(Participant), nil)
 
 	// Deliver the broadcasted messages
 	m = z.RecentMessage(3)
-	s0.AddNewParticipant(m.Args.(participant), nil)
+	s0.AddNewParticipant(m.Args.(Participant), nil)
 	m = z.RecentMessage(4)
-	s1.AddNewParticipant(m.Args.(participant), nil)
+	s1.AddNewParticipant(m.Args.(Participant), nil)
 
 	// Verify the messages made it
 	s1.tickingLock.Lock()
@@ -210,15 +223,15 @@ func TestJoinQuorum(t *testing.T) {
 }
 
 func TestSetAddress(t *testing.T) {
-	// ?
+	// Later
 }
 
 func TestUpdateParticipant(t *testing.T) {
-	// ?
+	// Later
 }
 
-func TestHandleMessage(t *testing.T) {
-	// ?
+func TestBroadcast(t *testing.T) {
+	// make sure that a message gets sent to every participant...?
 }
 
 // check general case, check corner cases, and then do some fuzzing

@@ -31,7 +31,7 @@ var emptyEntropy = common.Entropy{}
 var emptyHash, _ = crypto.CalculateTruncatedHash(emptyEntropy[:])
 
 // Identifies other members of the quorum
-type participant struct {
+type Participant struct {
 	index     byte
 	address   common.Address
 	publicKey *crypto.PublicKey
@@ -42,9 +42,9 @@ type participant struct {
 type State struct {
 	// Network Variables
 	messageRouter    common.MessageRouter
-	participants     [common.QuorumSize]*participant // list of participants
+	participants     [common.QuorumSize]*Participant // list of participants
 	participantsLock sync.RWMutex                    // write-locks for compile only
-	self             *participant                    // ourselves
+	self             *Participant                    // ourselves
 	secretKey        crypto.SecretKey                // our secret key
 
 	// Heartbeat Variables
@@ -62,13 +62,10 @@ type State struct {
 	tickingLock    sync.Mutex
 	heartbeats     [common.QuorumSize]map[crypto.TruncatedHash]*heartbeat
 	heartbeatsLock sync.Mutex
-
-	// Wallet Data
-	wallets map[string]uint64
 }
 
 // Returns true if the values of the participants are equivalent
-func (p0 *participant) compare(p1 *participant) bool {
+func (p0 *Participant) compare(p1 *Participant) bool {
 	// false if either participant is nil
 	if p0 == nil || p1 == nil {
 		return false
@@ -88,8 +85,12 @@ func (p0 *participant) compare(p1 *participant) bool {
 	return true
 }
 
-func (p *participant) GobEncode() (gobParticipant []byte, err error) {
+func (p *Participant) GobEncode() (gobParticipant []byte, err error) {
 	// Error checking for nil values
+	if p == nil {
+		err = fmt.Errorf("Cannot encode nil value p")
+		return
+	}
 	if p.publicKey == nil {
 		err = fmt.Errorf("Cannot encode nil value p.publicKey")
 		return
@@ -119,7 +120,12 @@ func (p *participant) GobEncode() (gobParticipant []byte, err error) {
 	return
 }
 
-func (p *participant) GobDecode(gobParticipant []byte) (err error) {
+func (p *Participant) GobDecode(gobParticipant []byte) (err error) {
+	if p == nil {
+		err = fmt.Errorf("Cannot decode into nil Participant")
+		return
+	}
+
 	r := bytes.NewBuffer(gobParticipant)
 	decoder := gob.NewDecoder(r)
 	err = decoder.Decode(&p.address)
@@ -150,14 +156,13 @@ func CreateState(messageRouter common.MessageRouter) (s *State, err error) {
 	// initialize State with default values and keypair
 	s = &State{
 		messageRouter: messageRouter,
-		self: &participant{
+		self: &Participant{
 			index:     255,
 			address:   messageRouter.Address(),
 			publicKey: pubKey,
 		},
 		secretKey:   secKey,
 		currentStep: 1,
-		wallets:     make(map[string]uint64),
 	}
 
 	// register State and store our assigned ID
@@ -168,6 +173,7 @@ func CreateState(messageRouter common.MessageRouter) (s *State, err error) {
 		s.previousEntropyStage1[i] = emptyHash
 	}
 
+	// a call to joinSia() may be placed here... behavior not fully defined
 	return
 }
 
@@ -193,10 +199,10 @@ func (s *State) SetAddress(addr *common.Address) {
 	// that will consist of a 'moved locations' message that has been signed
 }
 
-// Adds a new participants, and then announces them with their index
-// Currently not safe - participants need to be added during compile()
-func (s *State) HandleJoinSia(p participant, arb *struct{}) (err error) {
-	// find index for participant
+// Adds a new Participants, and then announces them with their index
+// Currently not safe - Participants need to be added during compile()
+func (s *State) HandleJoinSia(p Participant, arb *struct{}) (err error) {
+	// find index for Participant
 	s.participantsLock.Lock()
 	i := 0
 	for i = 0; i < common.QuorumSize; i++ {
@@ -209,11 +215,11 @@ func (s *State) HandleJoinSia(p participant, arb *struct{}) (err error) {
 
 	// see if the quorum is full
 	if i == common.QuorumSize {
-		return fmt.Errorf("failed to add participant")
+		return fmt.Errorf("failed to add Participant")
 	}
 
 	p.index = byte(i)
-	// now announce a new participant at index i
+	// now announce a new Participant at index i
 	s.broadcast(&common.Message{
 		Proc: "State.AddNewParticipant",
 		Args: p,
@@ -222,15 +228,15 @@ func (s *State) HandleJoinSia(p participant, arb *struct{}) (err error) {
 	return
 }
 
-// A participant can update their address, etc. at any time
+// A Participant can update their address, etc. at any time
 func (s *State) updateParticipant(msp []byte) {
-	// this message is actually a signature of a participant
+	// this message is actually a signature of a Participant
 	// it's valid if the signature matches the public key
 }
 
-// Add a participant to the state, tell the participant about ourselves
-func (s *State) AddNewParticipant(p participant, arb *struct{}) (err error) {
-	// for this participant, make the heartbeat map and add the default heartbeat
+// Add a Participant to the state, tell the Participant about ourselves
+func (s *State) AddNewParticipant(p Participant, arb *struct{}) (err error) {
+	// for this Participant, make the heartbeat map and add the default heartbeat
 	hb := new(heartbeat)
 	emptyHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
 	if err != nil {
@@ -245,7 +251,7 @@ func (s *State) AddNewParticipant(p participant, arb *struct{}) (err error) {
 
 	compare := p.compare(s.self)
 	if compare == true {
-		// add our self object to the correct index in participants
+		// add our self object to the correct index in Participants
 		s.self.index = p.index
 		s.participants[p.index] = s.self
 		s.tickingLock.Lock()
@@ -253,7 +259,7 @@ func (s *State) AddNewParticipant(p participant, arb *struct{}) (err error) {
 		s.tickingLock.Unlock()
 		go s.tick()
 	} else {
-		// add the participant to participants
+		// add the Participant to Participants
 		s.participants[p.index] = &p
 
 		// tell the new guy about ourselves
@@ -268,7 +274,7 @@ func (s *State) AddNewParticipant(p participant, arb *struct{}) (err error) {
 	return
 }
 
-// Takes a Message and broadcasts it to every participant in the quorum
+// Takes a Message and broadcasts it to every Participant in the quorum
 func (s *State) broadcast(m *common.Message) {
 	s.participantsLock.RLock()
 	for i := range s.participants {

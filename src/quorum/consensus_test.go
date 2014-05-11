@@ -69,7 +69,7 @@ func TestHeartbeatEncoding(t *testing.T) {
 
 func TestSignedHeartbeatEncoding(t *testing.T) {
 	// Test for bad inputs
-	var bad *signedHeartbeat
+	var bad *SignedHeartbeat
 	bad = nil
 	_, err := bad.GobEncode()
 	if err == nil {
@@ -97,7 +97,7 @@ func TestSignedHeartbeatEncoding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ush := new(signedHeartbeat)
+	ush := new(SignedHeartbeat)
 	err = ush.GobDecode(msh)
 	if err != nil {
 		t.Fatal(err)
