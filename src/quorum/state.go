@@ -107,6 +107,10 @@ func (p *Participant) GobEncode() (gobParticipant []byte, err error) {
 	// Encoding the participant
 	w := new(bytes.Buffer)
 	encoder := gob.NewEncoder(w)
+	err = encoder.Encode(p.index)
+	if err != nil {
+		return
+	}
 	err = encoder.Encode(p.address)
 	if err != nil {
 		return
@@ -127,6 +131,10 @@ func (p *Participant) GobDecode(gobParticipant []byte) (err error) {
 
 	r := bytes.NewBuffer(gobParticipant)
 	decoder := gob.NewDecoder(r)
+	err = decoder.Decode(&p.index)
+	if err != nil {
+		return
+	}
 	err = decoder.Decode(&p.address)
 	if err != nil {
 		return
