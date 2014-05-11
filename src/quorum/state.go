@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"common"
 	"common/crypto"
-	"common/log"
 	"crypto/ecdsa"
 	"encoding/gob"
 	"fmt"
@@ -263,7 +262,7 @@ func (s *State) AddNewParticipant(p Participant, arb *struct{}) (err error) {
 		s.participants[p.index] = &p
 
 		// tell the new guy about ourselves
-		s.messageRouter.SendMessage(&common.Message{
+		s.messageRouter.SendAsyncMessage(&common.Message{
 			Dest: p.address,
 			Proc: "State.AddNewParticipant",
 			Args: s.self,
@@ -279,11 +278,9 @@ func (s *State) broadcast(m *common.Message) {
 	s.participantsLock.RLock()
 	for i := range s.participants {
 		if s.participants[i] != nil {
-			m.Dest = s.participants[i].address
-			err := s.messageRouter.SendMessage(m)
-			if err != nil {
-				log.Infoln(err)
-			}
+			nm := *m
+			nm.Dest = s.participants[i].address
+			s.messageRouter.SendAsyncMessage(&nm)
 		}
 	}
 	s.participantsLock.RUnlock()
