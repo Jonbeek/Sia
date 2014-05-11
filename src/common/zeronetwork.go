@@ -1,5 +1,9 @@
 package common
 
+import (
+	"net/rpc"
+)
+
 type ZeroNetwork struct {
 	messages []*Message
 }
@@ -13,6 +17,11 @@ func (z *ZeroNetwork) RegisterHandler(handler interface{}) (i Identifier) {
 }
 
 func (z *ZeroNetwork) SendMessage(m *Message) error {
+	z.messages = append(z.messages, m)
+	return nil
+}
+
+func (z *ZeroNetwork) SendAsyncMessage(m *Message) *rpc.Call {
 	z.messages = append(z.messages, m)
 	return nil
 }

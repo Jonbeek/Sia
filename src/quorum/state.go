@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"common"
 	"common/crypto"
-	"common/log"
 	"crypto/ecdsa"
 	"encoding/gob"
 	"fmt"
@@ -21,7 +20,7 @@ const (
 
 // Bootstrapping
 var bootstrapAddress = common.Address{
-	ID:   0,
+	ID:   1,
 	Host: "localhost",
 	Port: 9988,
 }
@@ -108,6 +107,10 @@ func (p *Participant) GobEncode() (gobParticipant []byte, err error) {
 	// Encoding the participant
 	w := new(bytes.Buffer)
 	encoder := gob.NewEncoder(w)
+	err = encoder.Encode(p.index)
+	if err != nil {
+		return
+	}
 	err = encoder.Encode(p.address)
 	if err != nil {
 		return
@@ -128,6 +131,10 @@ func (p *Participant) GobDecode(gobParticipant []byte) (err error) {
 
 	r := bytes.NewBuffer(gobParticipant)
 	decoder := gob.NewDecoder(r)
+	err = decoder.Decode(&p.index)
+	if err != nil {
+		return
+	}
 	err = decoder.Decode(&p.address)
 	if err != nil {
 		return
@@ -263,7 +270,7 @@ func (s *State) AddNewParticipant(p Participant, arb *struct{}) (err error) {
 		s.participants[p.index] = &p
 
 		// tell the new guy about ourselves
-		s.messageRouter.SendMessage(&common.Message{
+		s.messageRouter.SendAsyncMessage(&common.Message{
 			Dest: p.address,
 			Proc: "State.AddNewParticipant",
 			Args: s.self,
@@ -279,11 +286,9 @@ func (s *State) broadcast(m *common.Message) {
 	s.participantsLock.RLock()
 	for i := range s.participants {
 		if s.participants[i] != nil {
-			m.Dest = s.participants[i].address
-			err := s.messageRouter.SendMessage(m)
-			if err != nil {
-				log.Infoln(err)
-			}
+			nm := *m
+			nm.Dest = s.participants[i].address
+			s.messageRouter.SendAsyncMessage(&nm)
 		}
 	}
 	s.participantsLock.RUnlock()

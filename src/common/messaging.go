@@ -1,5 +1,9 @@
 package common
 
+import (
+	"net/rpc"
+)
+
 // An Identifier uniquely identifies a participant on a host.
 type Identifier byte
 
@@ -26,4 +30,5 @@ type MessageRouter interface {
 	Address() Address
 	RegisterHandler(interface{}) Identifier
 	SendMessage(*Message) error
+	SendAsyncMessage(*Message) *rpc.Call
 }
