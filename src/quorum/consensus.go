@@ -18,7 +18,7 @@ type heartbeat struct {
 
 // Contains a heartbeat that has been signed iteratively, is a key part of the
 // signed solution to the Byzantine Generals Problem
-type signedHeartbeat struct {
+type SignedHeartbeat struct {
 	heartbeat     *heartbeat
 	heartbeatHash crypto.TruncatedHash
 	signatories   []byte             // a list of everyone who's seen the heartbeat
@@ -91,8 +91,8 @@ func (hb *heartbeat) GobDecode(gobHeartbeat []byte) (err error) {
 
 // take new heartbeat (our own), sign it, and package it into a signedHearteat
 // I'm pretty sure this only follows a newHeartbeat() call; they can be merged
-func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
-	sh = new(signedHeartbeat)
+func (s *State) signHeartbeat(hb *heartbeat) (sh *SignedHeartbeat, err error) {
+	sh = new(SignedHeartbeat)
 
 	// confirm heartbeat and hash
 	sh.heartbeat = hb
@@ -107,7 +107,7 @@ func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 
 	// fill out signatures
 	sh.signatures = make([]crypto.Signature, 1)
-	signedHb, err := crypto.Sign(s.secretKey, string(sh.heartbeatHash[:]))
+	signedHb, err := s.secretKey.Sign(sh.heartbeatHash[:])
 	if err != nil {
 		return
 	}
@@ -118,7 +118,7 @@ func (s *State) signHeartbeat(hb *heartbeat) (sh *signedHeartbeat, err error) {
 }
 
 // Takes a signed heartbeat and broadcasts it to the quorum
-func (s *State) announceSignedHeartbeat(sh *signedHeartbeat) (err error) {
+func (s *State) announceSignedHeartbeat(sh *SignedHeartbeat) (err error) {
 	s.broadcast(&common.Message{
 		Proc: "State.HandleSignedHeartbeat",
 		Args: *sh,
@@ -130,7 +130,7 @@ func (s *State) announceSignedHeartbeat(sh *signedHeartbeat) (err error) {
 // HandleSignedHeartbeat takes the payload of an incoming message of type
 // 'incomingSignedHeartbeat' and verifies it according to rules established by
 // the specification.
-func (s *State) HandleSignedHeartbeat(sh signedHeartbeat, arb *struct{}) error {
+func (s *State) HandleSignedHeartbeat(sh SignedHeartbeat, arb *struct{}) error {
 	// Check that the slices of signatures and signatories are of the same length
 	if len(sh.signatures) != len(sh.signatories) {
 		log.Infoln("SignedHeartbeat has mismatched signatures")
@@ -191,7 +191,7 @@ func (s *State) HandleSignedHeartbeat(sh signedHeartbeat, arb *struct{}) error {
 
 	// iterate through the signatures and make sure each is legal
 	var signedMessage crypto.SignedMessage // grows each iteration
-	signedMessage.Message = string(sh.heartbeatHash[:])
+	signedMessage.Message = sh.heartbeatHash[:]
 	previousSignatories := make(map[byte]bool) // which signatories have already signed
 	for i, signatory := range sh.signatories {
 		// Check bounds on the signatory
@@ -217,11 +217,7 @@ func (s *State) HandleSignedHeartbeat(sh signedHeartbeat, arb *struct{}) error {
 
 		// verify the signature
 		signedMessage.Signature = sh.signatures[i]
-		verification, err := crypto.Verify(s.participants[signatory].publicKey, signedMessage)
-		if err != nil {
-			log.Fatalln(err)
-			return err
-		}
+		verification := s.participants[signatory].publicKey.Verify(&signedMessage)
 
 		// check status of verification
 		if !verification {
@@ -231,14 +227,19 @@ func (s *State) HandleSignedHeartbeat(sh signedHeartbeat, arb *struct{}) error {
 
 		// throwing the signature into the message here makes code cleaner in the loop
 		// and after we sign it to send it to everyone else
-		signedMessage.Message = signedMessage.CombinedMessage()
+		newMessage, err := signedMessage.CombinedMessage()
+		signedMessage.Message = newMessage
+		if err != nil {
+			log.Infoln("Error while combining a signed message")
+			return err
+		}
 	}
 
 	// Add heartbeat to list of seen heartbeats
 	s.heartbeats[sh.signatories[0]][sh.heartbeatHash] = sh.heartbeat
 
 	// Sign the stack of signatures and send it to all hosts
-	signedMessage, err := crypto.Sign(s.secretKey, signedMessage.Message)
+	signedMessage, err := s.secretKey.Sign(signedMessage.Message)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -257,7 +258,7 @@ func (s *State) HandleSignedHeartbeat(sh signedHeartbeat, arb *struct{}) error {
 	return nil
 }
 
-func (sh *signedHeartbeat) GobEncode() (gobSignedHeartbeat []byte, err error) {
+func (sh *SignedHeartbeat) GobEncode() (gobSignedHeartbeat []byte, err error) {
 	// error check the input
 	if sh == nil {
 		err = fmt.Errorf("Cannot encode a nil object")
@@ -287,7 +288,7 @@ func (sh *signedHeartbeat) GobEncode() (gobSignedHeartbeat []byte, err error) {
 	return
 }
 
-func (shb *signedHeartbeat) GobDecode(gobSignedHeartbeat []byte) (err error) {
+func (shb *SignedHeartbeat) GobDecode(gobSignedHeartbeat []byte) (err error) {
 	if gobSignedHeartbeat == nil {
 		err = fmt.Errorf("cannot decode a nil byte slice")
 		return
