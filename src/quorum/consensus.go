@@ -135,7 +135,6 @@ var hsherrBounds = errors.New("Received an out of bounds index for signatory")
 var hsherrNonParticipant = errors.New("Received heartbeat from non-participant")
 var hsherrHaveHeartbeat = errors.New("Already have this heartbeat")
 var hsherrManyHeartbeats = errors.New("Received many heartbeats from this host")
-var hsherrInvalidSignatory = errors.New("Received heartbeat from invalid signatory")
 var hsherrDoubleSigned = errors.New("Received a double signature")
 var hsherrInvalidSignature = errors.New("Received heartbeat with invalid signature")
 
@@ -208,7 +207,7 @@ func (s *State) HandleSignedHeartbeat(sh SignedHeartbeat, arb *struct{}) error {
 
 		// Verify that the signatory is a participant in the quorum
 		if s.participants[signatory] == nil {
-			return hsherrInvalidSignatory
+			return hsherrNonParticipant
 		}
 
 		// Verify that the signatory has only been seen once in the current SignedHeartbeat

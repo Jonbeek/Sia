@@ -163,7 +163,7 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	// Create a set of signatures for the SignedHeartbeat
 	signature1, err := secKey1.Sign(sh.heartbeatHash[:])
 	if err != nil {
-		t.Fatal("error signing HeartbeatHash")
+		t.Fatal(err)
 	}
 
 	combinedMessage, err := signature1.CombinedMessage()
@@ -193,7 +193,7 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	// verify that a repeat heartbeat gets ignored
 	err = s.HandleSignedHeartbeat(sh, nil)
 	if err != hsherrHaveHeartbeat {
-		t.Fatal("expected heartbeat to get ignored as a duplicate:", err)
+		t.Error("expected heartbeat to get ignored as a duplicate:", err)
 	}
 
 	// create a different heartbeat, this will be used to test the fail conditions
@@ -216,15 +216,26 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 		t.Error("expected heartbeat to get ignored as having invalid signatures: ", err)
 	}
 
-	/*// give heartbeat repeat signatures
-	signature1, err = crypto.Sign(secKey1, string(sh.heartbeatHash[:]))
-	if err != nil {
-		t.Fatal("error with third signing")
+	// verify that a non-participant gets rejected
+	sh.signatories[0] = 3
+	err = s.HandleSignedHeartbeat(sh, nil)
+	if err != hsherrNonParticipant {
+		t.Error("expected non-participant to be rejected: ", err)
 	}
 
-	signature2, err = crypto.Sign(secKey1, signature1.CombinedMessage())
+	// give heartbeat repeat signatures
+	signature1, err = secKey1.Sign(sh.heartbeatHash[:])
 	if err != nil {
-		t.Fatal("error with fourth signing")
+		t.Fatal(err)
+	}
+
+	combinedMessage, err = signature1.CombinedMessage()
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature2, err = secKey1.Sign(combinedMessage)
+	if err != nil {
+		t.Error(err)
 	}
 
 	// adjust signatories slice
@@ -234,13 +245,9 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	sh.signatories[1] = 1
 
 	// verify repeated signatures are rejected
-	msh, err = sh.marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	returnCode = s.handleSignedHeartbeat(msh)
-	if returnCode != 5 {
-		t.Fatal("expected heartbeat to be rejected for duplicate signatures: ", returnCode)
+	err = s.HandleSignedHeartbeat(sh, nil)
+	if err != hsherrDoubleSigned {
+		t.Error("expected heartbeat to be rejected for duplicate signatures: ", err)
 	}
 
 	// remove second signature
@@ -248,39 +255,38 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	sh.signatories = sh.signatories[:1]
 
 	// handle heartbeat when tick is larger than num signatures
+	s.stepLock.Lock()
 	s.currentStep = 2
-	msh, err = sh.marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	returnCode = s.handleSignedHeartbeat(msh)
-	if returnCode != 2 {
-		t.Fatal("expected heartbeat to be rejected as out-of-sync: ", returnCode)
+	s.stepLock.Unlock()
+	err = s.HandleSignedHeartbeat(sh, nil)
+	if err != hsherrNoSync {
+		t.Error("expected heartbeat to be rejected as out-of-sync: ", err)
 	}
 
-	// send a heartbeat right at the edge of a new block
-	// test takes time; skip in short tests
+	// remaining tests require sleep
 	if testing.Short() {
 		t.Skip()
 	}
 
-	// put block at edge
+	// send a heartbeat right at the edge of a new block
+	s.stepLock.Lock()
 	s.currentStep = common.QuorumSize
+	s.stepLock.Unlock()
 
 	// submit heartbeat in separate thread
 	go func() {
-		msh, err = sh.marshal()
+		err = s.HandleSignedHeartbeat(sh, nil)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal("expected heartbeat to succeed!: ", err)
 		}
-		returnCode = s.handleSignedHeartbeat(msh)
-		if returnCode != 0 {
-			t.Fatal("expected heartbeat to succeed!: ", returnCode)
-		}
+		// need some way to verify with the test that the funcion gets here
 	}()
 
+	s.stepLock.Lock()
+	s.currentStep = 1
+	s.stepLock.Unlock()
 	time.Sleep(time.Second)
-	*/
+	time.Sleep(common.StepDuration)
 }
 
 // add fuzzing tests for HandleSignedHeartbeat
