@@ -192,7 +192,7 @@ func (s *State) JoinSia() (err error) {
 		Args: *s.self,
 		Resp: nil,
 	}
-	err = s.messageRouter.SendMessage(m)
+	s.messageRouter.SendAsyncMessage(m)
 	return
 }
 
@@ -214,18 +214,21 @@ func (s *State) HandleJoinSia(p Participant, arb *struct{}) (err error) {
 	i := 0
 	for i = 0; i < common.QuorumSize; i++ {
 		if s.participants[i] == nil {
-			s.participants[i] = &p
 			break
 		}
 	}
 	s.participantsLock.Unlock()
+	p.index = byte(i)
+	err = s.AddNewParticipant(p, nil)
+	if err != nil {
+		return
+	}
 
 	// see if the quorum is full
 	if i == common.QuorumSize {
 		return fmt.Errorf("failed to add Participant")
 	}
 
-	p.index = byte(i)
 	// now announce a new Participant at index i
 	s.broadcast(&common.Message{
 		Proc: "State.AddNewParticipant",
@@ -243,6 +246,17 @@ func (s *State) updateParticipant(msp []byte) {
 
 // Add a Participant to the state, tell the Participant about ourselves
 func (s *State) AddNewParticipant(p Participant, arb *struct{}) (err error) {
+	if int(p.index) > len(s.participants) {
+		err = fmt.Errorf("Corrupt Input")
+		return
+	}
+
+	s.participantsLock.RLock()
+	if s.participants[p.index] != nil {
+		s.participantsLock.RUnlock()
+		return
+	}
+	s.participantsLock.RUnlock()
 	// for this Participant, make the heartbeat map and add the default heartbeat
 	hb := new(heartbeat)
 	emptyHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
@@ -273,7 +287,7 @@ func (s *State) AddNewParticipant(p Participant, arb *struct{}) (err error) {
 		s.messageRouter.SendAsyncMessage(&common.Message{
 			Dest: p.address,
 			Proc: "State.AddNewParticipant",
-			Args: s.self,
+			Args: *s.self,
 			Resp: nil,
 		})
 	}
