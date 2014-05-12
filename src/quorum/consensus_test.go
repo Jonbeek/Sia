@@ -149,11 +149,11 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	msh, err := sh.heartbeat.GobEncode()
+	esh, err := sh.heartbeat.GobEncode()
 	if err != nil {
 		t.Fatal(err)
 	}
-	sh.heartbeatHash, err = crypto.CalculateTruncatedHash(msh)
+	sh.heartbeatHash, err = crypto.CalculateTruncatedHash(esh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	}
 	signature2, err := secKey2.Sign(combinedMessage)
 	if err != nil {
-		t.Fatal("error with second signing")
+		t.Fatal(err)
 	}
 
 	// build a valid SignedHeartbeat
@@ -181,20 +181,19 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	sh.signatories[0] = 1
 	sh.signatories[1] = 2
 
-	// handle the signed heartbeat, expecting code 0
+	// delete existing heartbeat from state; makes the remaining tests easier
+	s.heartbeats[sh.signatories[0]] = make(map[crypto.TruncatedHash]*heartbeat)
+
+	// handle the signed heartbeat, expecting nil error
 	err = s.HandleSignedHeartbeat(sh, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	/*// verify that a repeat heartbeat gets ignored
-	msh, err = sh.marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	returnCode = s.handleSignedHeartbeat(msh)
-	if returnCode != 8 {
-		t.Fatal("expected heartbeat to get ignored as a duplicate:", returnCode)
+	// verify that a repeat heartbeat gets ignored
+	err = s.HandleSignedHeartbeat(sh, nil)
+	if err != hsherrHaveHeartbeat {
+		t.Fatal("expected heartbeat to get ignored as a duplicate:", err)
 	}
 
 	// create a different heartbeat, this will be used to test the fail conditions
@@ -202,22 +201,22 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sh.heartbeatHash, err = crypto.CalculateTruncatedHash([]byte(sh.heartbeat.marshal()))
+	ehb, err := sh.heartbeat.GobEncode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sh.heartbeatHash, err = crypto.CalculateTruncatedHash(ehb)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// verify a heartbeat with bad signatures is rejected
-	msh, err = sh.marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	returnCode = s.handleSignedHeartbeat(msh)
-	if returnCode != 6 {
-		t.Fatal("expected heartbeat to get ignored as having invalid signatures: ", returnCode)
+	err = s.HandleSignedHeartbeat(sh, nil)
+	if err != hsherrInvalidSignature {
+		t.Error("expected heartbeat to get ignored as having invalid signatures: ", err)
 	}
 
-	// give heartbeat repeat signatures
+	/*// give heartbeat repeat signatures
 	signature1, err = crypto.Sign(secKey1, string(sh.heartbeatHash[:]))
 	if err != nil {
 		t.Fatal("error with third signing")
