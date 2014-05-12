@@ -6,6 +6,7 @@ import (
 	"common/crypto"
 	"common/log"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -127,20 +128,27 @@ func (s *State) announceSignedHeartbeat(sh *SignedHeartbeat) (err error) {
 	return
 }
 
+var hsherrMismatchedSignatures = errors.New("SignedHeartbeat has mismatches signatures to signatories")
+var hsherrOversigned = errors.New("Received an over-signed signedHeartbeat")
+var hsherrNoSync = errors.New("Received an out-of-sync SignedHeartbeat")
+var hsherrBounds = errors.New("Received an out of bounds index for signatory")
+var hsherrNonParticipant = errors.New("Received heartbeat from non-participant")
+var hsherrHaveHeartbeat = errors.New("Already have this heartbeat")
+// incomplete, will finish with remainder of testing
+
 // HandleSignedHeartbeat takes the payload of an incoming message of type
-// 'incomingSignedHeartbeat' and verifies it according to rules established by
-// the specification.
+// 'incomingSignedHeartbeat' and verifies it according to the specification
+//
+// What sort of input error checking is needed for this function?
 func (s *State) HandleSignedHeartbeat(sh SignedHeartbeat, arb *struct{}) error {
 	// Check that the slices of signatures and signatories are of the same length
 	if len(sh.signatures) != len(sh.signatories) {
-		log.Infoln("SignedHeartbeat has mismatched signatures")
-		return fmt.Errorf("SignedHeartbeat has mismatched signatures")
+		return hsherrMismatchedSignatures
 	}
 
 	// check that there are not too many signatures and signatories
 	if len(sh.signatories) > common.QuorumSize {
-		log.Infoln("Received an over-signed signedHeartbeat")
-		return fmt.Errorf("Received an over-signed signedHeartbeat")
+		return hsherrOversigned
 	}
 
 	s.stepLock.Lock() // prevents a benign race condition; is here to follow best practices
@@ -154,15 +162,13 @@ func (s *State) HandleSignedHeartbeat(sh SignedHeartbeat, arb *struct{}) error {
 			time.Sleep(common.StepDuration)
 			// now continue to rest of function
 		} else {
-			log.Infoln("Received an out-of-sync SignedHeartbeat")
-			return fmt.Errorf("Received an out-of-sync SignedHeartbeat")
+			return hsherrNoSync
 		}
 	}
 
 	// Check bounds on first signatory
 	if int(sh.signatories[0]) >= common.QuorumSize {
-		log.Infoln("Received an out of bounds index")
-		return fmt.Errorf("Received an out of bounds index")
+		return hsherrBounds
 	}
 
 	// we are starting to read from memory, initiate locks
@@ -173,14 +179,13 @@ func (s *State) HandleSignedHeartbeat(sh SignedHeartbeat, arb *struct{}) error {
 
 	// check that first signatory is a participant
 	if s.participants[sh.signatories[0]] == nil {
-		log.Infoln("Received heartbeat from non-participant")
-		return fmt.Errorf("Received heartbeat from non-participant")
+		return hsherrNonParticipant
 	}
 
 	// Check if we have already received this heartbeat
 	_, exists := s.heartbeats[sh.signatories[0]][sh.heartbeatHash]
 	if exists {
-		return nil
+		return hsherrHaveHeartbeat
 	}
 
 	// Check if we already have two heartbeats from this host

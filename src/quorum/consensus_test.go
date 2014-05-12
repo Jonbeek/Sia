@@ -8,7 +8,7 @@ import (
 )
 
 // Verify that newHeartbeat() produces valid heartbeats
-func TestnewHeartbeat(t *testing.T) {
+func TestNewHeartbeat(t *testing.T) {
 	// create a state, and then a heartbeat
 	s, err := CreateState(common.NewZeroNetwork())
 	if err != nil {
@@ -67,6 +67,10 @@ func TestHeartbeatEncoding(t *testing.T) {
 	// fuzz over random potential values of heartbeat
 }
 
+func TestSignHeartbeat(t *testing.T) {
+	// tbi
+}
+
 func TestSignedHeartbeatEncoding(t *testing.T) {
 	// Test for bad inputs
 	var bad *SignedHeartbeat
@@ -103,11 +107,10 @@ func TestSignedHeartbeatEncoding(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// check marshalling and unmarshalling of a signedHeartbeat with many signatures
+	// check encoding and decoding of a signedHeartbeat with many signatures
 }
 
-// TestHandleSignedHeartbeat should probably be reviewed and rehashed
-/* func TestHandleSignedHeartbeat(t *testing.T) {
+func TestHandleSignedHeartbeat(t *testing.T) {
 	// create a state and populate it with the signatories as participants
 	s, err := CreateState(common.NewZeroNetwork())
 	if err != nil {
@@ -125,33 +128,49 @@ func TestSignedHeartbeatEncoding(t *testing.T) {
 	}
 
 	// create participants and add them to s
-	p1 := new(participant)
-	p2 := new(participant)
+	var p1 Participant
+	var p2 Participant
+	p1.index = 1
+	p2.index = 2
 	p1.publicKey = pubKey1
 	p2.publicKey = pubKey2
-	s.AddParticipant(p1, 1)
-	s.AddParticipant(p2, 2)
+	err = s.AddNewParticipant(p1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.AddNewParticipant(p2, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// create SignedHeartbeat
-	var sh signedHeartbeat
+	var sh SignedHeartbeat
 	sh.heartbeat, err = s.newHeartbeat()
 	if err != nil {
 		t.Fatal(err)
 	}
-	sh.heartbeatHash, err = crypto.CalculateTruncatedHash([]byte(sh.heartbeat.marshal()))
+	msh, err := sh.heartbeat.GobEncode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sh.heartbeatHash, err = crypto.CalculateTruncatedHash(msh)
 	if err != nil {
 		t.Fatal(err)
 	}
 	sh.signatures = make([]crypto.Signature, 2)
-	sh.signatories = make([]participantIndex, 2)
+	sh.signatories = make([]byte, 2)
 
 	// Create a set of signatures for the SignedHeartbeat
-	signature1, err := crypto.Sign(secKey1, string(sh.heartbeatHash[:]))
+	signature1, err := secKey1.Sign(sh.heartbeatHash[:])
 	if err != nil {
 		t.Fatal("error signing HeartbeatHash")
 	}
 
-	signature2, err := crypto.Sign(secKey2, signature1.CombinedMessage())
+	combinedMessage, err := signature1.CombinedMessage()
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature2, err := secKey2.Sign(combinedMessage)
 	if err != nil {
 		t.Fatal("error with second signing")
 	}
@@ -163,16 +182,12 @@ func TestSignedHeartbeatEncoding(t *testing.T) {
 	sh.signatories[1] = 2
 
 	// handle the signed heartbeat, expecting code 0
-	msh, err := sh.marshal()
+	err = s.HandleSignedHeartbeat(sh, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	returnCode := s.handleSignedHeartbeat(msh)
-	if returnCode != 0 {
-		t.Fatal("expected heartbeat to succeed:", returnCode)
-	}
 
-	// verify that a repeat heartbeat gets ignored
+	/*// verify that a repeat heartbeat gets ignored
 	msh, err = sh.marshal()
 	if err != nil {
 		t.Fatal(err)
@@ -266,12 +281,13 @@ func TestSignedHeartbeatEncoding(t *testing.T) {
 	}()
 
 	time.Sleep(time.Second)
+	*/
 }
 
 // add fuzzing tests for HandleSignedHeartbeat
 // test race conditions on HandleSignedHeartbeat
 
-func TestTossParticipant(t *testing.T) {
+/*func TestTossParticipant(t *testing.T) {
 	// tossParticipant isn't yet implemented
 }
 
