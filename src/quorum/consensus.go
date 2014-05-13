@@ -134,7 +134,9 @@ var hsherrNoSync = errors.New("Received an out-of-sync SignedHeartbeat")
 var hsherrBounds = errors.New("Received an out of bounds index for signatory")
 var hsherrNonParticipant = errors.New("Received heartbeat from non-participant")
 var hsherrHaveHeartbeat = errors.New("Already have this heartbeat")
-// incomplete, will finish with remainder of testing
+var hsherrManyHeartbeats = errors.New("Received many heartbeats from this host")
+var hsherrDoubleSigned = errors.New("Received a double signature")
+var hsherrInvalidSignature = errors.New("Received heartbeat with invalid signature")
 
 // HandleSignedHeartbeat takes the payload of an incoming message of type
 // 'incomingSignedHeartbeat' and verifies it according to the specification
@@ -190,8 +192,7 @@ func (s *State) HandleSignedHeartbeat(sh SignedHeartbeat, arb *struct{}) error {
 
 	// Check if we already have two heartbeats from this host
 	if len(s.heartbeats[sh.signatories[0]]) >= 2 {
-		log.Infoln("Received many invalid heartbeats from one host")
-		return fmt.Errorf("Received many invalid heartbeats from one host")
+		return hsherrManyHeartbeats
 	}
 
 	// iterate through the signatures and make sure each is legal
@@ -201,20 +202,17 @@ func (s *State) HandleSignedHeartbeat(sh SignedHeartbeat, arb *struct{}) error {
 	for i, signatory := range sh.signatories {
 		// Check bounds on the signatory
 		if int(signatory) >= common.QuorumSize {
-			log.Infoln("Received an out of bounds index")
-			return fmt.Errorf("Received an out of bounds index")
+			return hsherrBounds
 		}
 
 		// Verify that the signatory is a participant in the quorum
 		if s.participants[signatory] == nil {
-			log.Infoln("Received a heartbeat signed by an invalid signatory")
-			return fmt.Errorf("Received a heartbeat signed by an invalid signatory")
+			return hsherrNonParticipant
 		}
 
 		// Verify that the signatory has only been seen once in the current SignedHeartbeat
 		if previousSignatories[signatory] {
-			log.Infoln("Received a double-signed heartbeat")
-			return fmt.Errorf("Received a double-signed heartbeat")
+			return hsherrDoubleSigned
 		}
 
 		// record that we've seen this signatory in the current SignedHeartbeat
@@ -226,8 +224,7 @@ func (s *State) HandleSignedHeartbeat(sh SignedHeartbeat, arb *struct{}) error {
 
 		// check status of verification
 		if !verification {
-			log.Infoln("Received invalid signature in SignedHeartbeat")
-			return fmt.Errorf("Received invalid signature in SignedHeartbeat")
+			return hsherrInvalidSignature
 		}
 
 		// throwing the signature into the message here makes code cleaner in the loop
@@ -235,7 +232,6 @@ func (s *State) HandleSignedHeartbeat(sh SignedHeartbeat, arb *struct{}) error {
 		newMessage, err := signedMessage.CombinedMessage()
 		signedMessage.Message = newMessage
 		if err != nil {
-			log.Infoln("Error while combining a signed message")
 			return err
 		}
 	}
@@ -361,17 +357,19 @@ func (s *State) tossParticipant(pi byte) {
 	s.heartbeats[pi] = nil
 }
 
+var pherrInvalidEntropy = errors.New("EntropyStage2 does not match EntropyStage1")
+
 // Update the state according to the information presented in the heartbeat
 // processHeartbeat uses return codes for testing purposes
-func (s *State) processHeartbeat(hb *heartbeat, i byte) int {
+func (s *State) processHeartbeat(hb *heartbeat, i byte) (err error) {
 	// compare EntropyStage2 to the hash from the previous heartbeat
 	expectedHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
 	if err != nil {
-		log.Fatalln(err)
+		return
 	}
 	if expectedHash != s.previousEntropyStage1[i] {
 		s.tossParticipant(i)
-		return 1
+		return pherrInvalidEntropy
 	}
 
 	print("Confirming Participant ")
@@ -384,7 +382,7 @@ func (s *State) processHeartbeat(hb *heartbeat, i byte) int {
 	// store entropyStage1 to compare with next heartbeat from this participant
 	s.previousEntropyStage1[i] = hb.entropyStage1
 
-	return 0
+	return
 }
 
 // compile() takes the list of heartbeats and uses them to advance the state.

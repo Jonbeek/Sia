@@ -149,11 +149,11 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	msh, err := sh.heartbeat.GobEncode()
+	esh, err := sh.heartbeat.GobEncode()
 	if err != nil {
 		t.Fatal(err)
 	}
-	sh.heartbeatHash, err = crypto.CalculateTruncatedHash(msh)
+	sh.heartbeatHash, err = crypto.CalculateTruncatedHash(esh)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	// Create a set of signatures for the SignedHeartbeat
 	signature1, err := secKey1.Sign(sh.heartbeatHash[:])
 	if err != nil {
-		t.Fatal("error signing HeartbeatHash")
+		t.Fatal(err)
 	}
 
 	combinedMessage, err := signature1.CombinedMessage()
@@ -172,7 +172,7 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	}
 	signature2, err := secKey2.Sign(combinedMessage)
 	if err != nil {
-		t.Fatal("error with second signing")
+		t.Fatal(err)
 	}
 
 	// build a valid SignedHeartbeat
@@ -181,20 +181,19 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	sh.signatories[0] = 1
 	sh.signatories[1] = 2
 
-	// handle the signed heartbeat, expecting code 0
+	// delete existing heartbeat from state; makes the remaining tests easier
+	s.heartbeats[sh.signatories[0]] = make(map[crypto.TruncatedHash]*heartbeat)
+
+	// handle the signed heartbeat, expecting nil error
 	err = s.HandleSignedHeartbeat(sh, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	/*// verify that a repeat heartbeat gets ignored
-	msh, err = sh.marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	returnCode = s.handleSignedHeartbeat(msh)
-	if returnCode != 8 {
-		t.Fatal("expected heartbeat to get ignored as a duplicate:", returnCode)
+	// verify that a repeat heartbeat gets ignored
+	err = s.HandleSignedHeartbeat(sh, nil)
+	if err != hsherrHaveHeartbeat {
+		t.Error("expected heartbeat to get ignored as a duplicate:", err)
 	}
 
 	// create a different heartbeat, this will be used to test the fail conditions
@@ -202,30 +201,41 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sh.heartbeatHash, err = crypto.CalculateTruncatedHash([]byte(sh.heartbeat.marshal()))
+	ehb, err := sh.heartbeat.GobEncode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sh.heartbeatHash, err = crypto.CalculateTruncatedHash(ehb)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// verify a heartbeat with bad signatures is rejected
-	msh, err = sh.marshal()
-	if err != nil {
-		t.Fatal(err)
+	err = s.HandleSignedHeartbeat(sh, nil)
+	if err != hsherrInvalidSignature {
+		t.Error("expected heartbeat to get ignored as having invalid signatures: ", err)
 	}
-	returnCode = s.handleSignedHeartbeat(msh)
-	if returnCode != 6 {
-		t.Fatal("expected heartbeat to get ignored as having invalid signatures: ", returnCode)
+
+	// verify that a non-participant gets rejected
+	sh.signatories[0] = 3
+	err = s.HandleSignedHeartbeat(sh, nil)
+	if err != hsherrNonParticipant {
+		t.Error("expected non-participant to be rejected: ", err)
 	}
 
 	// give heartbeat repeat signatures
-	signature1, err = crypto.Sign(secKey1, string(sh.heartbeatHash[:]))
+	signature1, err = secKey1.Sign(sh.heartbeatHash[:])
 	if err != nil {
-		t.Fatal("error with third signing")
+		t.Fatal(err)
 	}
 
-	signature2, err = crypto.Sign(secKey1, signature1.CombinedMessage())
+	combinedMessage, err = signature1.CombinedMessage()
 	if err != nil {
-		t.Fatal("error with fourth signing")
+		t.Fatal(err)
+	}
+	signature2, err = secKey1.Sign(combinedMessage)
+	if err != nil {
+		t.Error(err)
 	}
 
 	// adjust signatories slice
@@ -235,13 +245,9 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	sh.signatories[1] = 1
 
 	// verify repeated signatures are rejected
-	msh, err = sh.marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	returnCode = s.handleSignedHeartbeat(msh)
-	if returnCode != 5 {
-		t.Fatal("expected heartbeat to be rejected for duplicate signatures: ", returnCode)
+	err = s.HandleSignedHeartbeat(sh, nil)
+	if err != hsherrDoubleSigned {
+		t.Error("expected heartbeat to be rejected for duplicate signatures: ", err)
 	}
 
 	// remove second signature
@@ -249,46 +255,42 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	sh.signatories = sh.signatories[:1]
 
 	// handle heartbeat when tick is larger than num signatures
+	s.stepLock.Lock()
 	s.currentStep = 2
-	msh, err = sh.marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	returnCode = s.handleSignedHeartbeat(msh)
-	if returnCode != 2 {
-		t.Fatal("expected heartbeat to be rejected as out-of-sync: ", returnCode)
+	s.stepLock.Unlock()
+	err = s.HandleSignedHeartbeat(sh, nil)
+	if err != hsherrNoSync {
+		t.Error("expected heartbeat to be rejected as out-of-sync: ", err)
 	}
 
-	// send a heartbeat right at the edge of a new block
-	// test takes time; skip in short tests
+	// remaining tests require sleep
 	if testing.Short() {
 		t.Skip()
 	}
 
-	// put block at edge
+	// send a heartbeat right at the edge of a new block
+	s.stepLock.Lock()
 	s.currentStep = common.QuorumSize
+	s.stepLock.Unlock()
 
 	// submit heartbeat in separate thread
 	go func() {
-		msh, err = sh.marshal()
+		err = s.HandleSignedHeartbeat(sh, nil)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal("expected heartbeat to succeed!: ", err)
 		}
-		returnCode = s.handleSignedHeartbeat(msh)
-		if returnCode != 0 {
-			t.Fatal("expected heartbeat to succeed!: ", returnCode)
-		}
+		// need some way to verify with the test that the funcion gets here
 	}()
 
+	s.stepLock.Lock()
+	s.currentStep = 1
+	s.stepLock.Unlock()
 	time.Sleep(time.Second)
-	*/
+	time.Sleep(common.StepDuration)
 }
 
-// add fuzzing tests for HandleSignedHeartbeat
-// test race conditions on HandleSignedHeartbeat
-
-/*func TestTossParticipant(t *testing.T) {
-	// tossParticipant isn't yet implemented
+func TestTossParticipant(t *testing.T) {
+	// tbi
 }
 
 // Check that valid heartbeats are accepted and invalid heartbeats are rejected
@@ -302,17 +304,17 @@ func TestProcessHeartbeat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s0.AddParticipant(s1.Self(), 1)
-	s1.AddParticipant(s0.Self(), 0)
+	s0.AddNewParticipant(*s1.self, nil)
+	s1.AddNewParticipant(*s0.self, nil)
 
 	// check that a valid heartbeat passes
 	hb0, err := s0.newHeartbeat()
 	if err != nil {
 		t.Fatal(err)
 	}
-	returnCode := s1.processHeartbeat(hb0, 0)
-	if returnCode != 0 {
-		t.Fatal("processHeartbeat threw out a valid heartbeat")
+	err = s1.processHeartbeat(hb0, 0)
+	if err != nil {
+		t.Error("processHeartbeat threw out a valid heartbeat: ", err)
 	}
 
 	// check that invalid entropy fails
@@ -321,110 +323,16 @@ func TestProcessHeartbeat(t *testing.T) {
 		t.Fatal(err)
 	}
 	hb1.entropyStage2[0] = 1
-	returnCode = s0.processHeartbeat(hb1, 1)
-	if returnCode != 1 {
-		t.Fatal("processHeartbeat accepted an invalid heartbeat")
+	err = s0.processHeartbeat(hb1, 1)
+	if err != pherrInvalidEntropy {
+		t.Fatal("processHeartbeat accepted an invalid heartbeat: ", err)
 	}
-}*/
+}
 
 // TestCompile should probably be reviewed and rehashed
-/* func TestCompile(t *testing.T) {
-	// Create states and add them to eachother as participants
-	s0, err := CreateState(common.NewZeroNetwork(), 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s1, err := CreateState(common.NewZeroNetwork(), 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s2, err := CreateState(common.NewZeroNetwork(), 2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s0.AddParticipant(s1.Self(), 1)
-	s0.AddParticipant(s2.Self(), 2)
-
-	// fetch legal heartbeat for s0
-	hb0, err := s0.newHeartbeat()
-	if err != nil {
-		t.Fatal(err)
-	}
-	shb0, err := s0.signHeartbeat(hb0)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// fetch legal heartbeat for s2
-	hb2a, err := s2.newHeartbeat()
-	if err != nil {
-		t.Fatal(err)
-	}
-	shb2a, err := s2.signHeartbeat(hb2a)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// create a second illegal heartbeat for s2
-	var hb2b heartbeat
-	hb2b.entropyStage2 = hb2a.entropyStage2
-	shb2b, err := s2.signHeartbeat(&hb2b)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// send the SignedHeartbeats to s0
-	mshb0, err := shb0.marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	returnCode := s0.handleSignedHeartbeat(mshb0)
-	if returnCode != 0 {
-		t.Fatal("Expecting shb0 to be valid: ", returnCode)
-	}
-	mshb2a, err := shb2a.marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	returnCode = s0.handleSignedHeartbeat(mshb2a)
-	if returnCode != 0 {
-		t.Fatal("Expecting shb2a to be valid: ", returnCode)
-	}
-	mshb2b, err := shb2b.marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	returnCode = s0.handleSignedHeartbeat(mshb2b)
-	if returnCode != 0 {
-		t.Fatal("Expecting shb2b to be valid: ", returnCode)
-	}
-
-	s0.compile()
-
-	// check that hosts arrive at the same participantOrdering
-	participantOrdering1 := s1.participantOrdering()
-	participantOrdering2 := s2.participantOrdering()
-	if participantOrdering1 != participantOrdering2 {
-		t.Fatal("partcipantOrderings for s1 and s2 are not identical!")
-	}
-
-	// verify that upon processing, s0 is not thrown from s0, and is processed correctly
-	if s0.participants[0] == nil {
-		t.Fatal("s0 thrown from s0 despite having a fair heartbeat")
-	}
-
-	// verify that upon processing, s1 is thrown from s0 (doesn't have heartbeat)
-	if s0.participants[1] != nil {
-		t.Fatal("s1 not thrown from s0 despite having no heartbeats")
-	}
-
-	// verify that upon processing, s3 is thrown from s0 (too many heartbeats)
-	if s0.participants[2] != nil {
-		t.Fatal("s2 not thrown from s0 despite having multiple heartbeats")
-	}
-
-	// verify that a new heartbeat was made, formatted into a SignedHeartbeat, and sent off
-} */
+func TestCompile(t *testing.T) {
+	// tbi
+}
 
 // Ensures that Tick() updates CurrentStep
 func TestRegularTick(t *testing.T) {

@@ -2,10 +2,12 @@ package common
 
 import (
 	"net/rpc"
+	"sync"
 )
 
 type ZeroNetwork struct {
-	messages []*Message
+	messages     []*Message
+	messagesLock sync.RWMutex
 }
 
 func (z *ZeroNetwork) Address() (a Address) {
@@ -17,16 +19,22 @@ func (z *ZeroNetwork) RegisterHandler(handler interface{}) (i Identifier) {
 }
 
 func (z *ZeroNetwork) SendMessage(m *Message) error {
+	z.messagesLock.Lock()
 	z.messages = append(z.messages, m)
+	z.messagesLock.Unlock()
 	return nil
 }
 
 func (z *ZeroNetwork) SendAsyncMessage(m *Message) *rpc.Call {
+	z.messagesLock.Lock()
 	z.messages = append(z.messages, m)
+	z.messagesLock.Unlock()
 	return nil
 }
 
 func (z *ZeroNetwork) RecentMessage(i int) *Message {
+	z.messagesLock.RLock()
+	defer z.messagesLock.RUnlock()
 	if i < len(z.messages) {
 		return z.messages[i]
 	}
