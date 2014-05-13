@@ -357,17 +357,19 @@ func (s *State) tossParticipant(pi byte) {
 	s.heartbeats[pi] = nil
 }
 
+var pherrInvalidEntropy = errors.New("EntropyStage2 does not match EntropyStage1")
+
 // Update the state according to the information presented in the heartbeat
 // processHeartbeat uses return codes for testing purposes
-func (s *State) processHeartbeat(hb *heartbeat, i byte) int {
+func (s *State) processHeartbeat(hb *heartbeat, i byte) (err error) {
 	// compare EntropyStage2 to the hash from the previous heartbeat
 	expectedHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
 	if err != nil {
-		log.Fatalln(err)
+		return
 	}
 	if expectedHash != s.previousEntropyStage1[i] {
 		s.tossParticipant(i)
-		return 1
+		return pherrInvalidEntropy
 	}
 
 	print("Confirming Participant ")
@@ -380,7 +382,7 @@ func (s *State) processHeartbeat(hb *heartbeat, i byte) int {
 	// store entropyStage1 to compare with next heartbeat from this participant
 	s.previousEntropyStage1[i] = hb.entropyStage1
 
-	return 0
+	return
 }
 
 // compile() takes the list of heartbeats and uses them to advance the state.

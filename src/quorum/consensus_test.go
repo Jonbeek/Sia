@@ -289,11 +289,8 @@ func TestHandleSignedHeartbeat(t *testing.T) {
 	time.Sleep(common.StepDuration)
 }
 
-// add fuzzing tests for HandleSignedHeartbeat
-// test race conditions on HandleSignedHeartbeat
-
-/*func TestTossParticipant(t *testing.T) {
-	// tossParticipant isn't yet implemented
+func TestTossParticipant(t *testing.T) {
+	// tbi
 }
 
 // Check that valid heartbeats are accepted and invalid heartbeats are rejected
@@ -307,17 +304,17 @@ func TestProcessHeartbeat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s0.AddParticipant(s1.Self(), 1)
-	s1.AddParticipant(s0.Self(), 0)
+	s0.AddNewParticipant(*s1.self, nil)
+	s1.AddNewParticipant(*s0.self, nil)
 
 	// check that a valid heartbeat passes
 	hb0, err := s0.newHeartbeat()
 	if err != nil {
 		t.Fatal(err)
 	}
-	returnCode := s1.processHeartbeat(hb0, 0)
-	if returnCode != 0 {
-		t.Fatal("processHeartbeat threw out a valid heartbeat")
+	err = s1.processHeartbeat(hb0, 0)
+	if err != nil {
+		t.Error("processHeartbeat threw out a valid heartbeat: ", err)
 	}
 
 	// check that invalid entropy fails
@@ -326,110 +323,16 @@ func TestProcessHeartbeat(t *testing.T) {
 		t.Fatal(err)
 	}
 	hb1.entropyStage2[0] = 1
-	returnCode = s0.processHeartbeat(hb1, 1)
-	if returnCode != 1 {
-		t.Fatal("processHeartbeat accepted an invalid heartbeat")
+	err = s0.processHeartbeat(hb1, 1)
+	if err != pherrInvalidEntropy {
+		t.Fatal("processHeartbeat accepted an invalid heartbeat: ", err)
 	}
-}*/
+}
 
 // TestCompile should probably be reviewed and rehashed
-/* func TestCompile(t *testing.T) {
-	// Create states and add them to eachother as participants
-	s0, err := CreateState(common.NewZeroNetwork(), 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s1, err := CreateState(common.NewZeroNetwork(), 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s2, err := CreateState(common.NewZeroNetwork(), 2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s0.AddParticipant(s1.Self(), 1)
-	s0.AddParticipant(s2.Self(), 2)
-
-	// fetch legal heartbeat for s0
-	hb0, err := s0.newHeartbeat()
-	if err != nil {
-		t.Fatal(err)
-	}
-	shb0, err := s0.signHeartbeat(hb0)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// fetch legal heartbeat for s2
-	hb2a, err := s2.newHeartbeat()
-	if err != nil {
-		t.Fatal(err)
-	}
-	shb2a, err := s2.signHeartbeat(hb2a)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// create a second illegal heartbeat for s2
-	var hb2b heartbeat
-	hb2b.entropyStage2 = hb2a.entropyStage2
-	shb2b, err := s2.signHeartbeat(&hb2b)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// send the SignedHeartbeats to s0
-	mshb0, err := shb0.marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	returnCode := s0.handleSignedHeartbeat(mshb0)
-	if returnCode != 0 {
-		t.Fatal("Expecting shb0 to be valid: ", returnCode)
-	}
-	mshb2a, err := shb2a.marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	returnCode = s0.handleSignedHeartbeat(mshb2a)
-	if returnCode != 0 {
-		t.Fatal("Expecting shb2a to be valid: ", returnCode)
-	}
-	mshb2b, err := shb2b.marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	returnCode = s0.handleSignedHeartbeat(mshb2b)
-	if returnCode != 0 {
-		t.Fatal("Expecting shb2b to be valid: ", returnCode)
-	}
-
-	s0.compile()
-
-	// check that hosts arrive at the same participantOrdering
-	participantOrdering1 := s1.participantOrdering()
-	participantOrdering2 := s2.participantOrdering()
-	if participantOrdering1 != participantOrdering2 {
-		t.Fatal("partcipantOrderings for s1 and s2 are not identical!")
-	}
-
-	// verify that upon processing, s0 is not thrown from s0, and is processed correctly
-	if s0.participants[0] == nil {
-		t.Fatal("s0 thrown from s0 despite having a fair heartbeat")
-	}
-
-	// verify that upon processing, s1 is thrown from s0 (doesn't have heartbeat)
-	if s0.participants[1] != nil {
-		t.Fatal("s1 not thrown from s0 despite having no heartbeats")
-	}
-
-	// verify that upon processing, s3 is thrown from s0 (too many heartbeats)
-	if s0.participants[2] != nil {
-		t.Fatal("s2 not thrown from s0 despite having multiple heartbeats")
-	}
-
-	// verify that a new heartbeat was made, formatted into a SignedHeartbeat, and sent off
-} */
+func TestCompile(t *testing.T) {
+	// tbi
+}
 
 // Ensures that Tick() updates CurrentStep
 func TestRegularTick(t *testing.T) {
