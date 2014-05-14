@@ -22,6 +22,7 @@ import (
 )
 
 // EncodeRing takes a Sector and encodes it as a Ring: a set of common.QuorumSize Segments that include redundancy.
+// The encoding parameters are stored in params.
 // k is the number of non-redundant segments, and b is the size of each segment. b is calculated from k.
 // The erasure-coding algorithm requires that the original data must be k*b in size, so it is padded here as needed.
 //
@@ -83,7 +84,8 @@ func EncodeRing(sec *common.Sector, params *common.EncodingParams) (ring [common
 }
 
 // RebuildSector takes a Ring and returns a Sector containing the original data.
-// The Ring's k value must be equal to the number of non-redundant segments when the file was originally built.
+// The encoding parameters are stored in params.
+// k must be equal to the number of non-redundant segments when the file was originally built.
 // Because recovery is just a bunch of matrix operations, there is no way to tell if the data has been corrupted
 // or if an incorrect value of k has been chosen. This error checking must happen before calling RebuildSector.
 // Each Segment's Data must have the correct Index from when it was encoded.

@@ -15,8 +15,8 @@ var (
 	SectorDB map[crypto.Hash]*common.RingHeader
 )
 
-// uploadSector splits a Sector into erasure-coded segments and distributes them across a quorum.
-// It creates a Ring from its arguments and stores it in the SectorDB.
+// uploadSector splits a Sector into a Ring and distributes it across a quorum.
+// It hashes each of the Ring's segments and stores the hashes in the SectorDB.
 func uploadSector(sec *common.Sector) (err error) {
 	// look up Sector in SectorDB
 	rh := SectorDB[sec.Hash]
@@ -55,8 +55,8 @@ func uploadSector(sec *common.Sector) (err error) {
 	return
 }
 
-// downloadSector retrieves the erasure-coded segments corresponding to a given Sector from a quorum.
-// It reconstructs the original data from the segments and returns the complete Sector
+// downloadSector retrieves a Ring from the quorum it is stored on.
+// It reconstructs the original Sector from the Ring.
 func downloadSector(hash crypto.Hash) (sec *common.Sector, err error) {
 	// look up Sector in SectorDB
 	rh := SectorDB[hash]
