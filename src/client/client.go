@@ -28,13 +28,12 @@ func uploadSector(sec *common.Sector, k int, q common.Quorum) (err error) {
 	// for now we just send segment i to node i
 	// this may need to be randomized for security
 	for i := range q {
-		m := &common.Message{
-			q[i],
-			"Server.UploadSegment",
-			segs[i],
-			nil,
-		}
-		err = mr.SendMessage(m)
+		err = mr.SendMessage(&common.Message{
+			Dest: q[i],
+			Proc: "Server.UploadSegment",
+			Args: segs[i],
+			Resp: nil,
+		})
 		if err != nil {
 			return
 		}
@@ -60,13 +59,12 @@ func downloadSector(hash crypto.Hash) (sec *common.Sector, err error) {
 	var segs []common.Segment
 	for i := range ring.Hosts {
 		var seg common.Segment
-		m := &common.Message{
-			ring.Hosts[i],
-			"Server.DownloadSegment",
-			ring.SegHashes[i],
-			&seg,
-		}
-		sendErr := mr.SendMessage(m)
+		sendErr := mr.SendMessage(&common.Message{
+			Dest: ring.Hosts[i],
+			Proc: "Server.DownloadSegment",
+			Args: ring.SegHashes[i],
+			Resp: &seg,
+		})
 		if sendErr == nil {
 			segs = append(segs, seg)
 		} else {
