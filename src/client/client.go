@@ -11,7 +11,7 @@ import (
 // global variables
 // (with apologies to Haskell)
 var (
-	mr       common.MessageRouter
+	router   common.MessageRouter
 	SectorDB map[crypto.Hash]*common.RingHeader
 )
 
@@ -41,7 +41,7 @@ func uploadSector(sec *common.Sector) (err error) {
 	// for now we just send segment i to host i
 	// this may need to be randomized for security
 	for i := range rh.Hosts {
-		err = mr.SendMessage(&common.Message{
+		err = router.SendMessage(&common.Message{
 			Dest: rh.Hosts[i],
 			Proc: "Server.UploadSegment",
 			Args: ring[i],
@@ -69,7 +69,7 @@ func downloadSector(hash crypto.Hash) (sec *common.Sector, err error) {
 	var segs []common.Segment
 	for i := range rh.Hosts {
 		var seg common.Segment
-		sendErr := mr.SendMessage(&common.Message{
+		sendErr := router.SendMessage(&common.Message{
 			Dest: rh.Hosts[i],
 			Proc: "Server.DownloadSegment",
 			Args: rh.SegHashes[i],
@@ -118,8 +118,8 @@ func generateSector(q common.Quorum) (s *common.Sector, err error) {
 }
 
 func main() {
-	mr, _ = network.NewRPCServer(9989)
-	defer mr.Close()
+	router, _ = network.NewRPCServer(9989)
+	defer router.Close()
 	SectorDB = make(map[crypto.Hash]*common.RingHeader)
 	var (
 		input string

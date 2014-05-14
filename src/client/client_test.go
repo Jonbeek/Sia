@@ -31,11 +31,11 @@ func TestRPCuploadSector(t *testing.T) {
 
 	// create RPCServer
 	var err error
-	mr, err = network.NewRPCServer(9985)
+	router, err = network.NewRPCServer(9985)
 	if err != nil {
 		t.Fatal("Failed to initialize RPCServer:", err)
 	}
-	defer mr.Close()
+	defer router.Close()
 
 	// create quorum
 	var q [common.QuorumSize]common.Address
@@ -124,11 +124,11 @@ func TestRPCdownloadSector(t *testing.T) {
 	}
 
 	// create RPCServer
-	mr, err = network.NewRPCServer(9985)
+	router, err = network.NewRPCServer(9985)
 	if err != nil {
 		t.Fatal("Failed to initialize RPCServer:", err)
 	}
-	defer mr.Close()
+	defer router.Close()
 
 	// create quorum
 	var q [common.QuorumSize]common.Address
