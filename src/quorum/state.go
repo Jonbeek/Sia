@@ -47,12 +47,11 @@ type State struct {
 	secretKey        crypto.SecretKey                // our secret key
 
 	// Heartbeat Variables
-	storedEntropyStage2 common.Entropy // hashed to EntropyStage1 for previous heartbeat
+	// storedFileStage2
 
 	// Compile Variables
-	previousEntropyStage1 [common.QuorumSize]crypto.TruncatedHash // used to verify the next round of heartbeats
-	currentEntropy        common.Entropy                          // Used to generate random numbers during compilation
-	upcomingEntropy       common.Entropy                          // Used to compute entropy for next block
+	currentEntropy  common.Entropy // Used to generate random numbers during compilation
+	upcomingEntropy common.Entropy // Used to compute entropy for next block
 
 	// Consensus Algorithm Status
 	currentStep    int
@@ -174,11 +173,6 @@ func CreateState(messageRouter common.MessageRouter) (s *State, err error) {
 
 	// register State and store our assigned ID
 	s.self.address.ID = messageRouter.RegisterHandler(s)
-
-	// initialize entropy stage1 to the emptyHash
-	for i := range s.previousEntropyStage1 {
-		s.previousEntropyStage1[i] = emptyHash
-	}
 
 	// a call to joinSia() may be placed here... behavior not fully defined
 	return

@@ -124,22 +124,10 @@ func TestParticipantEncoding(t *testing.T) {
 
 // Create a state, check the defaults
 func TestCreateState(t *testing.T) {
-	// does a state create without errors?
+	// make sure CreateState does not cause errors
 	s, err := CreateState(common.NewZeroNetwork())
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	// check that previousEntropyStage1 is initialized correctly
-	var emptyEntropy common.Entropy
-	emptyHash, err := crypto.CalculateTruncatedHash(emptyEntropy[:])
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i := range s.previousEntropyStage1 {
-		if s.previousEntropyStage1[i] != emptyHash {
-			t.Error("previousEntropyStage1 initialized incorrectly at index ", i)
-		}
 	}
 
 	// sanity check the default values
