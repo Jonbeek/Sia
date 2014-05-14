@@ -13,8 +13,8 @@ type Sector struct {
 // A Ring is an erasure-coded Sector, along with the parameters used to encode it.
 // k is the number of non-redundant segments, and b is the number of bytes per segment.
 type Ring struct {
-	Segs      []Segment
-	SegHashes []crypto.Hash
+	Hosts     Quorum
+	SegHashes [QuorumSize]crypto.Hash
 	k, b      int
 	length    int
 }
@@ -44,17 +44,6 @@ func NewRing(k, b, length int) *Ring {
 		b:      b,
 		length: length,
 	}
-}
-
-// AddSegment adds a Segment to a Ring
-func (r *Ring) AddSegment(seg *Segment) (err error) {
-	sh, err := crypto.CalculateHash(seg.Data)
-	if err != nil {
-		return
-	}
-	r.Segs = append(r.Segs, *seg)
-	r.SegHashes = append(r.SegHashes, sh)
-	return
 }
 
 func (r *Ring) GetRedundancy() int {
