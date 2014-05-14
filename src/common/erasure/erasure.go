@@ -17,7 +17,6 @@ import "C"
 import (
 	"bytes"
 	"common"
-	"common/crypto"
 	"fmt"
 	"unsafe"
 )
@@ -29,17 +28,13 @@ import (
 // The return value is a Ring.
 // The first k Segments of the Ring are the original data split up.
 // The remaining Segments are newly generated redundant data.
-func EncodeRing(sec *common.Sector, k int) (ring *common.Ring, segs [common.QuorumSize]common.Segment, err error) {
+func EncodeRing(sec *common.Sector, params *common.EncodingParams) (ring [common.QuorumSize]common.Segment, err error) {
+	k, b, length := params.GetValues()
+
 	// check for legal size of k
 	if k <= 0 || k >= common.QuorumSize {
 		err = fmt.Errorf("k must be greater than 0 and smaller than %v", common.QuorumSize)
 		return
-	}
-
-	// calculate b
-	b := len(sec.Data) / k
-	if b%64 != 0 {
-		b += 64 - (b % 64)
 	}
 
 	// check for legal size of b
@@ -48,8 +43,13 @@ func EncodeRing(sec *common.Sector, k int) (ring *common.Ring, segs [common.Quor
 		return
 	}
 
-	// store encoding parameters in ring
-	ring = common.NewRing(k, b, len(sec.Data))
+	// check for legal size of length
+	if length != len(sec.Data) {
+		err = fmt.Errorf("length mismatch: sector length %v != parameter length %v", len(sec.Data), length)
+		return
+	} else if length > common.MaxSegmentSize*common.QuorumSize {
+		err = fmt.Errorf("length must be smaller than %v", common.MaxSegmentSize*common.QuorumSize)
+	}
 
 	// pad data as needed
 	padding := k*b - len(sec.Data)
@@ -62,25 +62,17 @@ func EncodeRing(sec *common.Sector, k int) (ring *common.Ring, segs [common.Quor
 
 	// split paddedData into ring
 	for i := 0; i < k; i++ {
-		segs[i] = common.Segment{
+		ring[i] = common.Segment{
 			paddedData[i*b : (i+1)*b],
 			uint8(i),
-		}
-		ring.SegHashes[i], err = crypto.CalculateHash(paddedData[i*b : (i+1)*b])
-		if err != nil {
-			return
 		}
 	}
 
 	// split redundantString into ring
 	for i := k; i < common.QuorumSize; i++ {
-		segs[i] = common.Segment{
+		ring[i] = common.Segment{
 			redundantBytes[(i-k)*b : (i-k+1)*b],
 			uint8(i),
-		}
-		ring.SegHashes[i], err = crypto.CalculateHash(redundantBytes[(i-k)*b : (i-k+1)*b])
-		if err != nil {
-			return
 		}
 	}
 
@@ -95,15 +87,14 @@ func EncodeRing(sec *common.Sector, k int) (ring *common.Ring, segs [common.Quor
 // Because recovery is just a bunch of matrix operations, there is no way to tell if the data has been corrupted
 // or if an incorrect value of k has been chosen. This error checking must happen before calling RebuildSector.
 // Each Segment's Data must have the correct Index from when it was encoded.
-func RebuildSector(ring *common.Ring, segs []common.Segment) (sec *common.Sector, err error) {
-	k, b := ring.GetRedundancy(), ring.GetBytesPerSegment()
+func RebuildSector(ring []common.Segment, params *common.EncodingParams) (sec *common.Sector, err error) {
+	k, b, length := params.GetValues()
 	if k == 0 && b == 0 {
 		err = fmt.Errorf("could not rebuild using uninitialized encoding parameters")
 		return
 	}
 
 	// check for legal size of k
-	m := common.QuorumSize - k
 	if k > common.QuorumSize || k < 1 {
 		err = fmt.Errorf("k must be greater than 0 but smaller than %v", common.QuorumSize)
 		return
@@ -115,9 +106,14 @@ func RebuildSector(ring *common.Ring, segs []common.Segment) (sec *common.Sector
 		return
 	}
 
+	// check for legal size of length
+	if length > common.MaxSegmentSize*common.QuorumSize {
+		err = fmt.Errorf("length must be smaller than %v", common.MaxSegmentSize*common.QuorumSize)
+	}
+
 	// check for correct number of segments
-	if len(segs) < k {
-		err = fmt.Errorf("insufficient segments: expected at least %v, got %v", k, len(segs))
+	if len(ring) < k {
+		err = fmt.Errorf("insufficient segments: expected at least %v, got %v", k, len(ring))
 		return
 	}
 
@@ -126,19 +122,20 @@ func RebuildSector(ring *common.Ring, segs []common.Segment) (sec *common.Sector
 	var segmentIndices []uint8
 	for i := 0; i < k; i++ {
 		// verify that each segment is the correct length
-		if len(segs[i].Data) != b {
+		// TODO: skip bad segments and continue rebuilding if possible
+		if len(ring[i].Data) != b {
 			err = fmt.Errorf("at least 1 Segment's Data field is the wrong length")
 			return
 		}
 
-		segmentData = append(segmentData, segs[i].Data...)
-		segmentIndices = append(segmentIndices, segs[i].Index)
+		segmentData = append(segmentData, ring[i].Data...)
+		segmentIndices = append(segmentIndices, ring[i].Index)
 
 	}
 	// call the recovery function
-	C.recoverData(C.int(k), C.int(m), C.int(b), (*C.uchar)(unsafe.Pointer(&segmentData[0])), (*C.uchar)(unsafe.Pointer(&segmentIndices[0])))
+	C.recoverData(C.int(k), C.int(common.QuorumSize-k), C.int(b), (*C.uchar)(unsafe.Pointer(&segmentData[0])), (*C.uchar)(unsafe.Pointer(&segmentIndices[0])))
 
 	// remove padding introduced by EncodeRing()
-	sec, err = common.NewSector(segmentData[:ring.GetLength()])
+	sec, err = common.NewSector(segmentData[:length])
 	return
 }
