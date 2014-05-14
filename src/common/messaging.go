@@ -31,4 +31,5 @@ type MessageRouter interface {
 	RegisterHandler(interface{}) Identifier
 	SendMessage(*Message) error
 	SendAsyncMessage(*Message) *rpc.Call
+	Close()
 }
