@@ -9,25 +9,7 @@ import (
 
 // Verify that newHeartbeat() produces valid heartbeats
 func TestNewHeartbeat(t *testing.T) {
-	// create a state, and then a heartbeat
-	s, err := CreateState(common.NewZeroNetwork())
-	if err != nil {
-		t.Fatal(err)
-	}
-	hb, err := s.newHeartbeat()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// verify that entropy is being properly generated when making the heartbeat
-	storedEntropyHash, err := crypto.CalculateTruncatedHash(s.storedEntropyStage2[:])
-	if err != nil {
-		t.Fatal(err)
-	} else if hb.entropyStage1 != storedEntropyHash {
-		t.Fatal("newHeartbeat() incorrectly producing EntropyStage1 from s.StoredEntropyStage2")
-	}
-
-	// verify that hosts accept the new heartbeats
+	// tbi
 }
 
 func TestHeartbeatEncoding(t *testing.T) {
@@ -46,19 +28,11 @@ func TestHeartbeatEncoding(t *testing.T) {
 	}
 
 	// test for equivalency
-	if hb.entropyStage1 != uhb.entropyStage1 {
-		t.Fatal("EntropyStage1 not identical upon umarshalling")
-	}
-	if hb.entropyStage2 != uhb.entropyStage2 {
+	if hb.entropy != uhb.entropy {
 		t.Fatal("EntropyStage1 not identical upon umarshalling")
 	}
 
 	// test encoding with bad input
-	hb = nil
-	mhb, err = hb.GobEncode()
-	if err == nil {
-		t.Error("able to encode a nil heartbeat")
-	}
 	err = uhb.GobDecode(nil)
 	if err == nil {
 		t.Error("able to decode a nil byte slice")
@@ -315,17 +289,6 @@ func TestProcessHeartbeat(t *testing.T) {
 	err = s1.processHeartbeat(hb0, 0)
 	if err != nil {
 		t.Error("processHeartbeat threw out a valid heartbeat: ", err)
-	}
-
-	// check that invalid entropy fails
-	hb1, err := s1.newHeartbeat()
-	if err != nil {
-		t.Fatal(err)
-	}
-	hb1.entropyStage2[0] = 1
-	err = s0.processHeartbeat(hb1, 1)
-	if err != pherrInvalidEntropy {
-		t.Fatal("processHeartbeat accepted an invalid heartbeat: ", err)
 	}
 }
 

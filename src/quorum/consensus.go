@@ -13,8 +13,7 @@ import (
 
 // All information that needs to be passed between participants each block
 type heartbeat struct {
-	entropyStage1 crypto.TruncatedHash
-	entropyStage2 common.Entropy
+	entropy common.Entropy
 }
 
 // Contains a heartbeat that has been signed iteratively, is a key part of the
@@ -31,21 +30,12 @@ type SignedHeartbeat struct {
 func (s *State) newHeartbeat() (hb *heartbeat, err error) {
 	hb = new(heartbeat)
 
-	// Fetch value used to produce EntropyStage1 in prev. heartbeat
-	hb.entropyStage2 = s.storedEntropyStage2
-
-	// Generate EntropyStage2 for next heartbeat
+	// Generate Entropy
 	entropy, err := crypto.RandomByteSlice(common.EntropyVolume)
 	if err != nil {
 		return
 	}
-	copy(s.storedEntropyStage2[:], entropy) // convert entropy from slice to byte array
-
-	// Use EntropyStage2 to generate EntropyStage1 for this heartbeat
-	hb.entropyStage1, err = crypto.CalculateTruncatedHash(s.storedEntropyStage2[:])
-	if err != nil {
-		return
-	}
+	copy(hb.entropy[:], entropy)
 
 	// more code will be added here
 
@@ -54,19 +44,14 @@ func (s *State) newHeartbeat() (hb *heartbeat, err error) {
 
 // Convert heartbeat to []byte
 func (hb *heartbeat) GobEncode() (gobHeartbeat []byte, err error) {
-	// test for bad input
+	// if hb == nil, encode a zero heartbeat
 	if hb == nil {
-		err = fmt.Errorf("Cannot Encode a nil object")
-		return
+		hb = new(heartbeat)
 	}
 
 	w := new(bytes.Buffer)
 	encoder := gob.NewEncoder(w)
-	err = encoder.Encode(hb.entropyStage1)
-	if err != nil {
-		return
-	}
-	err = encoder.Encode(hb.entropyStage2)
+	err = encoder.Encode(hb.entropy)
 	if err != nil {
 		return
 	}
@@ -77,16 +62,14 @@ func (hb *heartbeat) GobEncode() (gobHeartbeat []byte, err error) {
 
 // Convert []byte to heartbeat
 func (hb *heartbeat) GobDecode(gobHeartbeat []byte) (err error) {
+	// if hb == nil, make a new heartbeat and decode into that
+	if hb == nil {
+		hb = new(heartbeat)
+	}
+
 	r := bytes.NewBuffer(gobHeartbeat)
 	decoder := gob.NewDecoder(r)
-	err = decoder.Decode(&hb.entropyStage1)
-	if err != nil {
-		return
-	}
-	err = decoder.Decode(&hb.entropyStage2)
-	if err != nil {
-		return
-	}
+	err = decoder.Decode(&hb.entropy)
 	return
 }
 
@@ -345,42 +328,19 @@ func (s *State) tossParticipant(pi byte) {
 	// remove from s.Participants
 	s.participants[pi] = nil
 
-	// remove from s.PreviousEntropyStage1
-	var emptyEntropy common.Entropy
-	zeroHash, err := crypto.CalculateTruncatedHash(emptyEntropy[:])
-	if err != nil {
-		log.Fatal(err)
-	}
-	s.previousEntropyStage1[pi] = zeroHash
-
 	// nil map in s.Heartbeats
 	s.heartbeats[pi] = nil
 }
 
-var pherrInvalidEntropy = errors.New("EntropyStage2 does not match EntropyStage1")
-
 // Update the state according to the information presented in the heartbeat
 // processHeartbeat uses return codes for testing purposes
 func (s *State) processHeartbeat(hb *heartbeat, i byte) (err error) {
-	// compare EntropyStage2 to the hash from the previous heartbeat
-	expectedHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
-	if err != nil {
-		return
-	}
-	if expectedHash != s.previousEntropyStage1[i] {
-		s.tossParticipant(i)
-		return pherrInvalidEntropy
-	}
-
 	print("Confirming Participant ")
 	println(i)
 
-	// Add the EntropyStage2 to UpcomingEntropy
-	th, err := crypto.CalculateTruncatedHash(append(s.upcomingEntropy[:], hb.entropyStage2[:]...))
+	// Add the entropy to UpcomingEntropy
+	th, err := crypto.CalculateTruncatedHash(append(s.upcomingEntropy[:], hb.entropy[:]...))
 	s.upcomingEntropy = common.Entropy(th)
-
-	// store entropyStage1 to compare with next heartbeat from this participant
-	s.previousEntropyStage1[i] = hb.entropyStage1
 
 	return
 }

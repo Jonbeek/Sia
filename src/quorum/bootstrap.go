@@ -65,11 +65,6 @@ func (s *State) AddNewParticipant(p Participant, arb *struct{}) (err error) {
 	s.participantsLock.RUnlock()
 	// for this Participant, make the heartbeat map and add the default heartbeat
 	hb := new(heartbeat)
-	emptyHash, err := crypto.CalculateTruncatedHash(hb.entropyStage2[:])
-	if err != nil {
-		return
-	}
-	hb.entropyStage1 = emptyHash
 	s.heartbeatsLock.Lock()
 	s.participantsLock.Lock()
 	s.heartbeats[p.index] = make(map[crypto.TruncatedHash]*heartbeat)
