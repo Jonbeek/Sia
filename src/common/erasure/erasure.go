@@ -17,6 +17,7 @@ import "C"
 import (
 	"bytes"
 	"common"
+	"common/crypto"
 	"fmt"
 	"unsafe"
 )
@@ -28,7 +29,7 @@ import (
 // The return value is a Ring.
 // The first k Segments of the Ring are the original data split up.
 // The remaining Segments are newly generated redundant data.
-func EncodeRing(sec *common.Sector, k int) (ring *common.Ring, err error) {
+func EncodeRing(sec *common.Sector, k int) (ring *common.Ring, segs [common.QuorumSize]common.Segment, err error) {
 	// check for legal size of k
 	if k <= 0 || k >= common.QuorumSize {
 		err = fmt.Errorf("k must be greater than 0 and smaller than %v", common.QuorumSize)
@@ -61,18 +62,26 @@ func EncodeRing(sec *common.Sector, k int) (ring *common.Ring, err error) {
 
 	// split paddedData into ring
 	for i := 0; i < k; i++ {
-		ring.AddSegment(&common.Segment{
+		segs[i] = common.Segment{
 			paddedData[i*b : (i+1)*b],
 			uint8(i),
-		})
+		}
+		ring.SegHashes[i], err = crypto.CalculateHash(paddedData[i*b : (i+1)*b])
+		if err != nil {
+			return
+		}
 	}
 
 	// split redundantString into ring
 	for i := k; i < common.QuorumSize; i++ {
-		ring.AddSegment(&common.Segment{
+		segs[i] = common.Segment{
 			redundantBytes[(i-k)*b : (i-k+1)*b],
 			uint8(i),
-		})
+		}
+		ring.SegHashes[i], err = crypto.CalculateHash(redundantBytes[(i-k)*b : (i-k+1)*b])
+		if err != nil {
+			return
+		}
 	}
 
 	// free the memory allocated by the C file
@@ -86,7 +95,7 @@ func EncodeRing(sec *common.Sector, k int) (ring *common.Ring, err error) {
 // Because recovery is just a bunch of matrix operations, there is no way to tell if the data has been corrupted
 // or if an incorrect value of k has been chosen. This error checking must happen before calling RebuildSector.
 // Each Segment's Data must have the correct Index from when it was encoded.
-func RebuildSector(ring *common.Ring) (sec *common.Sector, err error) {
+func RebuildSector(ring *common.Ring, segs []common.Segment) (sec *common.Sector, err error) {
 	k, b := ring.GetRedundancy(), ring.GetBytesPerSegment()
 	if k == 0 && b == 0 {
 		err = fmt.Errorf("could not rebuild using uninitialized encoding parameters")
@@ -107,8 +116,8 @@ func RebuildSector(ring *common.Ring) (sec *common.Sector, err error) {
 	}
 
 	// check for correct number of segments
-	if len(ring.Segs) < k {
-		err = fmt.Errorf("insufficient segments: expected at least %v, got %v", k, len(ring.Segs))
+	if len(segs) < k {
+		err = fmt.Errorf("insufficient segments: expected at least %v, got %v", k, len(segs))
 		return
 	}
 
@@ -116,16 +125,14 @@ func RebuildSector(ring *common.Ring) (sec *common.Sector, err error) {
 	var segmentData []byte
 	var segmentIndices []uint8
 	for i := 0; i < k; i++ {
-		byteSlice := ring.Segs[i].Data
-
-		// verify that each string is the correct length
-		if len(byteSlice) != b {
+		// verify that each segment is the correct length
+		if len(segs[i].Data) != b {
 			err = fmt.Errorf("at least 1 Segment's Data field is the wrong length")
 			return
 		}
 
-		segmentData = append(segmentData, byteSlice...)
-		segmentIndices = append(segmentIndices, ring.Segs[i].Index)
+		segmentData = append(segmentData, segs[i].Data...)
+		segmentIndices = append(segmentIndices, segs[i].Index)
 
 	}
 	// call the recovery function

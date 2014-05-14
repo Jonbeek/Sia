@@ -27,19 +27,20 @@ func TestCoding(t *testing.T) {
 	}
 
 	// encode data into a Ring
-	ring, err := EncodeRing(sec, k)
+	_, segs, err := EncodeRing(sec, k)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// create Ring from subset of encoded segments
 	newRing := common.NewRing(k, b, len(randomBytes))
+	var newSegs []common.Segment
 	for i := m; i < common.QuorumSize; i++ {
-		newRing.AddSegment(&ring.Segs[i])
+		newSegs = append(newSegs, segs[i])
 	}
 
 	// recover original data
-	newSec, err := RebuildSector(newRing)
+	newSec, err := RebuildSector(newRing, newSegs)
 	if err != nil {
 		t.Fatal(err)
 	}
