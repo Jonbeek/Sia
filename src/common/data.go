@@ -10,61 +10,51 @@ type Sector struct {
 	Hash crypto.Hash
 }
 
-// A Ring is an erasure-coded Sector, along with the parameters used to encode it.
-// k is the number of non-redundant segments, and b is the number of bytes per segment.
-type Ring struct {
-	Segs      []Segment
-	SegHashes []crypto.Hash
-	k, b      int
-	length    int
-}
-
-// A Segment is an erasure-coded piece of a Ring, containing both the data and its corresponding index.
-type Segment struct {
-	Data  []byte
-	Index uint8
-}
-
 // NewSector creates a Sector from data.
 func NewSector(data []byte) (s *Sector, err error) {
 	// calculate hash
 	hash, err := crypto.CalculateHash(data)
 
-	s = &Sector{
-		Data: data,
-		Hash: hash,
-	}
+	s = &Sector{data, hash}
 	return
 }
 
-// NewRing creates an empty Ring using the specified encoding parameters.
-func NewRing(k, b, length int) *Ring {
-	return &Ring{
-		k:      k,
-		b:      b,
-		length: length,
+// A Segment is an erasure-coded piece of a Sector, containing both a subset of the original data and its corresponding index.
+// A set of QuorumSize Segments forms a Ring.
+type Segment struct {
+	Data  []byte
+	Index uint8
+}
+
+// A RingHeader contains all the metadata necessary to retrieve and rebuild a Sector from a Ring.
+// This includes the hosts on which Ring Segments are stored, the encoding parameters, the hashes of each Segment.
+type RingHeader struct {
+	Hosts     Quorum
+	Params    *EncodingParams
+	SegHashes [QuorumSize]crypto.Hash
+}
+
+// EncodingParams are the parameters needed to perform erasure encoding and decoding.
+// k is the number of non-redundant segments, and b is the number of bytes per segment.
+// The length is also stored, because the encoding process may introduce padding.
+type EncodingParams struct {
+	k, b, length int
+}
+
+// CalculateParams creates a set of encoding parameters given a Sector and a k value.
+func (s *Sector) CalculateParams(k int) *EncodingParams {
+	// calculate length
+	length := len(s.Data)
+
+	// calculate b
+	b := length / k
+	if b%64 != 0 {
+		b += 64 - (b % 64) // round up to nearest multiple of 64
 	}
+
+	return &EncodingParams{k, b, length}
 }
 
-// AddSegment adds a Segment to a Ring
-func (r *Ring) AddSegment(seg *Segment) (err error) {
-	sh, err := crypto.CalculateHash(seg.Data)
-	if err != nil {
-		return
-	}
-	r.Segs = append(r.Segs, *seg)
-	r.SegHashes = append(r.SegHashes, sh)
-	return
-}
-
-func (r *Ring) GetRedundancy() int {
-	return r.k
-}
-
-func (r *Ring) GetBytesPerSegment() int {
-	return r.b
-}
-
-func (r *Ring) GetLength() int {
-	return r.length
+func (e *EncodingParams) GetValues() (int, int, int) {
+	return e.k, e.b, e.length
 }

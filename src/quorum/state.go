@@ -178,22 +178,6 @@ func CreateState(messageRouter common.MessageRouter) (s *State, err error) {
 	return
 }
 
-// Called by the MessageRouter in case of an address change
-func (s *State) SetAddress(addr *common.Address) {
-	s.participantsLock.Lock()
-	s.participants[s.self.index].address = *addr
-	s.participantsLock.Unlock()
-
-	// now notifiy everyone else in the quorum that the address has changed:
-	// that will consist of a 'moved locations' message that has been signed
-}
-
-// A Participant can update their address, etc. at any time
-func (s *State) updateParticipant(msp []byte) {
-	// this message is actually a signature of a Participant
-	// it's valid if the signature matches the public key
-}
-
 // Takes a Message and broadcasts it to every Participant in the quorum
 func (s *State) broadcast(m *common.Message) {
 	s.participantsLock.RLock()

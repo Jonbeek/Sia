@@ -32,6 +32,10 @@ func (z *ZeroNetwork) SendAsyncMessage(m *Message) *rpc.Call {
 	return nil
 }
 
+func (z *ZeroNetwork) Close() {
+	return
+}
+
 func (z *ZeroNetwork) RecentMessage(i int) *Message {
 	z.messagesLock.RLock()
 	defer z.messagesLock.RUnlock()
